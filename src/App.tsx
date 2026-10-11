@@ -50,6 +50,7 @@ function getInitialTabFromLocation(): ActiveTab {
   if (path.includes('cubemap-generator') || hash.includes('cubemap-generator')) return 'landing-cubemap';
   if (path.includes('360-metadata-injector') || hash.includes('360-metadata-injector')) return 'landing-metadata';
   if (path.includes('360-photo-to-video') || hash.includes('360-photo-to-video')) return 'landing-video';
+  if (path.includes('360-image-maker') || hash.includes('360-image-maker')) return 'generator';
   if (path.includes('viewer') || hash.includes('viewer')) return 'viewer';
   if (path.includes('cubemap') || hash.includes('cubemap')) return 'cubemap';
   if (path.includes('globe') || hash.includes('globe')) return 'globe';
@@ -84,20 +85,20 @@ export function App() {
   useEffect(() => {
     const tabSeoMap: Record<ActiveTab, { title: string; desc: string }> = {
       generator: {
-        title: 'AI 360 Panorama Generator | Text to 360° VR Skybox & Cubemap Studio',
-        desc: 'Generate seamless 360° equirectangular panoramas, VR skyboxes, and cubemaps from text or photos in seconds. Free 360 WebGL viewer, seam healing, and 4K HDR export.',
+        title: 'AI 360 Panorama Generator — Free Online VR Skybox & Cubemap Studio',
+        desc: 'Generate seamless 360° equirectangular panoramas, VR skyboxes, and cubemaps from text or photos in seconds. Free 360 WebGL viewer, harmonic seam healing, and 4K HDR export. No upload required.',
       },
       viewer: {
-        title: 'Free 360° VR WebGL Viewer Online | Equirectangular Panorama Inspector',
-        desc: 'Inspect and preview 360° panoramas in real-time with Three.js WebGL, radar minimap, gyroscope orientation, and VR cardboard split-screen mode.',
+        title: 'Free 360° Viewer Online — Panorama Viewer, No Upload Needed',
+        desc: 'Free online 360° panorama viewer and equirectangular Photo Sphere player. Instant WebGL 3D rendering, Little Planet projection, cardboard VR mode, and Ctrl+V clipboard paste. 100% client-side, zero server upload required.',
       },
       cubemap: {
-        title: 'Cubemap 6-Sided Slicer | 360 Equirectangular to Unity & Unreal Skybox',
-        desc: 'Convert 2:1 equirectangular spherical panoramas into 6 cube faces (+X, -X, +Y, -Y, +Z, -Z) with one click and export ready-to-use ZIP archives.',
+        title: 'Free Cubemap Generator — Panorama to 6 Faces Online (No Upload)',
+        desc: 'Convert 2:1 equirectangular spherical panoramas into 6 rectilinear cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back) with client-side WebGL math. One-click batch ZIP download for Unity and Unreal. 100% free, no upload needed.',
       },
       globe: {
-        title: '3D Planetary Globe Simulator | Interactive Orbit Texture Viewer',
-        desc: 'Project 360 equirectangular texture maps onto an interactive 3D planetary sphere with realistic atmospheric scattering and orbital lighting controls.',
+        title: 'Map to Globe — Free Image to 3D Globe Maker, No Upload',
+        desc: 'Convert any 2D map, flat world image, or 360° panorama into an interactive rotating 3D globe. Free online MapToGlobe alternative with real-time WebGL atmosphere glow, wireframe toggle, and rotation speed controls. Zero upload required.',
       },
       pricing: {
         title: 'Pricing & Credit Plans | PanoramaAI Studio Pro',
@@ -112,32 +113,41 @@ export function App() {
         desc: 'Model endpoint routing, usage quotas, and system administration console for PanoramaAI Studio.',
       },
       'landing-hdri': {
-        title: 'AI HDRI Generator | Create 360° HDR Environments for Blender & Unreal',
-        desc: 'Generate photorealistic 360° high dynamic range lighting maps and panoramic skyboxes in seconds. 4K equirectangular textures, seamless wrap, and 32-bit Radiance .HDR export.',
+        title: 'AI HDRI Generator | Free 360° HDR for Blender & Unreal (No Upload)',
+        desc: 'Generate photorealistic 360° high dynamic range lighting maps and panoramic skyboxes in seconds. 4K equirectangular textures, seamless 360° wrap, and 32-bit Radiance .HDR export for Blender and Unreal Engine. No upload needed.',
       },
       'landing-skybox': {
-        title: 'AI Skybox Generator | Create 360° VR Skyboxes in Seconds',
-        desc: 'Craft panoramic 360° skyboxes and game environments from text prompts. Instant 6-sided cubemap slicing (+X, -X, +Y, -Y, +Z, -Z) and equirectangular export for Unity and Unreal.',
+        title: 'AI Skybox Generator — Free 360° VR Skybox, Unity & Unreal Ready',
+        desc: 'Craft panoramic 360° skyboxes and game environments from text prompts or concept art in seconds. Instant 6-sided cubemap slicing (+X, -X, +Y, -Y, +Z, -Z) and equirectangular export for Unity and Unreal Engine. Free online, no upload required.',
       },
       'landing-photo360': {
-        title: 'Photo to 360 Converter | Turn 2D Photos into 360° Panoramas with AI',
-        desc: 'Transform standard 2D photos, architectural concept renders, or scenery snapshots into immersive 360° equirectangular panoramas with multi-reference AI guidance.',
+        title: 'Photo to 360° Panorama Converter | Free Online Equirectangular AI',
+        desc: 'Transform standard 2D photos, architectural concept renders, or scenery snapshots into immersive 360° equirectangular panoramas. Multi-reference AI style and spatial expansion with seamless 360° wrap. Free online tool.',
       },
       'landing-cubemap': {
-        title: 'Cubemap Generator | Slice 360° Equirectangular to 6 Cube Faces',
-        desc: 'Convert 2:1 equirectangular spherical panoramas into 6 rectilinear cube faces (+X, -X, +Y, -Y, +Z, -Z) with client-side WebGL math. One-click batch ZIP download.',
+        title: 'Free Cubemap Generator — Panorama to 6 Faces Online (No Upload)',
+        desc: 'Convert 2:1 equirectangular spherical panoramas into 6 rectilinear cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back) with client-side WebGL math. One-click batch ZIP download for Unity and Unreal. 100% free, no upload needed.',
       },
       'landing-metadata': {
         title: 'Free 360° Photo Metadata Injector | Facebook & Google Street View Ready',
-        desc: 'Embed official Google PhotoSphere XMP and EXIF metadata into any equirectangular JPG image directly in your browser. Fix flat panorama upload issues instantly.',
+        desc: 'Embed official Google PhotoSphere XMP and EXIF metadata into any equirectangular JPG image directly in your browser. Fix flat panorama upload issues on Facebook, Google Street View, and VR headsets.',
       },
       'landing-video': {
-        title: '360 Photo to Video Converter | Create Rotating 360° Videos for TikTok & YouTube',
-        desc: 'Convert 360° equirectangular panoramas and spherical photos into cinematic rotation videos for social media. Export MP4 in 16:9 widescreen, 9:16 vertical, or 1:1 square.',
+        title: '360° Photo to Video Generator | Turn Panoramas into Rotating Videos',
+        desc: 'Convert any 360° equirectangular photo into a cinematic rotating MP4/WebM video in seconds. Perfect for TikTok, Instagram Reels, YouTube Shorts, and Amazon 360 product showcases.',
       },
     };
 
-    const target = tabSeoMap[activeTab] || tabSeoMap.generator;
+    // Special override if current pathname is 360-image-maker
+    const isImageMakerPath = typeof window !== 'undefined' && window.location.pathname.includes('360-image-maker');
+
+    const target = isImageMakerPath
+      ? {
+          title: '360 Image Maker — Free AI 360° Image Creator Online (No Upload)',
+          desc: 'Create seamless 360° equirectangular panoramas and VR images from text prompts or 2D photos in seconds. Free online 360 image maker with WebGL preview, harmonic seam healing, and 4K HDR export. No upload needed.',
+        }
+      : tabSeoMap[activeTab] || tabSeoMap.generator;
+
     document.title = target.title;
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
@@ -153,8 +163,13 @@ export function App() {
         'landing-cubemap': 'cubemap-generator/',
         'landing-metadata': '360-metadata-injector/',
         'landing-video': '360-photo-to-video/',
+        viewer: '360-panorama-viewer/',
+        globe: 'photo-to-globe/',
       };
-      const slug = slugMap[activeTab] || '';
+      let slug = slugMap[activeTab] || '';
+      if (isImageMakerPath) {
+        slug = '360-image-maker/';
+      }
       canonicalLink.setAttribute('href', `https://panoramagenerator.ai/${slug}`);
     }
   }, [activeTab]);
@@ -184,9 +199,9 @@ export function App() {
         case 'landing-metadata': return '/360-metadata-injector/';
         case 'landing-video': return '/360-photo-to-video/';
         case 'generator': return '/';
-        case 'viewer': return '/#viewer';
-        case 'cubemap': return '/#cubemap';
-        case 'globe': return '/#globe';
+        case 'viewer': return '/360-panorama-viewer/';
+        case 'cubemap': return '/cubemap-generator/';
+        case 'globe': return '/photo-to-globe/';
         case 'pricing': return '/#pricing';
         case 'showcase': return '/#showcase';
         case 'admin': return '/#admin';
@@ -221,11 +236,14 @@ export function App() {
   }, []);
 
   const handleMouseEnterTools = () => {
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
+    // 仅在真实桌面鼠标 hover 环境下触发，杜绝移动端 tap 产生的虚假 mouseenter 导致菜单取反闪退
+    if (typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches) {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+      setIsToolsDropdownOpen(true);
     }
-    setIsToolsDropdownOpen(true);
   };
 
   const handleMouseLeaveTools = () => {
@@ -262,19 +280,26 @@ export function App() {
   };
 
   const handleSelectViewer = () => {
-    navigateTo('viewer', '/#viewer');
+    navigateTo('viewer', '/360-panorama-viewer/');
   };
 
   const handleSelectCubemap = () => {
-    navigateTo('cubemap', '/#cubemap');
+    navigateTo('landing-cubemap', '/cubemap-generator/');
   };
 
   const handleSelectGlobe = () => {
-    navigateTo('globe', '/#globe');
+    navigateTo('globe', '/photo-to-globe/');
   };
 
-  // Initialize with a default rich 2:1 equirectangular panorama
+  // Initialize with a default rich 2:1 equirectangular panorama (or from URL parameter)
   const [currentPanoramaUrl, setCurrentPanoramaUrl] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const panoFromQuery = searchParams.get('pano');
+      if (panoFromQuery && (panoFromQuery.startsWith('http://') || panoFromQuery.startsWith('https://'))) {
+        return panoFromQuery;
+      }
+    }
     const canvas = generateProceduralPanorama(
       'cyberpunk',
       'futuristic cyberpunk city at night, neon holograms, 8k equirectangular 360 panorama',
@@ -596,7 +621,7 @@ export function App() {
 
             <button
               type="button"
-              onClick={() => setActiveTab('generator')}
+              onClick={() => navigateTo('generator', '/')}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${
                 activeTab === 'generator'
                   ? 'bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/35 font-extrabold'
@@ -609,7 +634,7 @@ export function App() {
 
             <button
               type="button"
-              onClick={() => setActiveTab('viewer')}
+              onClick={() => navigateTo('viewer', '/360-panorama-viewer/')}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${
                 activeTab === 'viewer'
                   ? 'bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/35 font-extrabold'
@@ -625,9 +650,9 @@ export function App() {
 
             <button
               type="button"
-              onClick={() => setActiveTab('cubemap')}
+              onClick={() => navigateTo('landing-cubemap', '/cubemap-generator/')}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${
-                activeTab === 'cubemap'
+                activeTab === 'landing-cubemap' || activeTab === 'cubemap'
                   ? 'bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/35 font-extrabold'
                   : 'text-cyan-200/70 hover:text-white hover:bg-cyan-500/10'
               }`}
@@ -638,7 +663,7 @@ export function App() {
 
             <button
               type="button"
-              onClick={() => setActiveTab('globe')}
+              onClick={() => navigateTo('globe', '/photo-to-globe/')}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${
                 activeTab === 'globe'
                   ? 'bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/35 font-extrabold'
@@ -651,7 +676,7 @@ export function App() {
 
             <button
               type="button"
-              onClick={() => setActiveTab('pricing')}
+              onClick={() => navigateTo('pricing', '/#pricing')}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${
                 activeTab === 'pricing'
                   ? 'bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/35 font-extrabold'
@@ -714,7 +739,7 @@ export function App() {
           <CubemapTab currentPanoramaUrl={currentPanoramaUrl} />
         )}
         {activeTab === 'globe' && (
-          <GlobeTab currentPanoramaUrl={currentPanoramaUrl} />
+          <GlobeTab currentPanoramaUrl={currentPanoramaUrl} onNavigateTab={navigateTo} />
         )}
         {activeTab === 'pricing' && <PricingTab />}
         {activeTab === 'admin' && <AdminTab />}
@@ -802,6 +827,16 @@ export function App() {
               <h4 className="text-white font-bold text-xs uppercase tracking-wider">Studio Creators</h4>
               <ul className="space-y-2 text-xs">
                 <li>
+                  <a
+                    href="/360-image-maker/"
+                    onClick={(e) => { e.preventDefault(); navigateTo('generator', '/360-image-maker/'); }}
+                    className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center justify-between"
+                  >
+                    <span>360 Image Maker &amp; Creator</span>
+                    <span className="text-[9px] font-mono px-1 rounded bg-cyan-400/20 text-cyan-300">AI</span>
+                  </a>
+                </li>
+                <li>
                   <button type="button" onClick={() => navigateTo('generator', '/')} className="hover:text-cyan-300 transition-colors cursor-pointer">
                     Text to 360 Panorama
                   </button>
@@ -812,14 +847,24 @@ export function App() {
                   </button>
                 </li>
                 <li>
-                  <button type="button" onClick={() => navigateTo('viewer', '/#viewer')} className="hover:text-cyan-300 transition-colors cursor-pointer">
-                    360° WebGL Sphere Viewer
-                  </button>
+                  <a
+                    href="/360-panorama-viewer/"
+                    onClick={(e) => { e.preventDefault(); navigateTo('viewer', '/360-panorama-viewer/'); }}
+                    className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center justify-between"
+                  >
+                    <span>360° WebGL Panorama Viewer</span>
+                    <span className="text-[9px] font-mono px-1 rounded bg-teal-400/20 text-teal-300">FREE</span>
+                  </a>
                 </li>
                 <li>
-                  <button type="button" onClick={() => navigateTo('globe', '/#globe')} className="hover:text-cyan-300 transition-colors cursor-pointer">
-                    3D Planetary Globe Simulator
-                  </button>
+                  <a
+                    href="/photo-to-globe/"
+                    onClick={(e) => { e.preventDefault(); navigateTo('globe', '/photo-to-globe/'); }}
+                    className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center justify-between"
+                  >
+                    <span>Map to 3D Globe Maker</span>
+                    <span className="text-[9px] font-mono px-1 rounded bg-cyan-400/20 text-cyan-300">WEBGL</span>
+                  </a>
                 </li>
               </ul>
             </div>

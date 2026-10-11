@@ -159,18 +159,43 @@ test('adminStorage: getStoredPaymentConfig leaves keys blank by default and save
   assert.equal(config.stripeSecretKey, '');
   assert.equal(config.paypalMode, 'sandbox');
 
-  // Save customized keys
+  // Save customized keys (and attempt to save sensitive secrets)
   adminStorage.saveStoredPaymentConfig({
     ...config,
     paypalClientId: 'test_paypal_client_id_888',
     paypalProMonthlyPlanId: 'P-123456789',
     stripePublishableKey: 'pk_test_stripe_abc',
+    stripeSecretKey: 'sk_live_malicious_leak_attempt',
+    stripeWebhookSecret: 'whsec_leak_attempt',
+    paypalClientSecret: 'secret_leak_attempt',
   });
 
   const updated = adminStorage.getStoredPaymentConfig();
   assert.equal(updated.paypalClientId, 'test_paypal_client_id_888');
   assert.equal(updated.paypalProMonthlyPlanId, 'P-123456789');
   assert.equal(updated.stripePublishableKey, 'pk_test_stripe_abc');
+  // 核心安全约束：私钥必须被强制清洗为空，严禁落盘
+  assert.equal(updated.stripeSecretKey, '');
+  assert.equal(updated.stripeWebhookSecret, '');
+  assert.equal(updated.paypalClientSecret, '');
+
+  const rawStorage = JSON.parse(localStorageMock.getItem('panorama_admin_payments_config'));
+  assert.equal(rawStorage.stripeSecretKey, '');
+  assert.equal(rawStorage.stripeWebhookSecret, '');
+  assert.equal(rawStorage.paypalClientSecret, '');
+
+  // 验证对遗留未脱敏数据的自动回写清理
+  localStorageMock.setItem(
+    'panorama_admin_payments_config',
+    JSON.stringify({
+      ...updated,
+      stripeSecretKey: 'legacy_uncleaned_secret_in_storage',
+    })
+  );
+  const readBack = adminStorage.getStoredPaymentConfig();
+  assert.equal(readBack.stripeSecretKey, '');
+  const storageAfterRead = JSON.parse(localStorageMock.getItem('panorama_admin_payments_config'));
+  assert.equal(storageAfterRead.stripeSecretKey, '');
 });
 
 test('adminStorage: password verification, reset, and session authentication guard', () => {

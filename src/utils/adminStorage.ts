@@ -632,7 +632,25 @@ export const DEFAULT_PAYMENT_CONFIG: PaymentGatewayConfig = {
 export function getStoredPaymentConfig(): PaymentGatewayConfig {
   try {
     const raw = localStorage.getItem(PAYMENTS_STORAGE_KEY);
-    if (raw) return { ...DEFAULT_PAYMENT_CONFIG, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const hadLegacySecrets = Boolean(
+        parsed.stripeSecretKey || parsed.stripeWebhookSecret || parsed.paypalClientSecret
+      );
+      const cleaned: PaymentGatewayConfig = {
+        ...DEFAULT_PAYMENT_CONFIG,
+        ...parsed,
+        // 严格杜绝在前端读取/残留支付私钥与 Webhook 密钥
+        stripeSecretKey: '',
+        stripeWebhookSecret: '',
+        paypalClientSecret: '',
+      };
+      // 安全加固：若历史存储中仍包含敏感私钥，立即回写覆盖，彻底清除 localStorage 中的明文残留
+      if (hadLegacySecrets) {
+        saveStoredPaymentConfig(cleaned);
+      }
+      return cleaned;
+    }
   } catch {
     // fallback
   }
@@ -641,7 +659,14 @@ export function getStoredPaymentConfig(): PaymentGatewayConfig {
 
 export function saveStoredPaymentConfig(config: PaymentGatewayConfig): void {
   try {
-    localStorage.setItem(PAYMENTS_STORAGE_KEY, JSON.stringify(config));
+    // 安全策略硬约束：敏感私钥禁止保存在前端 localStorage 中，仅限服务端环境变量配置
+    const sanitizedConfig: PaymentGatewayConfig = {
+      ...config,
+      stripeSecretKey: '',
+      stripeWebhookSecret: '',
+      paypalClientSecret: '',
+    };
+    localStorage.setItem(PAYMENTS_STORAGE_KEY, JSON.stringify(sanitizedConfig));
   } catch {
     // fallback
   }

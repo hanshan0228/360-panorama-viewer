@@ -160,9 +160,15 @@ export async function testProxyConnection(config: GeminiConfig): Promise<{
       message: `Connected! ${models.length} models detected (Recommended: gemini-3.1-flash-image / gpt-image-2.5).`,
     };
   } catch (err: unknown) {
+    const isLocal = normalizedBase.includes('localhost') || normalizedBase.includes('127.0.0.1');
+    const isPublic = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    let hint = `Cannot connect to ${normalizedBase}. Please ensure proxy server is running. (${err instanceof Error ? err.message : String(err)})`;
+    if (isPublic && isLocal) {
+      hint += ` [公网部署注意：当前网页运行于公网环境，访问者的浏览器无法连接访问者本机端口。请配置公网反代接口或 Google 官方直连端点]`;
+    }
     return {
       success: false,
-      message: `Cannot connect to ${normalizedBase}. Please ensure proxy server is running. (${err instanceof Error ? err.message : String(err)})`,
+      message: hint,
     };
   }
 }
@@ -225,7 +231,8 @@ export function buildPanoramaPrompt(userPrompt: string, styleSuffix = ''): strin
  */
 export async function generateWithGemini(
   prompt: string,
-  config: GeminiConfig
+  config: GeminiConfig,
+  referenceImages?: string[]
 ): Promise<string> {
   const normalizedBase = (config.baseUrl || 'http://127.0.0.1:8317').replace(/\/+$/, '');
   const apiKey = (config.apiKey || '').trim();
@@ -254,6 +261,19 @@ export async function generateWithGemini(
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 90000);
 
+      // Support multimodal reference images if provided
+      const validRefs = (referenceImages || []).filter(Boolean);
+      const messageContent =
+        validRefs.length > 0
+          ? [
+              { type: 'text', text: prompt },
+              ...validRefs.map((img) => ({
+                type: 'image_url',
+                image_url: { url: img },
+              })),
+            ]
+          : prompt;
+
       let res: Response;
       try {
         res = await fetch(chatEndpoint, {
@@ -265,7 +285,7 @@ export async function generateWithGemini(
             messages: [
               {
                 role: 'user',
-                content: prompt,
+                content: messageContent,
               },
             ],
           }),
@@ -273,13 +293,43 @@ export async function generateWithGemini(
       } catch (err: unknown) {
         clearTimeout(timeoutId);
         const isAbort = err instanceof Error && err.name === 'AbortError';
+        const isLocal = chatEndpoint.includes('localhost') || chatEndpoint.includes('127.0.0.1');
+        const isPublic = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+        let detail = `Unable to connect to proxy endpoint [${chatEndpoint}]: ${err instanceof Error ? err.message : String(err)}`;
+        if (isPublic && isLocal) {
+          detail += ' (公网部署提示：当前网页运行在公网，无法连接至访问者本机的 8317 代理端口。请在后台管理配置公网可访问端点或 Google 官方 API)';
+        }
         throw new Error(
           isAbort
             ? 'Gemini image generation timed out (90s). The model computation took too long, please try again.'
-            : `Unable to connect to proxy endpoint [${chatEndpoint}]: ${err instanceof Error ? err.message : String(err)}`
+            : detail
         );
       } finally {
         clearTimeout(timeoutId);
+      }
+
+      // If multimodal array failed with 400 Bad Request, retry once with pure text prompt
+      if (!res.ok && res.status === 400 && validRefs.length > 0) {
+        try {
+          const fallbackRes = await fetch(chatEndpoint, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              model,
+              messages: [
+                {
+                  role: 'user',
+                  content: prompt,
+                },
+              ],
+            }),
+          });
+          if (fallbackRes.ok) {
+            res = fallbackRes;
+          }
+        } catch {
+          // keep original res
+        }
       }
 
       if (!res.ok) {
@@ -365,10 +415,16 @@ export async function generateWithGemini(
     } catch (err: unknown) {
       clearTimeout(timeoutId);
       const isAbort = err instanceof Error && err.name === 'AbortError';
+      const isLocal = endpoint.includes('localhost') || endpoint.includes('127.0.0.1');
+      const isPublic = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      let detail = `Failed to connect to proxy endpoint [${endpoint}]. Please check if proxy is active. (${err instanceof Error ? err.message : String(err)})`;
+      if (isPublic && isLocal) {
+        detail += ' (公网部署提示：当前网页运行在公网，无法连接至访问者本机的 8317 代理端口。请在后台管理配置公网可访问端点或 Google 官方 API)';
+      }
       throw new Error(
         isAbort
           ? 'Image generation timed out after 90s. The AI model took too long to compute. Please retry.'
-          : `Failed to connect to proxy endpoint [${endpoint}]. Please check if proxy is active. (${err instanceof Error ? err.message : String(err)})`
+          : detail
       );
     } finally {
       clearTimeout(timeoutId);

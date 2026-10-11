@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   X,
   Code2,
@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   RotateCw,
   Sparkles,
+  Info,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -17,11 +18,26 @@ interface EmbedModalProps {
   currentPanoramaUrl: string;
 }
 
-export function EmbedModal({ isOpen, onClose }: EmbedModalProps) {
+export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalProps) {
   const [autoRotate, setAutoRotate] = useState(true);
   const [includeAttribution, setIncludeAttribution] = useState(true);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '4:3' | '100%'>('16:9');
   const [isCopied, setIsCopied] = useState(false);
+
+  // ESC key listener for accessibility
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  const isRemoteUrl = Boolean(
+    currentPanoramaUrl &&
+    (currentPanoramaUrl.startsWith('http://') || currentPanoramaUrl.startsWith('https://'))
+  );
 
   // Compute embed URL & HTML iframe code
   const embedCode = useMemo(() => {
@@ -29,6 +45,9 @@ export function EmbedModal({ isOpen, onClose }: EmbedModalProps) {
     const params = new URLSearchParams();
     params.set('embed', 'true');
     if (autoRotate) params.set('autorotate', '1');
+    if (isRemoteUrl) {
+      params.set('pano', currentPanoramaUrl);
+    }
 
     const iframeSrc = `${origin}/?${params.toString()}#embed`;
     const heightStyle = aspectRatio === '16:9' ? '500px' : aspectRatio === '4:3' ? '600px' : '450px';
@@ -54,7 +73,7 @@ export function EmbedModal({ isOpen, onClose }: EmbedModalProps) {
       `  ></iframe>\n` +
       `</div>${attributionHtml}`
     );
-  }, [autoRotate, includeAttribution, aspectRatio]);
+  }, [autoRotate, includeAttribution, aspectRatio, isRemoteUrl, currentPanoramaUrl]);
 
   if (!isOpen) return null;
 
@@ -66,8 +85,13 @@ export function EmbedModal({ isOpen, onClose }: EmbedModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="glass-panel border border-cyan-400/40 rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-[0_25px_70px_rgba(0,0,0,0.9)] space-y-6 relative overflow-hidden">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="embed-modal-title"
+      className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 py-6 sm:py-8 animate-in fade-in duration-200 overflow-y-auto"
+    >
+      <div className="glass-panel border border-cyan-400/40 rounded-3xl max-w-2xl w-full p-5 sm:p-7 shadow-[0_25px_70px_rgba(0,0,0,0.9)] space-y-4 sm:space-y-6 relative max-h-[90vh] overflow-y-auto my-auto">
         {/* Glow ambient background */}
         <div className="absolute top-0 right-0 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -79,7 +103,7 @@ export function EmbedModal({ isOpen, onClose }: EmbedModalProps) {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-black text-lg text-white">Embed 360° Panorama Viewer</h3>
+                <h3 id="embed-modal-title" className="font-black text-lg text-white">Embed 360° Panorama Viewer</h3>
                 <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-cyan-400/20 text-cyan-300 rounded-md border border-cyan-400/40">
                   IFRAME
                 </span>
@@ -92,11 +116,21 @@ export function EmbedModal({ isOpen, onClose }: EmbedModalProps) {
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close modal"
             className="p-2 text-cyan-400 hover:text-white hover:bg-cyan-500/20 rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {!isRemoteUrl && (
+          <div className="p-3 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 flex items-start gap-2.5 text-xs text-cyan-200">
+            <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+            <p className="text-[11px] leading-relaxed">
+              <strong>场景提示：</strong>当前全景图为本地内存临时渲染。若需要在外部网站公开嵌入，建议将全景图片托管至公开 CDN，并在 URL 中使用 <code className="text-cyan-300">?pano=https://...</code> 即可跨站无缝展现。
+            </p>
+          </div>
+        )}
 
         {/* Configuration Options */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

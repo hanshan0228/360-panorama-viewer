@@ -419,6 +419,16 @@ export function AdminTab() {
           </p>
         </div>
 
+        <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-2xl text-amber-200/90 text-xs flex items-start gap-2.5 mb-5">
+          <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+          <div className="space-y-0.5">
+            <span className="font-bold text-amber-300">本地演示沙箱环境 (Demo Sandbox)</span>
+            <p className="text-[11px] text-amber-200/75 leading-relaxed">
+              当前控制台为单机演示界面，密码验证与账目仅保存在浏览器本地，未与生产服务端同步。
+            </p>
+          </div>
+        </div>
+
         <form onSubmit={handleAdminLogin} className="space-y-4">
           <div>
             <label className="block text-slate-300 text-xs font-semibold mb-1.5">
@@ -472,6 +482,20 @@ export function AdminTab() {
   // ================= RENDER AUTHENTICATED ADMIN CONSOLE =================
   return (
     <div className="space-y-6">
+      {/* Sandbox Demo Warning Banner */}
+      <div className="bg-amber-950/30 border border-amber-500/30 text-amber-200/90 text-xs px-4 py-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+        <div className="flex items-start sm:items-center gap-2.5">
+          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
+          <div className="leading-relaxed">
+            <strong className="text-amber-300">本地演示沙箱声明：</strong>
+            当前后台运行于单机前端演示模式，管理员身份、用户积分与订阅账目均保存在浏览器本地（localStorage / sessionStorage），未接入服务端持久化账本。请勿用于生产资金计费。
+          </div>
+        </div>
+        <span className="text-[10px] bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono px-2.5 py-1 rounded-full shrink-0 font-bold tracking-wider self-start sm:self-auto">
+          LOCAL DEMO SANDBOX
+        </span>
+      </div>
+
       {/* Header & Sub Section Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 backdrop-blur-xl border border-slate-800 p-6 rounded-2xl shadow-xl">
         <div>
@@ -796,6 +820,14 @@ export function AdminTab() {
             </button>
           </div>
 
+          <div className="p-3 bg-blue-950/30 border border-blue-500/20 rounded-xl text-[11px] text-blue-200/90 flex items-start gap-2">
+            <HelpCircle className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+            <span>
+              <strong>公网部署注意：</strong>
+              预设的 <code className="text-cyan-300">http://localhost:8317</code> 为本机代理端口。若将本页面部署到公网或 GitHub Pages 供外部访问，访客浏览器无法连接访客自身本机的 8317 端口。公网部署时建议配置公网可访问的反向代理 URL，或配置 Google 官方直连端点 (<code className="text-cyan-300">https://generativelanguage.googleapis.com</code>) 并输入 API Key。
+            </span>
+          </div>
+
           {/* Model Endpoints Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {endpoints.map((ep) => {
@@ -1014,9 +1046,12 @@ export function AdminTab() {
                     required
                     value={editingEndpoint.baseUrl}
                     onChange={(e) => setEditingEndpoint({ ...editingEndpoint, baseUrl: e.target.value })}
-                    placeholder="http://localhost:8317 或 https://api.openai.com/v1"
+                    placeholder="http://localhost:8317 或 https://generativelanguage.googleapis.com"
                     className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 font-mono"
                   />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    提示：若部署至公网环境供外部访客使用，请配置公网反向代理或 Google 官方端点，避免访客连接失败。
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -1627,19 +1662,19 @@ export function AdminTab() {
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-300 mb-1">
-                  PayPal Client Secret 客户端密钥 <span className="text-slate-500">(用于服务端 Webhook 签名验证)</span>
-                </label>
-                <input
-                  type={showSecrets ? 'text' : 'password'}
-                  value={paymentConfig.paypalClientSecret}
-                  onChange={(e) =>
-                    setPaymentConfig({ ...paymentConfig, paypalClientSecret: e.target.value })
-                  }
-                  placeholder="留空，或粘贴 PayPal Client Secret..."
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-mono text-xs focus:border-cyan-400 focus:outline-none"
-                />
+              <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-xl space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-300 text-xs font-semibold flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-blue-400" />
+                    PayPal Client Secret 密钥 (服务端专属凭据)
+                  </label>
+                  <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 font-mono">
+                    已禁用前端存储
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  安全规范要求：PayPal Client Secret 涉及商家资金结算权限，严禁在浏览器端存储。请配置于后端服务端环境变量中（如 <code className="text-blue-300 font-mono">PAYPAL_CLIENT_SECRET</code>），前端仅需配置用于渲染按钮的 Client ID 与 Plan ID。
+                </p>
               </div>
 
               <div className="space-y-3 pt-2 border-t border-slate-800/80">
@@ -1749,32 +1784,19 @@ export function AdminTab() {
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-300 mb-1">
-                  Stripe Secret Key 私钥 <span className="text-slate-500">(sk_live_... 或 sk_test_...)</span>
-                </label>
-                <input
-                  type={showSecrets ? 'text' : 'password'}
-                  value={paymentConfig.stripeSecretKey}
-                  onChange={(e) => setPaymentConfig({ ...paymentConfig, stripeSecretKey: e.target.value })}
-                  placeholder="留空，或粘贴 sk_test/sk_live..."
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-mono text-xs focus:border-cyan-400 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-300 mb-1">
-                  Stripe Webhook 签名密钥 <span className="text-slate-500">(whsec_...)</span>
-                </label>
-                <input
-                  type={showSecrets ? 'text' : 'password'}
-                  value={paymentConfig.stripeWebhookSecret}
-                  onChange={(e) =>
-                    setPaymentConfig({ ...paymentConfig, stripeWebhookSecret: e.target.value })
-                  }
-                  placeholder="留空，或粘贴 whsec_..."
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-mono text-xs focus:border-cyan-400 focus:outline-none"
-                />
+              <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-300 text-xs font-semibold flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-cyan-400" />
+                    Stripe Secret Key 与 Webhook Secret (服务端专属凭据)
+                  </label>
+                  <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 font-mono">
+                    已禁用前端存储
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  安全规范要求：Stripe Secret Key (<code className="text-cyan-300 font-mono">sk_live_...</code>) 与 Webhook Secret (<code className="text-cyan-300 font-mono">whsec_...</code>) 具有资金退款与账户最高权限，前端界面已彻底禁用明文输入与本地保存。请配置于服务端环境变量（如 <code className="text-cyan-300 font-mono">STRIPE_SECRET_KEY</code> 与 <code className="text-cyan-300 font-mono">STRIPE_WEBHOOK_SECRET</code>），前端仅需配置用于渲染结账界面的 Publishable Key 与 Price ID。
+                </p>
               </div>
 
               <div className="space-y-3 pt-2 border-t border-slate-800/80">

@@ -18,6 +18,11 @@ import {
   Plus,
   X,
   Code2,
+  HelpCircle,
+  ChevronDown,
+  Box,
+  Globe2,
+  ExternalLink,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { SphereViewer } from './SphereViewer';
@@ -805,6 +810,143 @@ export function ViewerTab({
               Seamlessly compatible with Unity, Unreal Engine 5, Blender HDRI environments, WebXR, Three.js, and Meta Quest VR headsets.
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Next-Step Workflow Hub */}
+      <div className="glass-panel border border-cyan-500/20 rounded-3xl p-6 space-y-4 shadow-xl">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-cyan-400" />
+            <span>Next Steps: What would you like to do with this 360° panorama?</span>
+          </h3>
+          <span className="text-[10px] text-cyan-300 font-mono bg-cyan-950 px-2 py-0.5 rounded-full border border-cyan-500/30">
+            One-Click Pipe
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <button
+            type="button"
+            onClick={() => onNavigateTab('cubemap')}
+            className="p-4 glass-card rounded-2xl text-left hover:border-cyan-400/50 transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between text-cyan-400 mb-2">
+              <Box className="w-4 h-4" />
+              <span className="text-[10px] font-mono font-bold bg-cyan-500/15 px-1.5 py-0.5 rounded text-cyan-300">
+                Unity / UE5
+              </span>
+            </div>
+            <div className="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors">
+              Slice to 6-Face Cubemap
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+              Split into 6 individual texture faces (+X, -X, +Y, -Y, +Z, -Z) and export a ZIP package.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNavigateTab('globe')}
+            className="p-4 glass-card rounded-2xl text-left hover:border-teal-400/50 transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between text-teal-400 mb-2">
+              <Globe2 className="w-4 h-4" />
+              <span className="text-[10px] font-mono font-bold bg-teal-500/15 px-1.5 py-0.5 rounded text-teal-300">
+                MapToGlobe
+              </span>
+            </div>
+            <div className="text-xs font-bold text-white group-hover:text-teal-300 transition-colors">
+              Wrap onto 3D Rotating Globe
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+              Project flat maps or panoramas onto a 3D revolving planetary sphere with atmospheric glow.
+            </p>
+          </button>
+
+          <a
+            href="/ai-hdri-generator/"
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigateTab('landing-hdri');
+            }}
+            className="p-4 glass-card rounded-2xl text-left hover:border-amber-400/50 transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between text-amber-400 mb-2">
+              <ExternalLink className="w-4 h-4" />
+              <span className="text-[10px] font-mono font-bold bg-amber-500/15 px-1.5 py-0.5 rounded text-amber-300">
+                Blender .HDR
+              </span>
+            </div>
+            <div className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
+              Export 32-bit Radiance HDR
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+              Generate true high dynamic range lighting maps to light your 3D scenes with physical bounce.
+            </p>
+          </a>
+        </div>
+      </div>
+
+      {/* Frequently Asked Questions (FAQ Accordion for 360 Viewer SEO) */}
+      <div className="glass-panel border border-cyan-500/20 rounded-3xl p-6 space-y-3.5 shadow-xl">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2 pb-2 border-b border-white/[0.08]">
+          <HelpCircle className="w-4 h-4 text-cyan-400" />
+          <span>Frequently Asked Questions — 360° Panorama Viewer</span>
+        </h3>
+
+        <div className="space-y-2.5 text-xs">
+          <details className="group glass-card rounded-2xl p-4 cursor-pointer">
+            <summary className="font-semibold text-slate-200 flex items-center justify-between list-none">
+              <span>Are my 360° photos uploaded or stored on any server?</span>
+              <ChevronDown className="w-4 h-4 text-cyan-400 group-open:rotate-180 transition-transform shrink-0" />
+            </summary>
+            <p className="mt-2 text-slate-400 leading-relaxed text-[11px]">
+              No. PanoramaAI Studio’s 360° Panorama Viewer operates 100% locally in your browser using Three.js and WebGL. Your photos are decoded directly on your local GPU and are never transmitted to any external server or cloud storage.
+            </p>
+          </details>
+
+          <details className="group glass-card rounded-2xl p-4 cursor-pointer">
+            <summary className="font-semibold text-slate-200 flex items-center justify-between list-none">
+              <span>How does the Ctrl + V instant clipboard paste feature work?</span>
+              <ChevronDown className="w-4 h-4 text-cyan-400 group-open:rotate-180 transition-transform shrink-0" />
+            </summary>
+            <p className="mt-2 text-slate-400 leading-relaxed text-[11px]">
+              Whenever you have an equirectangular image or screenshot in your system clipboard, simply press <kbd className="font-mono text-cyan-300 font-bold">Ctrl + V</kbd> (or <kbd className="font-mono text-cyan-300 font-bold">Cmd + V</kbd> on Mac) anywhere on this page to instantly view it in full 360° interactive spherical roam mode.
+            </p>
+          </details>
+
+          <details className="group glass-card rounded-2xl p-4 cursor-pointer">
+            <summary className="font-semibold text-slate-200 flex items-center justify-between list-none">
+              <span>What image formats and resolutions are supported?</span>
+              <ChevronDown className="w-4 h-4 text-cyan-400 group-open:rotate-180 transition-transform shrink-0" />
+            </summary>
+            <p className="mt-2 text-slate-400 leading-relaxed text-[11px]">
+              We support standard 2:1 equirectangular panoramas in PNG, JPEG, WebP, and Radiance RGBE .HDR containers up to 16K resolution (limited only by your local GPU memory).
+            </p>
+          </details>
+
+          <details className="group glass-card rounded-2xl p-4 cursor-pointer">
+            <summary className="font-semibold text-slate-200 flex items-center justify-between list-none">
+              <span>What is the difference between Sphere Roam and Little Planet view?</span>
+              <ChevronDown className="w-4 h-4 text-cyan-400 group-open:rotate-180 transition-transform shrink-0" />
+            </summary>
+            <p className="mt-2 text-slate-400 leading-relaxed text-[11px]">
+              <strong>Sphere Roam Mode:</strong> Places your camera at the center of the 3D sphere simulating normal human vision.
+              <br />
+              <strong>Little Planet Mode:</strong> Projects the spherical panorama outward using stereographic conformal fisheye projection, curving the horizon into a tiny planet.
+            </p>
+          </details>
+
+          <details className="group glass-card rounded-2xl p-4 cursor-pointer">
+            <summary className="font-semibold text-slate-200 flex items-center justify-between list-none">
+              <span>Can I convert the 360° panorama into game engine cubemaps?</span>
+              <ChevronDown className="w-4 h-4 text-cyan-400 group-open:rotate-180 transition-transform shrink-0" />
+            </summary>
+            <p className="mt-2 text-slate-400 leading-relaxed text-[11px]">
+              Yes. Once viewed, you can send the panorama directly into our built-in Cubemap Generator to slice it into standard 6 faces (posx, negx, posy, negy, posz, negz) for Unity, Unreal Engine 5, or Godot.
+            </p>
+          </details>
         </div>
       </div>
 

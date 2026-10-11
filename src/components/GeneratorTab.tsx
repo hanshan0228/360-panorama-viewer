@@ -394,7 +394,8 @@ export function GeneratorTab({
             apiKey: ep.apiKey,
             model: ep.model,
           };
-          rawGenUrl = await generateWithGemini(fullPrompt, modelConfig);
+          const refPreviews = referenceImages.map((r) => r.preview);
+          rawGenUrl = await generateWithGemini(fullPrompt, modelConfig, refPreviews);
           usedEndpointName = ep.name;
           if (i > 0) {
             hadFailover = true;
@@ -733,7 +734,7 @@ export function GeneratorTab({
                 </span>
               </div>
               <p className="text-[11px] text-cyan-200/70 leading-relaxed">
-                Reference photos guide style, materials, lighting atmosphere, and color palette.
+                Reference photos guide style, materials, lighting atmosphere, and color palette. Images are injected directly for vision-capable models, with automatic semantic prompt fallback for text-only endpoints.
               </p>
 
               {/* Upload Drop Area */}
