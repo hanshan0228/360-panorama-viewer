@@ -562,38 +562,68 @@ export function AdminTab() {
         className={`${
           isServerMode
             ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-200/90'
+            : backendStatus?.isOnline
+            ? 'bg-blue-950/40 border-blue-500/40 text-blue-200/90'
             : 'bg-amber-950/30 border-amber-500/30 text-amber-200/90'
         } border text-xs px-4 py-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg`}
       >
         <div className="flex items-start sm:items-center gap-2.5">
           <ShieldAlert
             className={`w-4 h-4 shrink-0 mt-0.5 sm:mt-0 ${
-              isServerMode ? 'text-emerald-400' : 'text-amber-400'
+              isServerMode
+                ? 'text-emerald-400'
+                : backendStatus?.isOnline
+                ? 'text-cyan-400'
+                : 'text-amber-400'
             }`}
           />
           <div className="leading-relaxed">
             {isServerMode ? (
               <>
                 <strong className="text-emerald-300">服务端持久化管理后台：</strong>
-                当前后台已成功连接 Node.js commercial-server 商业服务，管理员鉴权与用户列表、订阅账目由服务端持久化账本统一同步。
+                当前后台已成功连接云端商业持久化服务，管理员鉴权与用户列表、订阅账目由服务端数据库统一同步与落盘。
+              </>
+            ) : backendStatus?.isOnline ? (
+              <>
+                <strong className="text-cyan-300">检测到服务端已就绪：</strong>
+                当前浏览器处于之前的离线缓存会话。点击右侧按钮退出并重新输入管理员密码，即可直接连通服务端数据库真实账本。
               </>
             ) : (
               <>
                 <strong className="text-amber-300">本地演示沙箱声明：</strong>
-                当前后台运行于单机前端演示模式，管理员身份、用户积分与订阅账目保存在浏览器本地（localStorage / sessionStorage），未接入服务端持久化账本。请勿用于生产资金计费。
+                当前后台处于单机离线演示模式（本地开发可运行 <code className="text-amber-200 font-mono">npm run server</code> 启动后端），管理员身份与账目仅保存在浏览器本地，未接入服务端持久化账本。
               </>
             )}
           </div>
         </div>
-        <span
-          className={`text-[10px] border font-mono px-2.5 py-1 rounded-full shrink-0 font-bold tracking-wider self-start sm:self-auto ${
-            isServerMode
-              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-              : 'bg-amber-500/20 border-amber-500/40 text-amber-300'
-          }`}
-        >
-          {isServerMode ? 'LIVE SERVER LEDGER' : 'LOCAL DEMO SANDBOX'}
-        </span>
+
+        <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+          {!isServerMode && backendStatus?.isOnline && (
+            <button
+              type="button"
+              onClick={handleAdminLogout}
+              className="px-3 py-1 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-bold rounded-lg text-xs cursor-pointer shadow-sm shadow-cyan-400/25 transition-all"
+            >
+              一键重新登录同步云端 →
+            </button>
+          )}
+
+          <span
+            className={`text-[10px] border font-mono px-2.5 py-1 rounded-full shrink-0 font-bold tracking-wider ${
+              isServerMode
+                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                : backendStatus?.isOnline
+                ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
+                : 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+            }`}
+          >
+            {isServerMode
+              ? 'LIVE SERVER LEDGER'
+              : backendStatus?.isOnline
+              ? 'SERVER READY'
+              : 'LOCAL DEMO SANDBOX'}
+          </span>
+        </div>
       </div>
 
       {/* Header & Sub Section Switcher */}

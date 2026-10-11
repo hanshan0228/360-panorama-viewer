@@ -52,9 +52,9 @@ export function writeStore(data, file = STORE_FILE) {
 }
 
 export function initializeStore(file = STORE_FILE, password = process.env.ADMIN_PASSWORD) {
-  const validPassword = typeof password === 'string' && password.length >= 12;
+  const validPassword = typeof password === 'string' && password.length >= 8;
   if (!fs.existsSync(file)) {
-    if (!validPassword) throw new Error('Set ADMIN_PASSWORD (at least 12 characters)');
+    if (!validPassword) throw new Error('Set ADMIN_PASSWORD (at least 8 characters)');
     fs.mkdirSync(path.dirname(file), { recursive: true });
     writeStore({ schemaVersion: 2, adminPasswordHash: hashPassword(password), users: [],
       subscriptions: [], invoices: [], orders: [], processedEventIds: [] }, file);
