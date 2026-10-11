@@ -107,6 +107,33 @@ test('unfinished checkout is closed even with credentials', async (t) => {
   const { post } = await withServer(t);
   assert.equal((await post('/api/stripe/create-checkout-session', { plan: 'pro' })).status, 503);
 });
+test('user auth registers new users, issues session tokens, and returns user profile', async (t) => {
+  const { base, post } = await withServer(t);
+
+  // 1. Invalid email is rejected
+  assert.equal((await post('/api/user/auth', { email: 'bad-email' })).status, 400);
+
+  // 2. Register valid user
+  const authRes = await post('/api/user/auth', { email: 'creator@studio360.io', name: 'Alex' });
+  assert.equal(authRes.status, 200);
+  const { user, token } = await authRes.json();
+  assert.equal(user.email, 'creator@studio360.io');
+  assert.equal(user.creditsBalance, 50);
+  assert.ok(token);
+
+  // 3. Fetch profile with token via /api/user/me
+  const meRes = await fetch(base + '/api/user/me', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  assert.equal(meRes.status, 200);
+  const meData = await meRes.json();
+  assert.equal(meData.user.id, user.id);
+  assert.equal(meData.user.email, 'creator@studio360.io');
+
+  // 4. Unauthorized fetch without token returns 401
+  assert.equal((await fetch(base + '/api/user/me')).status, 401);
+});
+
 test('legacy migration preserves backup and removes stored secrets', async (t) => {
   const { file, dir } = await withServer(t);
   writeStore({ ...fixture(), schemaVersion: 1, adminPasswordHash: 'admin888', paymentConfig: { stripeSecretKey: 'mock_secret' } }, file);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Server,
   Users,
@@ -122,6 +122,33 @@ export function AdminTab() {
   const [paymentConfig, setPaymentConfig] = useState<PaymentGatewayConfig>(() => getStoredPaymentConfig());
   const [showSecrets, setShowSecrets] = useState(false);
   const [backendStatus, setBackendStatus] = useState<BackendHealthStatus | null>(null);
+  const [isServerMode, setIsServerMode] = useState<boolean>(() => {
+    return typeof sessionStorage !== 'undefined' && Boolean(sessionStorage.getItem('panorama_admin_server_token'));
+  });
+
+  // Probe server on mount and sync store if authenticated
+  useEffect(() => {
+    probeBackendHealth().then((status) => {
+      setBackendStatus(status);
+      if (status.isOnline) {
+        const token = sessionStorage.getItem('panorama_admin_server_token');
+        if (token) {
+          setIsServerMode(true);
+          fetch('/api/admin/store', {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+              if (data) {
+                if (Array.isArray(data.users) && data.users.length > 0) setUsers(data.users);
+                if (Array.isArray(data.subscriptions)) setSubscriptions(data.subscriptions);
+              }
+            })
+            .catch(() => {});
+        }
+      }
+    });
+  }, []);
 
   // Probe server when opening payment section
   const handleOpenPaymentsSection = () => {
@@ -144,13 +171,52 @@ export function AdminTab() {
     setTimeout(() => setSaveSuccessMsg(null), 2500);
   };
 
-  // Login handler
-  const handleAdminLogin = (e: React.FormEvent) => {
+  // Login handler with Dual Mode Support (Real Server Authentication vs Offline Demo Fallback)
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginErrorMsg(null);
+
+    // 1. 如果后端服务在线，优先走服务端的密码校验与 Session Token 颁发
+    const health = await probeBackendHealth();
+    if (health.isOnline) {
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: loginPasswordInput }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success && data.token) {
+          sessionStorage.setItem('panorama_admin_server_token', data.token);
+          setAdminSession(true);
+          setIsAuthenticated(true);
+          setIsServerMode(true);
+          setLoginPasswordInput('');
+
+          // 登录成功立即拉取真实服务端账本
+          const storeRes = await fetch('/api/admin/store', {
+            headers: { Authorization: `Bearer ${data.token}` },
+          });
+          if (storeRes.ok) {
+            const storeData = await storeRes.json();
+            if (Array.isArray(storeData.users) && storeData.users.length > 0) setUsers(storeData.users);
+            if (Array.isArray(storeData.subscriptions)) setSubscriptions(storeData.subscriptions);
+          }
+          return;
+        } else {
+          setLoginErrorMsg(data.error || '服务端管理员密码校验失败，请核对凭证。');
+          return;
+        }
+      } catch {
+        // 网络异常时降级至本地模式
+      }
+    }
+
+    // 2. 服务端离线或单机模式：本地密码校验
     if (verifyAdminPassword(loginPasswordInput)) {
       setAdminSession(true);
       setIsAuthenticated(true);
+      setIsServerMode(false);
       setLoginPasswordInput('');
     } else {
       setLoginErrorMsg('管理员密码错误，请核对凭证后重试。');
@@ -158,8 +224,17 @@ export function AdminTab() {
   };
 
   const handleAdminLogout = () => {
+    const adminToken = sessionStorage.getItem('panorama_admin_server_token');
+    if (adminToken) {
+      fetch('/api/admin/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${adminToken}` },
+      }).catch(() => {});
+      sessionStorage.removeItem('panorama_admin_server_token');
+    }
     setAdminSession(false);
     setIsAuthenticated(false);
+    setIsServerMode(false);
     setLoginPasswordInput('');
     setLoginErrorMsg(null);
   };
@@ -482,17 +557,42 @@ export function AdminTab() {
   // ================= RENDER AUTHENTICATED ADMIN CONSOLE =================
   return (
     <div className="space-y-6">
-      {/* Sandbox Demo Warning Banner */}
-      <div className="bg-amber-950/30 border border-amber-500/30 text-amber-200/90 text-xs px-4 py-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+      {/* Sandbox Demo / Live Server Warning Banner */}
+      <div
+        className={`${
+          isServerMode
+            ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-200/90'
+            : 'bg-amber-950/30 border-amber-500/30 text-amber-200/90'
+        } border text-xs px-4 py-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg`}
+      >
         <div className="flex items-start sm:items-center gap-2.5">
-          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
+          <ShieldAlert
+            className={`w-4 h-4 shrink-0 mt-0.5 sm:mt-0 ${
+              isServerMode ? 'text-emerald-400' : 'text-amber-400'
+            }`}
+          />
           <div className="leading-relaxed">
-            <strong className="text-amber-300">本地演示沙箱声明：</strong>
-            当前后台运行于单机前端演示模式，管理员身份、用户积分与订阅账目均保存在浏览器本地（localStorage / sessionStorage），未接入服务端持久化账本。请勿用于生产资金计费。
+            {isServerMode ? (
+              <>
+                <strong className="text-emerald-300">服务端持久化管理后台：</strong>
+                当前后台已成功连接 Node.js commercial-server 商业服务，管理员鉴权与用户列表、订阅账目由服务端持久化账本统一同步。
+              </>
+            ) : (
+              <>
+                <strong className="text-amber-300">本地演示沙箱声明：</strong>
+                当前后台运行于单机前端演示模式，管理员身份、用户积分与订阅账目保存在浏览器本地（localStorage / sessionStorage），未接入服务端持久化账本。请勿用于生产资金计费。
+              </>
+            )}
           </div>
         </div>
-        <span className="text-[10px] bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono px-2.5 py-1 rounded-full shrink-0 font-bold tracking-wider self-start sm:self-auto">
-          LOCAL DEMO SANDBOX
+        <span
+          className={`text-[10px] border font-mono px-2.5 py-1 rounded-full shrink-0 font-bold tracking-wider self-start sm:self-auto ${
+            isServerMode
+              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+              : 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+          }`}
+        >
+          {isServerMode ? 'LIVE SERVER LEDGER' : 'LOCAL DEMO SANDBOX'}
         </span>
       </div>
 

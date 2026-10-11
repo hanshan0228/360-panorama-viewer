@@ -67,14 +67,21 @@ export async function probeBackendHealth(): Promise<BackendHealthStatus> {
 export async function createServerStripeCheckout(params: {
   plan: 'pro' | 'enterprise';
   billingCycle: 'monthly' | 'yearly';
+  userId?: string;
   userEmail?: string;
 }): Promise<{ success: boolean; checkoutUrl?: string; error?: string }> {
   try {
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('panorama_server_user_token') : null;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const res = await fetch('/api/stripe/create-checkout-session', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(params),
     });
 
@@ -88,5 +95,69 @@ export async function createServerStripeCheckout(params: {
       success: false,
       error: err instanceof Error ? err.message : 'Network error reaching payment server',
     };
+  }
+}
+
+/**
+ * Registers or authenticates a user on the commercial backend
+ */
+export async function authServerUser(
+  email: string,
+  name?: string
+): Promise<{ success: boolean; user?: any; token?: string; error?: string }> {
+  try {
+    const res = await fetch('/api/user/auth', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, name }),
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success) {
+      if (data.token && typeof localStorage !== 'undefined') {
+        localStorage.setItem('panorama_server_user_token', data.token);
+      }
+      return data;
+    }
+    return { success: false, error: data.error || 'Authentication failed' };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Network error reaching auth service',
+    };
+  }
+}
+
+/**
+ * Fetches current verified user profile from commercial backend
+ */
+export async function fetchServerUser(token?: string): Promise<{
+  success: boolean;
+  user?: any;
+  error?: string;
+}> {
+  try {
+    const authToken =
+      token ||
+      (typeof localStorage !== 'undefined'
+        ? localStorage.getItem('panorama_server_user_token')
+        : null);
+    if (!authToken) return { success: false, error: 'No active session token' };
+
+    const res = await fetch('/api/user/me', {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+    return { success: false, error: 'Session expired or invalid' };
+  } catch {
+    return { success: false, error: 'Network error checking user profile' };
   }
 }

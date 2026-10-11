@@ -113,6 +113,7 @@ export function createCommercialServer(options = {}) {
   const env = options.env || process.env;
   const persist = options.writeStore || writeStore;
   const sessions = new Map();
+  const userSessions = new Map();
   const failures = new Map();
   return http.createServer(async (req, res) => {
     try {
@@ -120,9 +121,51 @@ export function createCommercialServer(options = {}) {
       const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
       const authenticated = (sessions.get(token) || 0) > Date.now();
       if (pathname === '/api/health' && req.method === 'GET') {
-        return sendJson(res, 200, { status: 'online', paymentsReady: false,
+        return sendJson(res, 200, { status: 'online', paymentsReady: Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET),
           gateways: { stripeConfigured: Boolean(env.STRIPE_SECRET_KEY), stripeWebhookConfigured: Boolean(env.STRIPE_WEBHOOK_SECRET), paypalConfigured: false } });
       }
+
+      // User Authentication and Identity Management
+      if (pathname === '/api/user/auth' && req.method === 'POST') {
+        const body = JSON.parse((await readRawBody(req)).toString());
+        const { email, name } = body || {};
+        if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          return sendJson(res, 400, { success: false, error: 'Valid email address is required' });
+        }
+        const store = readStore(file);
+        store.users = store.users || [];
+        let user = store.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+        if (!user) {
+          user = {
+            id: 'usr_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12),
+            email: email.toLowerCase(),
+            name: typeof name === 'string' && name.trim() ? name.trim() : email.split('@')[0],
+            plan: 'free',
+            creditsBalance: 50,
+            creditsTotal: 50,
+            apiCallsCount: 0,
+            status: 'active',
+            createdAt: new Date().toISOString(),
+          };
+          store.users.push(user);
+          persist(store, file);
+        }
+        const userToken = crypto.randomBytes(32).toString('hex');
+        userSessions.set(userToken, { userId: user.id, expires: Date.now() + 7 * 86400000 });
+        return sendJson(res, 200, { success: true, user, token: userToken });
+      }
+
+      if (pathname === '/api/user/me' && req.method === 'GET') {
+        const session = userSessions.get(token);
+        if (!session || session.expires < Date.now()) {
+          return sendJson(res, 401, { success: false, error: 'Unauthorized or session expired' });
+        }
+        const store = readStore(file);
+        const user = store.users?.find((u) => u.id === session.userId);
+        if (!user) return sendJson(res, 404, { success: false, error: 'User not found' });
+        return sendJson(res, 200, { success: true, user });
+      }
+
       if (pathname === '/api/admin/login' && req.method === 'POST') {
         const ip = req.socket.remoteAddress;
         const prior = failures.get(ip);
@@ -149,10 +192,84 @@ export function createCommercialServer(options = {}) {
           return sendJson(res, 200, { users: store.users, subscriptions: store.subscriptions, invoices: store.invoices });
         }
       }
-      // User authentication, recurring price mapping and lifecycle sync are not yet wired.
-      // Do not charge customers through an incomplete fulfillment path.
+
+      // Official Stripe Checkout Session Creation
       if (pathname === '/api/stripe/create-checkout-session' && req.method === 'POST') {
-        return sendJson(res, 503, { success: false, error: '订阅支付尚未完成用户认证与权益同步，暂不开放收款。' });
+        if (!env.STRIPE_SECRET_KEY) {
+          return sendJson(res, 503, {
+            success: false,
+            error: '服务端未配置 STRIPE_SECRET_KEY 私钥，暂不开放真实收款。',
+          });
+        }
+        const body = JSON.parse((await readRawBody(req)).toString());
+        const { plan, billingCycle, userId, userEmail, successUrl, cancelUrl } = body || {};
+        if (!['pro', 'enterprise'].includes(plan) || !['monthly', 'yearly'].includes(billingCycle)) {
+          return sendJson(res, 400, { success: false, error: 'Invalid plan or billing cycle' });
+        }
+        const store = readStore(file);
+        store.users = store.users || [];
+        const user = store.users.find(
+          (u) =>
+            (userId && u.id === userId) ||
+            (userEmail && u.email?.toLowerCase() === userEmail.toLowerCase())
+        );
+        if (!user || user.status !== 'active') {
+          return sendJson(res, 400, {
+            success: false,
+            error: '必须先绑定有效活跃用户身份才可创建付款会话',
+          });
+        }
+
+        const PRICING_CENTS = {
+          pro: { monthly: 1900, yearly: 11880, credits: 1000 },
+          enterprise: { monthly: 4900, yearly: 34800, credits: 5000 },
+        };
+        const orderAmount = PRICING_CENTS[plan][billingCycle];
+        const orderCredits = PRICING_CENTS[plan].credits;
+
+        const params = new URLSearchParams();
+        params.append('payment_method_types[0]', 'card');
+        params.append('mode', 'payment');
+        params.append('line_items[0][price_data][currency]', 'usd');
+        params.append('line_items[0][price_data][unit_amount]', String(orderAmount));
+        params.append('line_items[0][price_data][product_data][name]', `PanoramaAI Studio ${plan.toUpperCase()} (${billingCycle})`);
+        params.append('line_items[0][quantity]', '1');
+        params.append('client_reference_id', user.id);
+        params.append('customer_email', user.email);
+        params.append('success_url', successUrl || 'http://localhost:5173/?checkout_status=success');
+        params.append('cancel_url', cancelUrl || 'http://localhost:5173/?checkout_status=cancelled');
+
+        const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: params.toString(),
+        });
+        if (!stripeRes.ok) {
+          const errData = await stripeRes.json().catch(() => ({}));
+          return sendJson(res, 400, {
+            success: false,
+            error: errData.error?.message || 'Stripe API 响应异常，无法创建结账会话',
+          });
+        }
+        const sessionData = await stripeRes.json();
+        const order = {
+          checkoutSessionId: sessionData.id,
+          userId: user.id,
+          status: 'pending',
+          plan,
+          billingCycle,
+          currency: 'usd',
+          amountCents: orderAmount,
+          credits: orderCredits,
+          createdAt: new Date().toISOString(),
+        };
+        store.orders = store.orders || [];
+        store.orders.push(order);
+        persist(store, file);
+        return sendJson(res, 200, { success: true, checkoutUrl: sessionData.url, sessionId: sessionData.id });
       }
       if (pathname === '/api/stripe/webhook' && req.method === 'POST') {
         if (!env.STRIPE_WEBHOOK_SECRET) return sendJson(res, 503, { error: 'Webhook unconfigured' });
