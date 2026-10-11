@@ -475,12 +475,20 @@ export function GeneratorTab({
       // Deduct user credits upon generation success
       const deductRes = deductCurrentUserCredits(creditsCost);
       if (deductRes.success) {
-        setCurrentUser(getCurrentUser());
-        const toastNotice = hadFailover
+        const updatedUser = getCurrentUser();
+        setCurrentUser(updatedUser);
+        const isFreeExhausted = updatedUser.plan === 'free' && deductRes.remaining < creditsCost;
+        const toastNotice = isFreeExhausted
+          ? `您的免费体验额度已用完（剩余 ${deductRes.remaining} 积分）！请升级 Pro 会员解锁无限 4K 生成与商业授权。`
+          : hadFailover
           ? `主模型额度耗尽或异常，已自动切换至备用模型 [${usedEndpointName}] 生成成功！已扣除 ${creditsCost} 积分。`
           : `360° 全景图通过 [${usedEndpointName}] 生成成功！扣除 ${creditsCost} 积分（剩余 ${deductRes.remaining} 积分）。`;
         setFeedbackNotice(toastNotice);
-        setTimeout(() => setFeedbackNotice(null), 5000);
+        if (isFreeExhausted) {
+          setTimeout(() => setIsCheckoutOpen(true), 2500);
+        } else {
+          setTimeout(() => setFeedbackNotice(null), 5000);
+        }
       }
 
       setGenerationProgress(100);

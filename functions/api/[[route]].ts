@@ -31,8 +31,8 @@ async function ensureDbInitialized(db: D1Database): Promise<void> {
         email TEXT UNIQUE NOT NULL,
         name TEXT NOT NULL,
         plan TEXT NOT NULL DEFAULT 'free',
-        credits_balance INTEGER NOT NULL DEFAULT 50,
-        credits_total INTEGER NOT NULL DEFAULT 50,
+        credits_balance INTEGER NOT NULL DEFAULT 4,
+        credits_total INTEGER NOT NULL DEFAULT 4,
         api_calls_count INTEGER NOT NULL DEFAULT 0,
         status TEXT NOT NULL DEFAULT 'active',
         created_at TEXT NOT NULL
@@ -168,7 +168,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
         await env.DB.prepare(`
           INSERT INTO users (id, email, name, plan, credits_balance, credits_total, api_calls_count, status, created_at)
-          VALUES (?, ?, ?, 'free', 50, 50, 0, 'active', ?)
+          VALUES (?, ?, ?, 'free', 4, 4, 0, 'active', ?)
         `).bind(userId, email.toLowerCase(), displayName, now).run();
 
         user = {
@@ -176,8 +176,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           email: email.toLowerCase(),
           name: displayName,
           plan: 'free',
-          credits_balance: 50,
-          credits_total: 50,
+          credits_balance: 4,
+          credits_total: 4,
           api_calls_count: 0,
           status: 'active',
         };

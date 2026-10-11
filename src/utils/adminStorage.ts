@@ -138,7 +138,7 @@ export const DEFAULT_MANAGED_USERS: ManagedUser[] = [
 ];
 
 export const DEFAULT_BILLING_CONFIG: SystemBillingConfig = {
-  freeMonthlyCredits: 50,
+  freeMonthlyCredits: 4,
   proMonthlyPriceUsd: 19,
   proMonthlyCredits: 1000,
   enterpriseCustomPricing: true,

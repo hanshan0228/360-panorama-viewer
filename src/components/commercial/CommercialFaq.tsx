@@ -35,7 +35,7 @@ const FAQS: FaqItem[] = [
   {
     question: 'How does the credit-based pricing system work?',
     answer:
-      'Every new account receives 50 free credits to test the generator and viewers. 1K generation debits 3 credits, 2K HD debits 6 credits, and 4K Ultra HD debits 12 credits. Pro subscriptions start at $9.9/month (annual billing) or $19/month for 1,000 monthly credits.',
+      'Every new account receives 4 free trial credits to test the generator (1 free 4K Ultra HD panorama or 2 2K HD panoramas). Pro subscriptions start at $9.9/month (annual billing) or $19/month for 1,000 monthly credits.',
   },
   {
     question: "What's the difference between text-to-panorama and image-to-panorama?",

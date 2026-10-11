@@ -124,7 +124,7 @@ test('user auth registers new users, issues session tokens, and returns user pro
   assert.equal(authRes.status, 200);
   const { user, token } = await authRes.json();
   assert.equal(user.email, 'creator@studio360.io');
-  assert.equal(user.creditsBalance, 50);
+  assert.equal(user.creditsBalance, 4);
   assert.ok(token);
 
   // 3. Fetch profile with token via /api/user/me

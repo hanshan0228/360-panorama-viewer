@@ -51,7 +51,7 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
     },
     {
       q: 'Is the AI HDRI Generator free to use?',
-      a: 'Yes! Every new user receives 50 complimentary credits upon onboarding to generate, inspect, and export HDRI maps. You can preview in real-time WebGL, slice into cubemaps, and download assets without requiring a credit card.',
+      a: 'Yes! Every new user receives 4 complimentary trial credits upon onboarding to generate, inspect, and export HDRI maps. You can preview in real-time WebGL, slice into cubemaps, and download assets without requiring a credit card.',
     },
     {
       q: 'How do I import the generated HDRI into Blender?',
@@ -122,7 +122,7 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
             </span>
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-teal-400" />
-              <span>50 Free Credits Onboarding</span>
+              <span>Free 4-Credit Trial Onboarding</span>
             </span>
           </div>
         </div>
@@ -404,7 +404,7 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
           Ready to Generate Your Custom 3D HDRI?
         </h2>
         <p className="text-sm sm:text-base text-cyan-100/80 max-w-xl mx-auto">
-          Start with 50 free credits. Generate seamless 360° environments and export ready-to-use textures for your next 3D project.
+          Start with 4 free trial credits. Generate seamless 360° environments and export ready-to-use textures for your next 3D project.
         </p>
         <div>
           <button

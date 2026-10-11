@@ -127,7 +127,7 @@ export function PricingTab() {
                 <div className="p-1 rounded-full bg-cyan-400/20 text-cyan-300">
                   <Check className="w-3 h-3" />
                 </div>
-                <span>50 AI Generation Credits</span>
+                <span>4 Free Trial Credits (1 Free 4K / 2x 2K Panoramas)</span>
               </li>
               <li className="flex items-center gap-2.5">
                 <div className="p-1 rounded-full bg-cyan-400/20 text-cyan-300">

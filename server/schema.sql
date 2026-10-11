@@ -5,8 +5,8 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
   plan TEXT NOT NULL DEFAULT 'free',
-  credits_balance INTEGER NOT NULL DEFAULT 50,
-  credits_total INTEGER NOT NULL DEFAULT 50,
+  credits_balance INTEGER NOT NULL DEFAULT 4,
+  credits_total INTEGER NOT NULL DEFAULT 4,
   api_calls_count INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'active',
   created_at TEXT NOT NULL

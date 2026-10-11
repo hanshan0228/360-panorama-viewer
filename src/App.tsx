@@ -102,7 +102,7 @@ export function App() {
       },
       pricing: {
         title: 'Pricing & Credit Plans | PanoramaAI Studio Pro',
-        desc: 'Transparent credit-based pricing for AI 360 panorama generation. Free explorer tier with 50 credits, Pro subscriptions with full commercial license.',
+        desc: 'Transparent credit-based pricing for AI 360 panorama generation. Free explorer tier with 4 trial credits, Pro subscriptions with full commercial license.',
       },
       showcase: {
         title: 'Community 360° Panorama Showcase | AI VR Skybox Inspiration',

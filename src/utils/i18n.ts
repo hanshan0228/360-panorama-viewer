@@ -52,7 +52,7 @@ export const TRANSLATIONS: Record<SupportedLang, TranslationDictionary> = {
     globe: '3D Globe',
     pricing: 'Pricing',
     upgradePro: 'Upgrade to Pro',
-    freeCredits: '50 Free Credits',
+    freeCredits: '4 Free Trial Credits',
 
     heroTitle: 'AI 360° Panorama Generator',
     heroSubtitle: 'Turn text prompts or reference photos into seamless, VR-ready 2:1 equirectangular panoramas in seconds. Free to try — no credit card required.',

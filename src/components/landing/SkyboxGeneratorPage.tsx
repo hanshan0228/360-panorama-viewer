@@ -234,7 +234,7 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
             <tbody className="divide-y divide-cyan-500/15 text-cyan-100/90">
               <tr>
                 <td className="py-3.5 px-5 font-semibold text-white">Free Onboarding Credits</td>
-                <td className="py-3.5 px-5 text-teal-400 font-bold">50 Free Credits</td>
+                <td className="py-3.5 px-5 text-teal-400 font-bold">4 Free Trial Credits</td>
                 <td className="py-3.5 px-5 text-slate-400">Limited trial / Paywall</td>
                 <td className="py-3.5 px-5 text-slate-400">N/A ($100s/artist hr)</td>
               </tr>
