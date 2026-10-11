@@ -65,8 +65,12 @@ import {
   isAdminSessionValid,
   setAdminSession,
   verifyAdminPassword,
+  verifyAdminCredentials,
   setStoredAdminPassword,
+  getStoredAdminUsername,
+  setStoredAdminUsername,
   DEFAULT_ADMIN_PASSWORD,
+  DEFAULT_ADMIN_USERNAME,
 } from '../utils/adminStorage';
 import { testProxyConnection } from '../utils/geminiClient';
 import { probeBackendHealth, type BackendHealthStatus } from '../utils/commercialApi';
@@ -74,6 +78,7 @@ import { probeBackendHealth, type BackendHealthStatus } from '../utils/commercia
 export function AdminTab() {
   // Session Authentication Guard
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => isAdminSessionValid());
+  const [loginUsernameInput, setLoginUsernameInput] = useState(() => getStoredAdminUsername() || 'admin');
   const [loginPasswordInput, setLoginPasswordInput] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginErrorMsg, setLoginErrorMsg] = useState<string | null>(null);
@@ -161,6 +166,7 @@ export function AdminTab() {
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
   // 6. Security & Password Management State
+  const [adminUsernameEdit, setAdminUsernameEdit] = useState(() => getStoredAdminUsername() || 'admin');
   const [currentPwdInput, setCurrentPwdInput] = useState('');
   const [newPwdInput, setNewPwdInput] = useState('');
   const [confirmNewPwdInput, setConfirmNewPwdInput] = useState('');
@@ -176,14 +182,17 @@ export function AdminTab() {
     e.preventDefault();
     setLoginErrorMsg(null);
 
-    // 1. 如果后端服务在线，优先走服务端的密码校验与 Session Token 颁发
+    // 1. 如果后端服务在线，优先走服务端的账号密码校验与 Session Token 颁发
     const health = await probeBackendHealth();
     if (health.isOnline) {
       try {
         const res = await fetch('/api/admin/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: loginPasswordInput }),
+          body: JSON.stringify({
+            username: loginUsernameInput,
+            password: loginPasswordInput,
+          }),
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success && data.token) {
@@ -204,7 +213,7 @@ export function AdminTab() {
           }
           return;
         } else {
-          setLoginErrorMsg(data.error || '服务端管理员密码校验失败，请核对凭证。');
+          setLoginErrorMsg(data.error || '管理员账号或密码错误，请核对凭证。');
           return;
         }
       } catch {
@@ -212,14 +221,14 @@ export function AdminTab() {
       }
     }
 
-    // 2. 服务端离线或单机模式：本地密码校验
-    if (verifyAdminPassword(loginPasswordInput)) {
+    // 2. 服务端离线或单机模式：本地凭证校验 (账号 + 密码)
+    if (verifyAdminCredentials(loginUsernameInput, loginPasswordInput)) {
       setAdminSession(true);
       setIsAuthenticated(true);
       setIsServerMode(false);
       setLoginPasswordInput('');
     } else {
-      setLoginErrorMsg('管理员密码错误，请核对凭证后重试。');
+      setLoginErrorMsg('管理员账号或密码错误，请核对凭证后重试。');
     }
   };
 
@@ -258,17 +267,24 @@ export function AdminTab() {
       return;
     }
 
+    if (adminUsernameEdit.trim()) {
+      setStoredAdminUsername(adminUsernameEdit.trim());
+      setLoginUsernameInput(adminUsernameEdit.trim());
+    }
     setStoredAdminPassword(newPwdInput);
     setCurrentPwdInput('');
     setNewPwdInput('');
     setConfirmNewPwdInput('');
-    showToast('管理员主密码更新成功！请妥善保存。');
+    showToast('管理员凭据（账号与主密码）更新成功！请妥善保存。');
   };
 
   const handleResetDefaultPassword = () => {
-    if (confirm('确认将管理员密码恢复为初始默认密码 (admin888) 吗？')) {
+    if (confirm('确认将管理员凭证恢复为初始默认值（账号 admin / 密码 admin888）吗？')) {
       setStoredAdminPassword(DEFAULT_ADMIN_PASSWORD);
-      showToast('管理员密码已恢复为默认值：admin888');
+      setStoredAdminUsername(DEFAULT_ADMIN_USERNAME);
+      setAdminUsernameEdit(DEFAULT_ADMIN_USERNAME);
+      setLoginUsernameInput(DEFAULT_ADMIN_USERNAME);
+      showToast('管理员凭证已恢复默认值：账号 admin / 密码 admin888');
     }
   };
 
@@ -531,13 +547,31 @@ export function AdminTab() {
 
         <form onSubmit={handleAdminLogin} className="space-y-4">
           <div>
-            <label className="block text-slate-300 text-xs font-semibold mb-1.5">
-              主管理员密码
+            <label className="block text-slate-300 text-xs font-semibold mb-1.5 flex items-center justify-between">
+              <span>管理员账号</span>
+              <span className="text-[10px] text-cyan-400 font-mono">默认: admin</span>
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                autoFocus
+                required
+                value={loginUsernameInput}
+                onChange={(e) => setLoginUsernameInput(e.target.value)}
+                placeholder="请输入管理员账号..."
+                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-white font-mono text-sm focus:border-cyan-400 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-slate-300 text-xs font-semibold mb-1.5 flex items-center justify-between">
+              <span>管理员主密码</span>
+              <span className="text-[10px] text-cyan-400 font-mono">默认: admin888</span>
             </label>
             <div className="relative">
               <input
                 type={showLoginPassword ? 'text' : 'password'}
-                autoFocus
                 required
                 value={loginPasswordInput}
                 onChange={(e) => setLoginPasswordInput(e.target.value)}
@@ -571,9 +605,11 @@ export function AdminTab() {
         </form>
 
         <div className="mt-6 pt-4 border-t border-slate-800/80 text-center text-[11px] text-slate-500">
-          <span>初始默认密码为 </span>
+          <span>初始默认凭据：账号 </span>
+          <code className="text-cyan-400 font-mono font-bold">admin</code>
+          <span> / 密码 </span>
           <code className="text-cyan-400 font-mono font-bold">admin888</code>
-          <span>。登录后可在【安全与密码】面板中随时修改。</span>
+          <span>。登录后可在【安全与凭证】面板中随时修改。</span>
         </div>
       </div>
     );
@@ -2159,9 +2195,9 @@ export function AdminTab() {
                   <Key className="w-4 h-4" />
                 </span>
                 <div>
-                  <h3 className="font-bold text-white text-sm">修改管理员主密码</h3>
+                  <h3 className="font-bold text-white text-sm">修改管理员登录凭据</h3>
                   <p className="text-slate-400 text-[11px]">
-                    更新解锁此系统管理控制台的最高身份验证凭据
+                    更新解锁此系统管理控制台的最高身份验证凭据（账号与主密码）
                   </p>
                 </div>
               </div>
@@ -2176,31 +2212,43 @@ export function AdminTab() {
 
             <div className="space-y-3">
               <div>
+                <label className="block text-slate-300 mb-1">管理员账号名</label>
+                <input
+                  type="text"
+                  required
+                  value={adminUsernameEdit}
+                  onChange={(e) => setAdminUsernameEdit(e.target.value)}
+                  placeholder="请输入管理员账号或邮箱..."
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono text-xs focus:border-cyan-400 focus:outline-none"
+                />
+              </div>
+
+              <div>
                 <label className="block text-slate-300 mb-1">当前旧密码</label>
                 <input
                   type="password"
                   required
                   value={currentPwdInput}
                   onChange={(e) => setCurrentPwdInput(e.target.value)}
-                  placeholder="请输入当前密码..."
+                  placeholder="请输入当前旧密码以验证身份..."
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono text-xs focus:border-cyan-400 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-300 mb-1">新密码（至少 6 个字符）</label>
+                <label className="block text-slate-300 mb-1">新主密码（至少 6 个字符）</label>
                 <input
                   type="password"
                   required
                   value={newPwdInput}
                   onChange={(e) => setNewPwdInput(e.target.value)}
-                  placeholder="请输入新密码..."
+                  placeholder="请输入新主密码..."
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono text-xs focus:border-cyan-400 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-300 mb-1">确认新密码</label>
+                <label className="block text-slate-300 mb-1">确认新主密码</label>
                 <input
                   type="password"
                   required
@@ -2218,7 +2266,7 @@ export function AdminTab() {
                 onClick={handleResetDefaultPassword}
                 className="text-[11px] text-amber-400 hover:text-amber-300 underline cursor-pointer"
               >
-                恢复初始默认密码 (admin888)
+                恢复初始默认凭据 (admin / admin888)
               </button>
 
               <button
@@ -2226,7 +2274,7 @@ export function AdminTab() {
                 className="px-5 py-2 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-cyan-500/20"
               >
                 <Save className="w-3.5 h-3.5" />
-                <span>更新管理员密码</span>
+                <span>更新管理员凭据</span>
               </button>
             </div>
           </form>

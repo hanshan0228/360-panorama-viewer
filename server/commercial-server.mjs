@@ -171,10 +171,13 @@ export function createCommercialServer(options = {}) {
         const prior = failures.get(ip);
         const attempt = prior && prior.until > Date.now() ? prior : { count: 0, until: Date.now() + 60000 };
         if (attempt.count >= 5) return sendJson(res, 429, { error: 'Too many login attempts' });
-        const { password } = JSON.parse((await readRawBody(req)).toString());
-        if (!verifyPassword(password, readStore(file).adminPasswordHash)) {
+        const body = JSON.parse((await readRawBody(req)).toString());
+        const { username, password } = body || {};
+        const expectedUser = (env.ADMIN_USERNAME || 'admin').trim().toLowerCase();
+        const inputUser = (username || '').trim().toLowerCase();
+        if (inputUser !== expectedUser || !verifyPassword(password, readStore(file).adminPasswordHash)) {
           failures.set(ip, { ...attempt, count: attempt.count + 1 });
-          return sendJson(res, 401, { error: 'Invalid administrator password' });
+          return sendJson(res, 401, { error: '管理员账号或密码错误，请核对凭证。' });
         }
         failures.delete(ip);
         const session = crypto.randomBytes(32).toString('hex');

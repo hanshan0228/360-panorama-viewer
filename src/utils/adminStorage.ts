@@ -18,8 +18,10 @@ const INVOICES_STORAGE_KEY = 'panorama_admin_invoices_config';
 const CURRENT_USER_ID_STORAGE_KEY = 'panorama_current_user_id';
 const PAYMENTS_STORAGE_KEY = 'panorama_admin_payments_config';
 const ADMIN_PASSWORD_STORAGE_KEY = 'panorama_admin_secure_password';
+const ADMIN_USERNAME_STORAGE_KEY = 'panorama_admin_secure_username';
 const ADMIN_AUTH_SESSION_KEY = 'panorama_admin_session_token';
 export const DEFAULT_ADMIN_PASSWORD = 'admin888';
+export const DEFAULT_ADMIN_USERNAME = 'admin';
 
 export const DEFAULT_MODEL_ENDPOINTS: ModelEndpointConfig[] = [
   {
@@ -672,6 +674,24 @@ export function saveStoredPaymentConfig(config: PaymentGatewayConfig): void {
   }
 }
 
+export function getStoredAdminUsername(): string {
+  try {
+    const raw = localStorage.getItem(ADMIN_USERNAME_STORAGE_KEY);
+    if (raw) return raw;
+  } catch {
+    // fallback
+  }
+  return DEFAULT_ADMIN_USERNAME;
+}
+
+export function setStoredAdminUsername(username: string): void {
+  try {
+    localStorage.setItem(ADMIN_USERNAME_STORAGE_KEY, username.trim());
+  } catch {
+    // fallback
+  }
+}
+
 export function getStoredAdminPassword(): string {
   try {
     const raw = localStorage.getItem(ADMIN_PASSWORD_STORAGE_KEY);
@@ -712,5 +732,11 @@ export function setAdminSession(authenticated: boolean): void {
 
 export function verifyAdminPassword(password: string): boolean {
   return password.trim() === getStoredAdminPassword();
+}
+
+export function verifyAdminCredentials(username: string, password: string): boolean {
+  const expectedUser = getStoredAdminUsername().trim().toLowerCase();
+  const inputUser = username.trim().toLowerCase();
+  return inputUser === expectedUser && verifyAdminPassword(password);
 }
 

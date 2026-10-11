@@ -220,6 +220,16 @@ test('adminStorage: password verification, reset, and session authentication gua
   assert.equal(adminStorage.getStoredAdminPassword(), 'mySecurePass999!');
   assert.equal(adminStorage.verifyAdminPassword('mySecurePass999!'), true);
   assert.equal(adminStorage.verifyAdminPassword('admin888'), false);
+
+  // 6. Dual credentials verification (Username + Password)
+  assert.equal(adminStorage.getStoredAdminUsername(), 'admin');
+  assert.equal(adminStorage.verifyAdminCredentials('admin', 'mySecurePass999!'), true);
+  assert.equal(adminStorage.verifyAdminCredentials('wrong-user', 'mySecurePass999!'), false);
+  assert.equal(adminStorage.verifyAdminCredentials('admin', 'wrong-pass'), false);
+  adminStorage.setStoredAdminUsername('master_admin');
+  assert.equal(adminStorage.getStoredAdminUsername(), 'master_admin');
+  assert.equal(adminStorage.verifyAdminCredentials('master_admin', 'mySecurePass999!'), true);
+  assert.equal(adminStorage.verifyAdminCredentials('admin', 'mySecurePass999!'), false);
 });
 
 test('adminStorage: model routing strategies (Single, Failover auto-switch, Round-Robin)', () => {

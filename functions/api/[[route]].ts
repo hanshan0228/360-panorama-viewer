@@ -2,6 +2,7 @@
 
 interface Env {
   DB?: D1Database;
+  ADMIN_USERNAME?: string;
   ADMIN_PASSWORD?: string;
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
@@ -245,12 +246,16 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       });
     }
 
-    // 4. Admin Login
+    // 4. Admin Login with dual username and password credentials
     if (pathname === '/api/admin/login' && request.method === 'POST') {
-      const body = (await request.json().catch(() => ({}))) as { password?: string };
-      const expected = env.ADMIN_PASSWORD || 'admin888';
-      if (typeof body.password !== 'string' || body.password.trim() !== expected.trim()) {
-        return jsonResponse({ error: 'Invalid administrator password' }, 401);
+      const body = (await request.json().catch(() => ({}))) as { username?: string; password?: string };
+      const expectedUser = (env.ADMIN_USERNAME || 'admin').trim().toLowerCase();
+      const expectedPass = (env.ADMIN_PASSWORD || 'admin888').trim();
+      const inputUser = (body.username || '').trim().toLowerCase();
+      const inputPass = (body.password || '').trim();
+
+      if (inputUser !== expectedUser || inputPass !== expectedPass) {
+        return jsonResponse({ error: '管理员账号或密码错误，请核对凭证。' }, 401);
       }
 
       const adminToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');

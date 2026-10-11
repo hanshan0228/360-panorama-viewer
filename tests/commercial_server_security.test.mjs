@@ -59,7 +59,13 @@ test('current bad signature, expired signature and altered body are rejected', (
 test('real HTTP login, protected store, secret whitelist and logout', async (t) => {
   const { base, post } = await withServer(t);
   assert.equal((await fetch(base + '/api/admin/store')).status, 401);
-  const login = await post('/api/admin/login', { password });
+
+  // 1. Wrong username or password fails
+  assert.equal((await post('/api/admin/login', { username: 'wrong-admin', password })).status, 401);
+  assert.equal((await post('/api/admin/login', { username: 'admin', password: 'wrong-password' })).status, 401);
+
+  // 2. Correct credentials succeed
+  const login = await post('/api/admin/login', { username: 'admin', password });
   assert.equal(login.status, 200);
   const { token } = await login.json();
   const headers = { Authorization: `Bearer ${token}` };
