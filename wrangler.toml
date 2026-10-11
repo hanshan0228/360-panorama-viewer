@@ -1,0 +1,8 @@
+name = "panorama-generator"
+compatibility_date = "2026-10-06"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "panorama-db"
+database_id = "07c4c533-a2ba-4e4f-b144-481f90e5d249"
