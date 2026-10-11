@@ -141,7 +141,7 @@ test('user auth registers new users, issues session tokens, and returns user pro
 });
 
 test('admin endpoints persist credit adjustments, status, user creation, billing, and credentials', async (t) => {
-  const { base, post } = await withServer(t);
+  const { file, base, post } = await withServer(t);
   const login = await post('/api/admin/login', { username: 'admin', password });
   const { token } = await login.json();
   const headers = { Authorization: `Bearer ${token}` };
@@ -190,6 +190,17 @@ test('admin endpoints persist credit adjustments, status, user creation, billing
   assert.equal(publicModels.endpoints[0].apiKey, ''); // MUST BE BLANK!
   assert.equal(publicModels.endpoints[0].hasServerKey, true);
   assert.equal(publicModels.routingConfig.mode, 'single');
+
+  // 7. Subsequent admin save with blank apiKey preserves existing cloud secret
+  const blankSaveRes = await post('/api/admin/models', {
+    endpoints: [{ id: 'm1', name: 'Cloud Model Renamed', baseUrl: 'https://api.openai.com/v1', apiKey: '' }],
+    routingConfig: { primaryEndpointId: 'm1', mode: 'single' }
+  }, newHeaders);
+  assert.equal(blankSaveRes.status, 200);
+
+  const rawSaved = readStore(file).models_config;
+  assert.equal(rawSaved.endpoints[0].apiKey, 'sk-secret-never-expose'); // KEY MUST BE PRESERVED!
+  assert.equal(rawSaved.endpoints[0].name, 'Cloud Model Renamed');
 });
 
 test('server-authoritative credit deduction and prevention of unauthorized claims', async (t) => {

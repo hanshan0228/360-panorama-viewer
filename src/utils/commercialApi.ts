@@ -225,7 +225,12 @@ export async function adminCreateUserServer(userData: { name: string; email: str
     });
     if (res.ok) {
       const data = await res.json();
-      return data.user || null;
+      if (data.user) {
+        return {
+          user: data.user,
+          initialPassword: data.initialPassword,
+        };
+      }
     }
   } catch {
     // fallback

@@ -210,6 +210,100 @@ export function createCommercialServer(options = {}) {
         return sendJson(res, 200, { success: true, endpoints: sanitized, routingConfig: routing });
       }
 
+      if (pathname === '/api/generate' && req.method === 'POST') {
+        const body = JSON.parse((await readRawBody(req)).toString());
+        const { prompt, modelId, referenceImages } = body || {};
+        if (!prompt || typeof prompt !== 'string') {
+          return sendJson(res, 400, { success: false, error: 'Prompt is required' });
+        }
+        const store = readStore(file);
+        const rawModels = store.models_config;
+        const endpoints = rawModels ? (Array.isArray(rawModels) ? rawModels : rawModels.endpoints || []) : [];
+        let targetEp = endpoints.find((ep) => ep.id === modelId && ep.isEnabled);
+        if (!targetEp) {
+          targetEp = endpoints.find((ep) => ep.isEnabled && ep.isDefault) || endpoints.find((ep) => ep.isEnabled);
+        }
+        if (!targetEp) {
+          return sendJson(res, 503, { success: false, error: '未配置可用的生图模型端点' });
+        }
+
+        const rawBase = (targetEp.baseUrl || '').replace(/\/+$/, '');
+        const apiKey = (targetEp.apiKey || '').trim();
+        const model = targetEp.model || 'gemini-3.1-flash-image';
+        const isChatMode = model.toLowerCase().includes('gemini') || rawBase.includes('/chat');
+        const targetUrl = isChatMode
+          ? (rawBase.endsWith('/v1') ? `${rawBase}/chat/completions` : `${rawBase}/v1/chat/completions`)
+          : (rawBase.endsWith('/v1') ? `${rawBase}/images/generations` : `${rawBase}/v1/images/generations`);
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+        const validRefs = (referenceImages || []).filter(Boolean);
+        const messageContent = validRefs.length > 0 && isChatMode
+          ? [
+              { type: 'text', text: prompt },
+              ...validRefs.map((img) => ({ type: 'image_url', image_url: { url: img } })),
+            ]
+          : prompt;
+
+        const payload = isChatMode
+          ? { model, messages: [{ role: 'user', content: messageContent }] }
+          : { model, prompt, n: 1, size: '1792x1024', response_format: 'b64_json' };
+
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 90000);
+
+        try {
+          let upstreamRes = await fetch(targetUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+            signal: ctrl.signal,
+          });
+
+          if (!upstreamRes.ok && upstreamRes.status === 400 && validRefs.length > 0 && isChatMode) {
+            upstreamRes = await fetch(targetUrl, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }] }),
+              signal: ctrl.signal,
+            });
+          }
+
+          clearTimeout(timer);
+
+          if (!upstreamRes.ok) {
+            const errText = await upstreamRes.text();
+            return sendJson(res, 502, { success: false, error: `模型端点返回 HTTP ${upstreamRes.status}: ${errText.slice(0, 240)}` });
+          }
+
+          const data = await upstreamRes.json();
+          let imageUrl = null;
+          if (isChatMode) {
+            const msg = data.choices?.[0]?.message;
+            if (msg?.images && msg.images[0]?.image_url?.url) {
+              imageUrl = msg.images[0].image_url.url;
+            } else if (typeof msg?.content === 'string') {
+              const b64 = msg.content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
+              imageUrl = b64 ? b64[0] : (msg.content.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)/i)?.[0] || null);
+            }
+          } else {
+            const item = data.data?.[0];
+            if (item?.b64_json) {
+              imageUrl = item.b64_json.startsWith('data:image') ? item.b64_json : `data:image/png;base64,${item.b64_json}`;
+            } else if (item?.url) {
+              imageUrl = item.url;
+            }
+          }
+
+          if (!imageUrl) return sendJson(res, 502, { success: false, error: '未返回有效图片' });
+          return sendJson(res, 200, { success: true, imageUrl, modelUsed: model });
+        } catch (err) {
+          clearTimeout(timer);
+          return sendJson(res, 504, { success: false, error: `代理调用异常: ${err instanceof Error ? err.message : String(err)}` });
+        }
+      }
+
       // Public Billing Rules Query
       if (pathname === '/api/billing' && req.method === 'GET') {
         const store = readStore(file);
@@ -327,6 +421,24 @@ export function createCommercialServer(options = {}) {
             : body;
           if (!Array.isArray(toSave.endpoints)) return sendJson(res, 400, { success: false, error: 'Endpoints array required' });
           const store = readStore(file);
+
+          const existingRaw = store.models_config;
+          const existingEndpoints = existingRaw ? (Array.isArray(existingRaw) ? existingRaw : existingRaw.endpoints || []) : [];
+
+          const mergedEndpoints = toSave.endpoints.map((newEp) => {
+            const oldEp = existingEndpoints.find((o) => o.id === newEp.id);
+            const hasNewKey = typeof newEp.apiKey === 'string' && newEp.apiKey.trim().length > 0;
+            return {
+              ...newEp,
+              apiKey: hasNewKey
+                ? newEp.apiKey.trim()
+                : oldEp && typeof oldEp.apiKey === 'string'
+                ? oldEp.apiKey
+                : '',
+            };
+          });
+          toSave.endpoints = mergedEndpoints;
+
           store.models_config = toSave;
           persist(store, file);
           return sendJson(res, 200, { success: true, count: toSave.endpoints.length });

@@ -550,7 +550,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         return jsonResponse({ success: true, config: body.config });
       }
 
-      // D1 Write: Persist Model Endpoints & Routing Strategy
+      // D1 Write: Persist Model Endpoints & Routing Strategy (with secure apiKey preservation)
       if (pathname === '/api/admin/models' && request.method === 'POST') {
         const body = (await request.json().catch(() => ({}))) as any;
         const toSave = Array.isArray(body.endpoints)
@@ -559,6 +559,33 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         if (!Array.isArray(toSave.endpoints)) {
           return jsonResponse({ success: false, error: 'Endpoints array required' }, 400);
         }
+
+        // 读取已有配置，安全合并历史密钥，防止前端脱敏的空字符串冲掉云端已存密钥
+        let existingEndpoints: any[] = [];
+        const existingRow = await env.DB.prepare('SELECT value FROM admin_config WHERE key = ?')
+          .bind('models_config')
+          .first<{ value: string }>();
+        if (existingRow?.value) {
+          try {
+            const parsed = JSON.parse(existingRow.value);
+            existingEndpoints = Array.isArray(parsed) ? parsed : parsed.endpoints || [];
+          } catch {}
+        }
+
+        const mergedEndpoints = toSave.endpoints.map((newEp: any) => {
+          const oldEp = existingEndpoints.find((o: any) => o.id === newEp.id);
+          const hasNewKey = typeof newEp.apiKey === 'string' && newEp.apiKey.trim().length > 0;
+          return {
+            ...newEp,
+            apiKey: hasNewKey
+              ? newEp.apiKey.trim()
+              : oldEp && typeof oldEp.apiKey === 'string'
+              ? oldEp.apiKey
+              : '',
+          };
+        });
+        toSave.endpoints = mergedEndpoints;
+
         await env.DB.prepare(`
           INSERT INTO admin_config (key, value) VALUES ('models_config', ?)
           ON CONFLICT(key) DO UPDATE SET value = excluded.value
@@ -676,6 +703,131 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         checkoutUrl: sessionData.url,
         sessionId: sessionData.id,
       });
+    }
+
+    // 8. Server-authoritative Generation Proxy (Protects admin API keys, bypasses CORS, serves all visitors)
+    if (pathname === '/api/generate' && request.method === 'POST') {
+      const body = (await request.json().catch(() => ({}))) as {
+        prompt?: string;
+        modelId?: string;
+        referenceImages?: string[];
+      };
+      const { prompt, modelId, referenceImages } = body;
+      if (!prompt || typeof prompt !== 'string') {
+        return jsonResponse({ success: false, error: 'Prompt is required' }, 400);
+      }
+
+      let endpoints: any[] = [];
+      if (env.DB) {
+        const row = await env.DB.prepare('SELECT value FROM admin_config WHERE key = ?')
+          .bind('models_config')
+          .first<{ value: string }>();
+        if (row?.value) {
+          try {
+            const parsed = JSON.parse(row.value);
+            endpoints = Array.isArray(parsed) ? parsed : parsed.endpoints || [];
+          } catch {}
+        }
+      }
+
+      let targetEp = endpoints.find((ep) => ep.id === modelId && ep.isEnabled);
+      if (!targetEp) {
+        targetEp = endpoints.find((ep) => ep.isEnabled && ep.isDefault) || endpoints.find((ep) => ep.isEnabled);
+      }
+
+      if (!targetEp) {
+        return jsonResponse({
+          success: false,
+          error: '服务端当前未配置可用的 AI 生图模型端点，请在管理后台配置并启用端点。',
+        }, 503);
+      }
+
+      const rawBase = (targetEp.baseUrl || '').replace(/\/+$/, '');
+      const apiKey = (targetEp.apiKey || '').trim();
+      const model = targetEp.model || 'gemini-3.1-flash-image';
+
+      const isChatMode = model.toLowerCase().includes('gemini') || rawBase.includes('/chat');
+      const targetUrl = isChatMode
+        ? (rawBase.endsWith('/v1') ? `${rawBase}/chat/completions` : `${rawBase}/v1/chat/completions`)
+        : (rawBase.endsWith('/v1') ? `${rawBase}/images/generations` : `${rawBase}/v1/images/generations`);
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+      const validRefs = (referenceImages || []).filter(Boolean);
+      const messageContent = validRefs.length > 0 && isChatMode
+        ? [
+            { type: 'text', text: prompt },
+            ...validRefs.map((img) => ({ type: 'image_url', image_url: { url: img } })),
+          ]
+        : prompt;
+
+      const payload = isChatMode
+        ? { model, messages: [{ role: 'user', content: messageContent }] }
+        : { model, prompt, n: 1, size: '1792x1024', response_format: 'b64_json' };
+
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 90000);
+
+      try {
+        let upstreamRes = await fetch(targetUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+          signal: ctrl.signal,
+        });
+
+        // 400 降级重试纯文本
+        if (!upstreamRes.ok && upstreamRes.status === 400 && validRefs.length > 0 && isChatMode) {
+          upstreamRes = await fetch(targetUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }] }),
+            signal: ctrl.signal,
+          });
+        }
+
+        clearTimeout(timer);
+
+        if (!upstreamRes.ok) {
+          const errText = await upstreamRes.text();
+          return jsonResponse({
+            success: false,
+            error: `模型端点返回 HTTP ${upstreamRes.status}: ${errText.slice(0, 240)}`,
+          }, 502);
+        }
+
+        const data = (await upstreamRes.json()) as any;
+        let imageUrl: string | null = null;
+        if (isChatMode) {
+          const msg = data.choices?.[0]?.message;
+          if (msg?.images && msg.images[0]?.image_url?.url) {
+            imageUrl = msg.images[0].image_url.url;
+          } else if (typeof msg?.content === 'string') {
+            const b64 = msg.content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
+            imageUrl = b64 ? b64[0] : (msg.content.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)/i)?.[0] || null);
+          }
+        } else {
+          const item = data.data?.[0];
+          if (item?.b64_json) {
+            imageUrl = item.b64_json.startsWith('data:image') ? item.b64_json : `data:image/png;base64,${item.b64_json}`;
+          } else if (item?.url) {
+            imageUrl = item.url;
+          }
+        }
+
+        if (!imageUrl) {
+          return jsonResponse({ success: false, error: '模型响应成功但未返回有效图片数据' }, 502);
+        }
+
+        return jsonResponse({ success: true, imageUrl, modelUsed: model });
+      } catch (err: unknown) {
+        clearTimeout(timer);
+        return jsonResponse({
+          success: false,
+          error: `代理调用模型端点异常: ${err instanceof Error ? err.message : String(err)}`,
+        }, 504);
+      }
     }
 
     return jsonResponse({ error: 'Route not found' }, 404);

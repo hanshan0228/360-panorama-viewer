@@ -22,7 +22,7 @@ import {
   Code2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import type { ActiveTab, StylePreset, StylePresetId, ResolutionTier } from '../types/panorama';
+import type { ActiveTab, StylePreset, StylePresetId, ResolutionTier, ManagedUser } from '../types/panorama';
 import { SphereViewer } from './SphereViewer';
 import { exportCanvasToHdrBlob } from '../utils/hdrExporter';
 import {
@@ -50,6 +50,8 @@ import {
   deductCurrentUserCredits,
   getModelExecutionPipeline,
   getStoredBillingConfig,
+  getStoredManagedUsers,
+  saveStoredManagedUsers,
 } from '../utils/adminStorage';
 
 const PROMPT_BUILDER_CATEGORIES = [
@@ -485,10 +487,22 @@ export function GeneratorTab({
           remainingCredits = srvRes.remaining;
           const updated = { ...currentUser, creditsBalance: srvRes.remaining };
           setCurrentUser(updated);
+          // 彻底同步本地持久化用户记录，防止下一次生成前的前置余额检查读取到旧值
+          const users = getStoredManagedUsers();
+          const uIdx = users.findIndex((u: ManagedUser) => u.id === currentUser.id);
+          if (uIdx !== -1) {
+            users[uIdx] = updated;
+            saveStoredManagedUsers(users);
+          }
+        } else {
+          // 严密风控：云端账号若扣分失败，严禁退回本地扣分假装成功！直接阻断并弹出升级提示
+          setIsGenerating(false);
+          setApiError(srvRes.error || '云端账户积分扣减失败，请检查余额或重新登录。');
+          setIsCheckoutOpen(true);
+          return;
         }
-      }
-
-      if (!deductSuccess) {
+      } else {
+        // 未登录试用访客才走本地试用积分扣除
         const localRes = deductCurrentUserCredits(creditsCost);
         deductSuccess = localRes.success;
         remainingCredits = localRes.remaining;

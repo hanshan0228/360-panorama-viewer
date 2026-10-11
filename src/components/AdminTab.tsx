@@ -484,11 +484,11 @@ export function AdminTab() {
         credits: newUserForm.credits,
         password: newUserForm.password?.trim() || undefined,
       });
-      if (!created) {
+      if (!created || !created.user) {
         showToast('云端创建用户失败，请检查输入或权限。');
         return;
       }
-      assignedId = created.id;
+      assignedId = created.user.id;
       if (created.initialPassword) {
         initialPwdNote = ` (初始密码: ${created.initialPassword})`;
       }

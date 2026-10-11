@@ -241,6 +241,30 @@ export async function generateWithGemini(
   const isGoogleDirect = normalizedBase.includes('googleapis.com');
   let rawImageUrl: string | null = null;
 
+  // Route through secure backend proxy when no client apiKey is present or on public domain
+  const isPublicWeb = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+  if ((!apiKey || isPublicWeb) && typeof window !== 'undefined') {
+    try {
+      const proxyRes = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          modelId: model,
+          referenceImages,
+        }),
+      });
+      if (proxyRes.ok) {
+        const proxyData = await proxyRes.json();
+        if (proxyData.success && proxyData.imageUrl) {
+          return proxyData.imageUrl;
+        }
+      }
+    } catch {
+      // Fallback to direct request if proxy unreachable
+    }
+  }
+
   if (!isGoogleDirect) {
     const isGeminiChatImage = model.toLowerCase().includes('gemini');
 
