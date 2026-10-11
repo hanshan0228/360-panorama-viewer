@@ -103,7 +103,8 @@ export async function createServerStripeCheckout(params: {
  */
 export async function authServerUser(
   email: string,
-  name?: string
+  name?: string,
+  password?: string
 ): Promise<{ success: boolean; user?: any; token?: string; error?: string }> {
   try {
     const res = await fetch('/api/user/auth', {
@@ -111,7 +112,7 @@ export async function authServerUser(
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, name }),
+      body: JSON.stringify({ email, name, password }),
     });
 
     const data = await res.json();
@@ -159,5 +160,102 @@ export async function fetchServerUser(token?: string): Promise<{
     return { success: false, error: 'Session expired or invalid' };
   } catch {
     return { success: false, error: 'Network error checking user profile' };
+  }
+}
+
+/**
+ * Publicly fetches active billing configuration from server if available
+ */
+export async function fetchPublicBillingConfig(): Promise<any | null> {
+  try {
+    const res = await fetch('/api/billing');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.config) return data.config;
+    }
+  } catch {
+    // fallback
+  }
+  return null;
+}
+
+function getAdminHeaders(): Record<string, string> {
+  const token = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('panorama_admin_server_token') : null;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+export async function adminAdjustUserCreditsServer(userId: string, delta: number): Promise<boolean> {
+  try {
+    const res = await fetch('/api/admin/users/credits', {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ userId, delta }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function adminUpdateUserStatusServer(userId: string, status: 'active' | 'suspended'): Promise<boolean> {
+  try {
+    const res = await fetch('/api/admin/users/status', {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ userId, status }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function adminCreateUserServer(userData: { name: string; email: string; plan?: string; credits?: number }): Promise<any | null> {
+  try {
+    const res = await fetch('/api/admin/users/create', {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify(userData),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.user || null;
+    }
+  } catch {
+    // fallback
+  }
+  return null;
+}
+
+export async function adminSaveBillingConfigServer(config: any): Promise<boolean> {
+  try {
+    const res = await fetch('/api/admin/billing', {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ config }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function adminUpdateCredentialsServer(currentPassword: string, newUsername?: string, newPassword?: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/admin/credentials', {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ currentPassword, newUsername, newPassword }),
+    });
+    const data = await res.json();
+    return { success: res.ok && data.success, error: data.error };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Network error' };
   }
 }

@@ -73,7 +73,16 @@ import {
   DEFAULT_ADMIN_USERNAME,
 } from '../utils/adminStorage';
 import { testProxyConnection } from '../utils/geminiClient';
-import { probeBackendHealth, type BackendHealthStatus } from '../utils/commercialApi';
+import {
+  probeBackendHealth,
+  type BackendHealthStatus,
+  adminAdjustUserCreditsServer,
+  adminUpdateUserStatusServer,
+  adminCreateUserServer,
+  adminSaveBillingConfigServer,
+  adminUpdateCredentialsServer,
+  fetchPublicBillingConfig,
+} from '../utils/commercialApi';
 
 export function AdminTab() {
   // Session Authentication Guard
@@ -131,8 +140,15 @@ export function AdminTab() {
     return typeof sessionStorage !== 'undefined' && Boolean(sessionStorage.getItem('panorama_admin_server_token'));
   });
 
+  // 5. Billing Config State
+  const [billingConfig, setBillingConfig] = useState<SystemBillingConfig>(() => getStoredBillingConfig());
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
   // Probe server on mount and sync store if authenticated
   useEffect(() => {
+    fetchPublicBillingConfig().then((cfg) => {
+      if (cfg) setBillingConfig(cfg);
+    });
     probeBackendHealth().then((status) => {
       setBackendStatus(status);
       if (status.isOnline) {
@@ -160,10 +176,6 @@ export function AdminTab() {
     setActiveSubSection('payments');
     probeBackendHealth().then((status) => setBackendStatus(status));
   };
-
-  // 5. Billing Config State
-  const [billingConfig, setBillingConfig] = useState<SystemBillingConfig>(() => getStoredBillingConfig());
-  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
   // 6. Security & Password Management State
   const [adminUsernameEdit, setAdminUsernameEdit] = useState(() => getStoredAdminUsername() || 'admin');
@@ -272,6 +284,9 @@ export function AdminTab() {
       setLoginUsernameInput(adminUsernameEdit.trim());
     }
     setStoredAdminPassword(newPwdInput);
+    if (isServerMode) {
+      adminUpdateCredentialsServer(currentPwdInput, adminUsernameEdit.trim(), newPwdInput);
+    }
     setCurrentPwdInput('');
     setNewPwdInput('');
     setConfirmNewPwdInput('');
@@ -284,6 +299,9 @@ export function AdminTab() {
       setStoredAdminUsername(DEFAULT_ADMIN_USERNAME);
       setAdminUsernameEdit(DEFAULT_ADMIN_USERNAME);
       setLoginUsernameInput(DEFAULT_ADMIN_USERNAME);
+      if (isServerMode) {
+        adminUpdateCredentialsServer(DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD);
+      }
       showToast('管理员凭证已恢复默认值：账号 admin / 密码 admin888');
     }
   };
@@ -398,6 +416,9 @@ export function AdminTab() {
     const next = users.map((u) => (u.id === userId ? { ...u, status: newStatus } : u));
     setUsers(next);
     saveStoredManagedUsers(next);
+    if (isServerMode) {
+      adminUpdateUserStatusServer(userId, newStatus);
+    }
     showToast(`用户账号状态已变更为：${newStatus === 'active' ? '正常活跃' : '已封禁挂起'}`);
   };
 
@@ -411,6 +432,9 @@ export function AdminTab() {
     });
     setUsers(next);
     saveStoredManagedUsers(next);
+    if (isServerMode) {
+      adminAdjustUserCreditsServer(userId, delta);
+    }
     setEditingUserCredits(null);
     if (userId === currentSessionUser.id) {
       setCurrentSessionUser(getCurrentUser());
@@ -438,6 +462,9 @@ export function AdminTab() {
     const next = [newUsr, ...users];
     setUsers(next);
     saveStoredManagedUsers(next);
+    if (isServerMode) {
+      adminCreateUserServer(newUsr);
+    }
     setIsAddingUser(false);
     setNewUserForm({ name: '', email: '', plan: 'pro', credits: 1000 });
     showToast(`成功创建受管用户：${newUsr.name}`);
@@ -470,6 +497,9 @@ export function AdminTab() {
   const handleSaveBilling = (e: React.FormEvent) => {
     e.preventDefault();
     saveStoredBillingConfig(billingConfig);
+    if (isServerMode) {
+      adminSaveBillingConfigServer(billingConfig);
+    }
     showToast('商业计费规则与积分费率已保存。');
   };
 

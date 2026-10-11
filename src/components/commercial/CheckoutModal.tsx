@@ -68,8 +68,8 @@ export function CheckoutModal({
   // Dynamic Plan Pricing Data linked with Admin Billing Configuration
   const billingConfig = getStoredBillingConfig();
   const proMonthly = billingConfig.proMonthlyPriceUsd || 19;
-  const proYearlyPerMonth = Math.round(proMonthly * 0.5 * 10) / 10;
-  const proYearlyTotal = parseFloat((proYearlyPerMonth * 12).toFixed(1));
+  const proYearlyPerMonth = 9.9;
+  const proYearlyTotal = 118.8;
   const proCredits = billingConfig.proMonthlyCredits || 1000;
 
   const PRICING = {

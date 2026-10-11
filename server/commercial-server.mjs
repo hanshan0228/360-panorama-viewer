@@ -125,17 +125,29 @@ export function createCommercialServer(options = {}) {
           gateways: { stripeConfigured: Boolean(env.STRIPE_SECRET_KEY), stripeWebhookConfigured: Boolean(env.STRIPE_WEBHOOK_SECRET), paypalConfigured: false } });
       }
 
-      // User Authentication and Identity Management
+      // User Authentication and Identity Management with Password support
       if (pathname === '/api/user/auth' && req.method === 'POST') {
         const body = JSON.parse((await readRawBody(req)).toString());
-        const { email, name } = body || {};
+        const { email, name, password } = body || {};
         if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
           return sendJson(res, 400, { success: false, error: 'Valid email address is required' });
         }
         const store = readStore(file);
         store.users = store.users || [];
         let user = store.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-        if (!user) {
+        if (user) {
+          if (user.password_hash) {
+            if (!password) {
+              return sendJson(res, 401, { success: false, error: '请输入账户密码' });
+            }
+            if (!verifyPassword(password, user.password_hash)) {
+              return sendJson(res, 401, { success: false, error: '账户密码错误，请核对凭证' });
+            }
+          } else if (password && password.length >= 6) {
+            user.password_hash = hashPassword(password);
+            persist(store, file);
+          }
+        } else {
           user = {
             id: 'usr_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12),
             email: email.toLowerCase(),
@@ -145,6 +157,7 @@ export function createCommercialServer(options = {}) {
             creditsTotal: 4,
             apiCallsCount: 0,
             status: 'active',
+            password_hash: password && password.length >= 6 ? hashPassword(password) : undefined,
             createdAt: new Date().toISOString(),
           };
           store.users.push(user);
@@ -166,6 +179,21 @@ export function createCommercialServer(options = {}) {
         return sendJson(res, 200, { success: true, user });
       }
 
+      // Public Billing Rules Query
+      if (pathname === '/api/billing' && req.method === 'GET') {
+        const store = readStore(file);
+        const config = store.billing_config || {
+          freeMonthlyCredits: 4,
+          proMonthlyPriceUsd: 19,
+          proMonthlyCredits: 1000,
+          enterpriseCustomPricing: true,
+          creditCostPer1K: 1,
+          creditCostPer2K: 2,
+          creditCostPer4K: 4,
+        };
+        return sendJson(res, 200, { success: true, config });
+      }
+
       if (pathname === '/api/admin/login' && req.method === 'POST') {
         const ip = req.socket.remoteAddress;
         const prior = failures.get(ip);
@@ -173,9 +201,11 @@ export function createCommercialServer(options = {}) {
         if (attempt.count >= 5) return sendJson(res, 429, { error: 'Too many login attempts' });
         const body = JSON.parse((await readRawBody(req)).toString());
         const { username, password } = body || {};
-        const expectedUser = (env.ADMIN_USERNAME || 'admin').trim().toLowerCase();
+        const store = readStore(file);
+        const expectedUser = (store.admin_username || env.ADMIN_USERNAME || 'admin').trim().toLowerCase();
         const inputUser = (username || '').trim().toLowerCase();
-        if (inputUser !== expectedUser || !verifyPassword(password, readStore(file).adminPasswordHash)) {
+        const expectedHash = store.adminPasswordHash;
+        if (inputUser !== expectedUser || !verifyPassword(password, expectedHash)) {
           failures.set(ip, { ...attempt, count: attempt.count + 1 });
           return sendJson(res, 401, { error: '管理员账号或密码错误，请核对凭证。' });
         }
@@ -193,6 +223,83 @@ export function createCommercialServer(options = {}) {
         if (pathname === '/api/admin/store' && req.method === 'GET') {
           const store = readStore(file);
           return sendJson(res, 200, { users: store.users, subscriptions: store.subscriptions, invoices: store.invoices });
+        }
+        // Admin Write: Adjust User Credits
+        if (pathname === '/api/admin/users/credits' && req.method === 'POST') {
+          const { userId, delta } = JSON.parse((await readRawBody(req)).toString());
+          if (!userId || typeof delta !== 'number' || isNaN(delta)) {
+            return sendJson(res, 400, { success: false, error: 'Invalid userId or delta' });
+          }
+          const store = readStore(file);
+          const target = store.users?.find((u) => u.id === userId);
+          if (!target) return sendJson(res, 404, { success: false, error: 'User not found' });
+          target.creditsBalance = Math.max(0, target.creditsBalance + delta);
+          if (delta > 0) target.creditsTotal = (target.creditsTotal || 0) + delta;
+          persist(store, file);
+          return sendJson(res, 200, { success: true, user: target });
+        }
+        // Admin Write: Update User Account Status
+        if (pathname === '/api/admin/users/status' && req.method === 'POST') {
+          const { userId, status } = JSON.parse((await readRawBody(req)).toString());
+          if (!userId || !['active', 'suspended'].includes(status)) {
+            return sendJson(res, 400, { success: false, error: 'Invalid userId or status' });
+          }
+          const store = readStore(file);
+          const target = store.users?.find((u) => u.id === userId);
+          if (!target) return sendJson(res, 404, { success: false, error: 'User not found' });
+          target.status = status;
+          persist(store, file);
+          return sendJson(res, 200, { success: true, userId, status });
+        }
+        // Admin Write: Create Managed User
+        if (pathname === '/api/admin/users/create' && req.method === 'POST') {
+          const { name, email, plan, credits } = JSON.parse((await readRawBody(req)).toString());
+          if (!email || !name) {
+            return sendJson(res, 400, { success: false, error: 'Name and email are required' });
+          }
+          const store = readStore(file);
+          const newId = 'usr_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+          const initCredits = typeof credits === 'number' && credits >= 0 ? credits : 1000;
+          const newUsr = {
+            id: newId,
+            email: email.toLowerCase(),
+            name: name.trim(),
+            plan: plan || 'pro',
+            creditsBalance: initCredits,
+            creditsTotal: initCredits,
+            status: 'active',
+            createdAt: new Date().toISOString(),
+          };
+          store.users = store.users || [];
+          store.users.unshift(newUsr);
+          persist(store, file);
+          return sendJson(res, 200, { success: true, user: newUsr });
+        }
+        // Admin Write: Persist Billing Configuration
+        if (pathname === '/api/admin/billing' && req.method === 'POST') {
+          const { config } = JSON.parse((await readRawBody(req)).toString());
+          if (!config) return sendJson(res, 400, { success: false, error: 'Config required' });
+          const store = readStore(file);
+          store.billing_config = config;
+          persist(store, file);
+          return sendJson(res, 200, { success: true, config });
+        }
+        // Admin Write: Persist Admin Credentials
+        if (pathname === '/api/admin/credentials' && req.method === 'POST') {
+          const { currentPassword, newUsername, newPassword } = JSON.parse((await readRawBody(req)).toString());
+          const store = readStore(file);
+          if (!verifyPassword(currentPassword, store.adminPasswordHash)) {
+            return sendJson(res, 401, { success: false, error: '当前旧密码输入错误' });
+          }
+          if (typeof newPassword !== 'string' || newPassword.length < 6) {
+            return sendJson(res, 400, { success: false, error: '新密码不能少于 6 个字符' });
+          }
+          store.adminPasswordHash = hashPassword(newPassword);
+          if (newUsername && typeof newUsername === 'string') {
+            store.admin_username = newUsername.trim();
+          }
+          persist(store, file);
+          return sendJson(res, 200, { success: true });
         }
       }
 

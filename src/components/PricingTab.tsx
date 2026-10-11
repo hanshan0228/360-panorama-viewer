@@ -175,10 +175,13 @@ export function PricingTab() {
             </div>
             <div className="flex items-baseline gap-1">
               <span className="text-4xl font-black text-white">
-                {billingCycle === 'yearly' ? '$9.9' : '$19.9'}
+                {billingCycle === 'yearly' ? '$9.9' : '$19'}
               </span>
               <span className="text-xs text-cyan-300/80">/ mo</span>
             </div>
+            {billingCycle === 'yearly' && (
+              <div className="text-[11px] text-cyan-300/80 font-mono">Billed annually ($118.8/yr)</div>
+            )}
             <ul className="space-y-3 text-xs text-cyan-50 pt-2 border-t border-cyan-400/25">
               <li className="flex items-center gap-2.5">
                 <div className="p-1 rounded-full bg-cyan-400 text-slate-950 font-bold shadow-sm">
@@ -234,10 +237,13 @@ export function PricingTab() {
             </div>
             <div className="flex items-baseline gap-1">
               <span className="text-4xl font-black text-white">
-                {billingCycle === 'yearly' ? '$29.9' : '$49.9'}
+                {billingCycle === 'yearly' ? '$29' : '$49'}
               </span>
               <span className="text-xs text-cyan-300/60">/ mo</span>
             </div>
+            {billingCycle === 'yearly' && (
+              <div className="text-[11px] text-cyan-300/80 font-mono">Billed annually ($348/yr)</div>
+            )}
             <ul className="space-y-3 text-xs text-cyan-100/90 pt-2 border-t border-cyan-500/15">
               <li className="flex items-center gap-2.5">
                 <div className="p-1 rounded-full bg-cyan-400/20 text-cyan-300">

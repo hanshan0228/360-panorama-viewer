@@ -22,6 +22,25 @@ function jsonResponse(data: unknown, status = 200): Response {
   });
 }
 
+// Lightweight salt-hashed password utilities using Web Crypto API
+async function hashPasswordWithSalt(password: string, salt = crypto.randomUUID().replace(/-/g, '')): Promise<string> {
+  const enc = new TextEncoder();
+  const data = enc.encode(`${salt}:${password}`);
+  const hashBuf = await crypto.subtle.digest('SHA-256', data);
+  const hashArr = Array.from(new Uint8Array(hashBuf));
+  const hashHex = hashArr.map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `sha256:${salt}:${hashHex}`;
+}
+
+async function verifyHashedPassword(password: string, storedHash: string): Promise<boolean> {
+  if (!storedHash || !storedHash.startsWith('sha256:')) return false;
+  const parts = storedHash.split(':');
+  if (parts.length !== 3) return false;
+  const salt = parts[1];
+  const computed = await hashPasswordWithSalt(password, salt);
+  return computed === storedHash;
+}
+
 // Auto-bootstrap D1 database tables if they do not exist
 async function ensureDbInitialized(db: D1Database): Promise<void> {
   await db.batch([
@@ -35,6 +54,7 @@ async function ensureDbInitialized(db: D1Database): Promise<void> {
         credits_total INTEGER NOT NULL DEFAULT 4,
         api_calls_count INTEGER NOT NULL DEFAULT 0,
         status TEXT NOT NULL DEFAULT 'active',
+        password_hash TEXT,
         created_at TEXT NOT NULL
       );
     `),
@@ -43,6 +63,12 @@ async function ensureDbInitialized(db: D1Database): Promise<void> {
         token TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
         expires_at INTEGER NOT NULL
+      );
+    `),
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS admin_config (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
       );
     `),
     db.prepare(`
@@ -133,13 +159,45 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       await ensureDbInitialized(env.DB);
     }
 
+    // Public Pricing / Billing Rules Query
+    if (pathname === '/api/billing' && request.method === 'GET') {
+      if (env.DB) {
+        const row = await env.DB.prepare('SELECT value FROM admin_config WHERE key = ?')
+          .bind('billing_config')
+          .first<{ value: string }>();
+        if (row?.value) {
+          try {
+            return jsonResponse({ success: true, config: JSON.parse(row.value) });
+          } catch {
+            // fallback
+          }
+        }
+      }
+      return jsonResponse({
+        success: true,
+        config: {
+          freeMonthlyCredits: 4,
+          proMonthlyPriceUsd: 19,
+          proMonthlyCredits: 1000,
+          enterpriseCustomPricing: true,
+          creditCostPer1K: 1,
+          creditCostPer2K: 2,
+          creditCostPer4K: 4,
+        },
+      });
+    }
+
     const authHeader = request.headers.get('Authorization') || '';
     const token = authHeader.replace(/^Bearer\s+/i, '');
 
-    // 2. User Authentication (Register / Login)
+    // 2. User Authentication (Register / Login with Password Support)
     if (pathname === '/api/user/auth' && request.method === 'POST') {
-      const body = (await request.json().catch(() => ({}))) as { email?: string; name?: string };
-      const { email, name } = body;
+      const body = (await request.json().catch(() => ({}))) as {
+        email?: string;
+        name?: string;
+        password?: string;
+      };
+      const { email, name, password } = body;
       if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return jsonResponse({ success: false, error: 'Valid email address is required' }, 400);
       }
@@ -159,17 +217,37 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           credits_total: number;
           api_calls_count: number;
           status: string;
+          password_hash?: string;
         }>();
 
-      if (!user) {
+      if (user) {
+        // Existing user: if password is set, verify credentials
+        if (user.password_hash) {
+          if (!password) {
+            return jsonResponse({ success: false, error: '请输入账户密码' }, 401);
+          }
+          const valid = await verifyHashedPassword(password, user.password_hash);
+          if (!valid) {
+            return jsonResponse({ success: false, error: '账户密码错误，请核对凭证' }, 401);
+          }
+        } else if (password && password.length >= 6) {
+          // Set password on first authentication if legacy user
+          const pwdHash = await hashPasswordWithSalt(password);
+          await env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
+            .bind(pwdHash, user.id)
+            .run();
+        }
+      } else {
+        // New user registration: grant 4 trial credits
         const userId = 'usr_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12);
         const displayName = typeof name === 'string' && name.trim() ? name.trim() : email.split('@')[0];
         const now = new Date().toISOString();
+        const pwdHash = password && password.length >= 6 ? await hashPasswordWithSalt(password) : null;
 
         await env.DB.prepare(`
-          INSERT INTO users (id, email, name, plan, credits_balance, credits_total, api_calls_count, status, created_at)
-          VALUES (?, ?, ?, 'free', 4, 4, 0, 'active', ?)
-        `).bind(userId, email.toLowerCase(), displayName, now).run();
+          INSERT INTO users (id, email, name, plan, credits_balance, credits_total, api_calls_count, status, password_hash, created_at)
+          VALUES (?, ?, ?, 'free', 4, 4, 0, 'active', ?, ?)
+        `).bind(userId, email.toLowerCase(), displayName, pwdHash, now).run();
 
         user = {
           id: userId,
@@ -249,8 +327,22 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     // 4. Admin Login with dual username and password credentials
     if (pathname === '/api/admin/login' && request.method === 'POST') {
       const body = (await request.json().catch(() => ({}))) as { username?: string; password?: string };
-      const expectedUser = (env.ADMIN_USERNAME || 'admin').trim().toLowerCase();
-      const expectedPass = (env.ADMIN_PASSWORD || 'admin888').trim();
+      let expectedUser = (env.ADMIN_USERNAME || 'admin').trim().toLowerCase();
+      let expectedPass = (env.ADMIN_PASSWORD || 'admin888').trim();
+
+      // Check if custom credentials are saved in D1 admin_config
+      if (env.DB) {
+        const storedUser = await env.DB.prepare('SELECT value FROM admin_config WHERE key = ?')
+          .bind('admin_username')
+          .first<{ value: string }>();
+        const storedPass = await env.DB.prepare('SELECT value FROM admin_config WHERE key = ?')
+          .bind('admin_password')
+          .first<{ value: string }>();
+
+        if (storedUser?.value) expectedUser = storedUser.value.trim().toLowerCase();
+        if (storedPass?.value) expectedPass = storedPass.value.trim();
+      }
+
       const inputUser = (body.username || '').trim().toLowerCase();
       const inputPass = (body.password || '').trim();
 
@@ -269,7 +361,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       return jsonResponse({ success: true, token: adminToken });
     }
 
-    // 5. Admin Store & Logout
+    // 5. Admin Protected Endpoints
     if (pathname.startsWith('/api/admin/')) {
       if (!env.DB) return jsonResponse({ error: 'Database unavailable' }, 503);
 
@@ -286,6 +378,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         return jsonResponse({ success: true });
       }
 
+      // Fetch Store (Users, Subscriptions, Invoices)
       if (pathname === '/api/admin/store' && request.method === 'GET') {
         const usersResult = await env.DB.prepare('SELECT * FROM users ORDER BY created_at DESC LIMIT 100').all();
         const subsResult = await env.DB.prepare('SELECT * FROM subscriptions ORDER BY created_at DESC LIMIT 100').all();
@@ -308,6 +401,109 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           subscriptions: subsResult.results || [],
           invoices: invsResult.results || [],
         });
+      }
+
+      // D1 Write: Adjust User Credits
+      if (pathname === '/api/admin/users/credits' && request.method === 'POST') {
+        const { userId, delta } = (await request.json().catch(() => ({}))) as { userId?: string; delta?: number };
+        if (!userId || typeof delta !== 'number' || isNaN(delta)) {
+          return jsonResponse({ success: false, error: 'Invalid user or delta amount' }, 400);
+        }
+        await env.DB.prepare(`
+          UPDATE users SET credits_balance = MAX(0, credits_balance + ?),
+            credits_total = CASE WHEN ? > 0 THEN credits_total + ? ELSE credits_total END
+          WHERE id = ?
+        `).bind(delta, delta, delta, userId).run();
+
+        const updated = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first<any>();
+        return jsonResponse({ success: true, user: updated });
+      }
+
+      // D1 Write: Update User Account Status (active / suspended)
+      if (pathname === '/api/admin/users/status' && request.method === 'POST') {
+        const { userId, status } = (await request.json().catch(() => ({}))) as { userId?: string; status?: string };
+        if (!userId || !['active', 'suspended'].includes(status || '')) {
+          return jsonResponse({ success: false, error: 'Invalid userId or status' }, 400);
+        }
+        await env.DB.prepare('UPDATE users SET status = ? WHERE id = ?').bind(status, userId).run();
+        return jsonResponse({ success: true, userId, status });
+      }
+
+      // D1 Write: Create Managed User
+      if (pathname === '/api/admin/users/create' && request.method === 'POST') {
+        const { name, email, plan, credits } = (await request.json().catch(() => ({}))) as any;
+        if (!email || !name) {
+          return jsonResponse({ success: false, error: 'Name and email are required' }, 400);
+        }
+        const userId = 'usr_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+        const initCredits = typeof credits === 'number' && credits >= 0 ? credits : 1000;
+        const now = new Date().toISOString();
+
+        await env.DB.prepare(`
+          INSERT INTO users (id, email, name, plan, credits_balance, credits_total, api_calls_count, status, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, 0, 'active', ?)
+        `).bind(userId, email.toLowerCase(), name.trim(), plan || 'pro', initCredits, initCredits, now).run();
+
+        return jsonResponse({
+          success: true,
+          user: {
+            id: userId,
+            email: email.toLowerCase(),
+            name: name.trim(),
+            plan: plan || 'pro',
+            creditsBalance: initCredits,
+            creditsTotal: initCredits,
+            status: 'active',
+            createdAt: now,
+          },
+        });
+      }
+
+      // D1 Write: Persist Billing Configuration
+      if (pathname === '/api/admin/billing' && request.method === 'POST') {
+        const body = (await request.json().catch(() => ({}))) as { config?: any };
+        if (!body.config) {
+          return jsonResponse({ success: false, error: 'Billing config required' }, 400);
+        }
+        await env.DB.prepare(`
+          INSERT INTO admin_config (key, value) VALUES ('billing_config', ?)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        `).bind(JSON.stringify(body.config)).run();
+        return jsonResponse({ success: true, config: body.config });
+      }
+
+      // D1 Write: Persist Admin Credentials (Username and Password)
+      if (pathname === '/api/admin/credentials' && request.method === 'POST') {
+        const { currentPassword, newUsername, newPassword } = (await request.json().catch(() => ({}))) as any;
+        let expectedPass = (env.ADMIN_PASSWORD || 'admin888').trim();
+        const storedPass = await env.DB.prepare('SELECT value FROM admin_config WHERE key = ?')
+          .bind('admin_password')
+          .first<{ value: string }>();
+        if (storedPass?.value) expectedPass = storedPass.value.trim();
+
+        if (currentPassword?.trim() !== expectedPass) {
+          return jsonResponse({ success: false, error: '当前旧密码输入错误' }, 401);
+        }
+        if (typeof newPassword !== 'string' || newPassword.length < 6) {
+          return jsonResponse({ success: false, error: '新密码不能少于 6 个字符' }, 400);
+        }
+
+        const writes = [
+          env.DB.prepare(`
+            INSERT INTO admin_config (key, value) VALUES ('admin_password', ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+          `).bind(newPassword.trim()),
+        ];
+        if (newUsername && typeof newUsername === 'string') {
+          writes.push(
+            env.DB.prepare(`
+              INSERT INTO admin_config (key, value) VALUES ('admin_username', ?)
+              ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            `).bind(newUsername.trim())
+          );
+        }
+        await env.DB.batch(writes);
+        return jsonResponse({ success: true });
       }
     }
 

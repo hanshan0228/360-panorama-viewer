@@ -20,7 +20,7 @@ import {
   Camera,
   Film,
 } from 'lucide-react';
-import type { ActiveTab, StylePresetId } from './types/panorama';
+import type { ActiveTab, StylePresetId, ManagedUser } from './types/panorama';
 import { GeneratorTab } from './components/GeneratorTab';
 import { ViewerTab } from './components/ViewerTab';
 import { CubemapTab } from './components/CubemapTab';
@@ -29,8 +29,15 @@ import { PricingTab } from './components/PricingTab';
 import { AdminTab } from './components/AdminTab';
 import { MetadataInjectorModal } from './components/commercial/MetadataInjectorModal';
 import { CheckoutModal } from './components/commercial/CheckoutModal';
-import { getCurrentUser } from './utils/adminStorage';
+import { UserAuthModal } from './components/commercial/UserAuthModal';
+import {
+  getCurrentUser,
+  setCurrentUserId,
+  getStoredManagedUsers,
+  saveStoredManagedUsers,
+} from './utils/adminStorage';
 import { generateProceduralPanorama } from './utils/proceduralPanoramas';
+import { fetchServerUser } from './utils/commercialApi';
 import { AiHdriGeneratorPage } from './components/landing/AiHdriGeneratorPage';
 import { SkyboxGeneratorPage } from './components/landing/SkyboxGeneratorPage';
 import { PhotoTo360Page } from './components/landing/PhotoTo360Page';
@@ -70,13 +77,41 @@ export function App() {
   const toolsDropdownRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Active user and checkout states
+  // Active user and modal states
   const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   useEffect(() => {
     const refreshUser = () => setCurrentUser(getCurrentUser());
     refreshUser();
+    // 启动时检查是否有云端登录的 Token，自动拉取真实用户档案
+    fetchServerUser().then((res) => {
+      if (res.success && res.user) {
+        const authedUser: ManagedUser = {
+          id: res.user.id,
+          name: res.user.name,
+          email: res.user.email,
+          plan: res.user.plan,
+          creditsBalance: res.user.creditsBalance,
+          creditsTotal: res.user.creditsTotal,
+          status: res.user.status || 'active',
+          joinedAt: new Date().toISOString().split('T')[0],
+          lastActiveAt: '刚刚活跃',
+          apiCallsCount: res.user.apiCallsCount || 0,
+        };
+        setCurrentUserId(authedUser.id);
+        setCurrentUser(authedUser);
+        const users = getStoredManagedUsers();
+        const existingIdx = users.findIndex((u) => u.id === authedUser.id);
+        if (existingIdx !== -1) {
+          users[existingIdx] = authedUser;
+        } else {
+          users.unshift(authedUser);
+        }
+        saveStoredManagedUsers(users);
+      }
+    });
     window.addEventListener('focus', refreshUser);
     return () => window.removeEventListener('focus', refreshUser);
   }, [activeTab]);
@@ -692,9 +727,9 @@ export function App() {
           <div className="hidden lg:flex items-center gap-2.5">
             <button
               type="button"
-              onClick={() => setIsCheckoutModalOpen(true)}
+              onClick={() => setIsAuthModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 text-xs font-mono font-bold hover:bg-cyan-900/60 transition-colors cursor-pointer"
-              title={`${currentUser.name} (${currentUser.email}) - Click to recharge or upgrade`}
+              title={`${currentUser.name} (${currentUser.email}) - 点击登录、注册或查看账户`}
             >
               <Coins className="w-3.5 h-3.5 text-amber-400" />
               <span>{currentUser.creditsBalance} Credits</span>
@@ -1031,6 +1066,25 @@ export function App() {
         initialPlan="pro"
         initialCycle="yearly"
         onSuccess={(u) => setCurrentUser(u)}
+      />
+
+      {/* Global User Authentication (Sign In / Register / Profile) Modal */}
+      <UserAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        currentUser={currentUser}
+        onAuthSuccess={(user) => {
+          setCurrentUser(user);
+          setCurrentUserId(user.id);
+          const users = getStoredManagedUsers();
+          const existingIdx = users.findIndex((u) => u.id === user.id);
+          if (existingIdx !== -1) {
+            users[existingIdx] = user;
+          } else {
+            users.unshift(user);
+          }
+          saveStoredManagedUsers(users);
+        }}
       />
     </div>
   );

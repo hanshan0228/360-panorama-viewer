@@ -140,6 +140,43 @@ test('user auth registers new users, issues session tokens, and returns user pro
   assert.equal((await fetch(base + '/api/user/me')).status, 401);
 });
 
+test('admin endpoints persist credit adjustments, status, user creation, billing, and credentials', async (t) => {
+  const { base, post } = await withServer(t);
+  const login = await post('/api/admin/login', { username: 'admin', password });
+  const { token } = await login.json();
+  const headers = { Authorization: `Bearer ${token}` };
+
+  // 1. Adjust credits
+  const creditRes = await post('/api/admin/users/credits', { userId: 'u1', delta: 50 }, headers);
+  assert.equal(creditRes.status, 200);
+  const creditData = await creditRes.json();
+  assert.equal(creditData.user.creditsBalance, 60);
+
+  // 2. Update status
+  const statusRes = await post('/api/admin/users/status', { userId: 'u1', status: 'suspended' }, headers);
+  assert.equal(statusRes.status, 200);
+
+  // 3. Create user
+  const createRes = await post('/api/admin/users/create', { name: 'Bob', email: 'bob@example.com', plan: 'pro', credits: 200 }, headers);
+  assert.equal(createRes.status, 200);
+
+  // 4. Update billing config and query publicly
+  const billingRes = await post('/api/admin/billing', { config: { proMonthlyPriceUsd: 25, creditCostPer4K: 5 } }, headers);
+  assert.equal(billingRes.status, 200);
+  const publicBilling = await (await fetch(base + '/api/billing')).json();
+  assert.equal(publicBilling.config.proMonthlyPriceUsd, 25);
+
+  // 5. Update credentials and verify login with new credentials
+  const credRes = await post('/api/admin/credentials', { currentPassword: password, newUsername: 'superadmin', newPassword: 'newSuperPassword123' }, headers);
+  assert.equal(credRes.status, 200);
+
+  const oldLogin = await post('/api/admin/login', { username: 'admin', password });
+  assert.equal(oldLogin.status, 401);
+
+  const newLogin = await post('/api/admin/login', { username: 'superadmin', password: 'newSuperPassword123' });
+  assert.equal(newLogin.status, 200);
+});
+
 test('legacy migration preserves backup and removes stored secrets', async (t) => {
   const { file, dir } = await withServer(t);
   writeStore({ ...fixture(), schemaVersion: 1, adminPasswordHash: 'admin888', paymentConfig: { stripeSecretKey: 'mock_secret' } }, file);
