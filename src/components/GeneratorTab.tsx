@@ -44,6 +44,7 @@ import { CheckoutModal } from './commercial/CheckoutModal';
 import { exportVrReadyJpegBlob } from '../utils/xmpInjector';
 import { healPanoramaSeam } from '../utils/seamHealer';
 import { enhanceAndUpscalePanorama } from '../utils/imageEnhancer';
+import { deductServerUserCredits } from '../utils/commercialApi';
 import {
   getCurrentUser,
   deductCurrentUserCredits,
@@ -472,17 +473,36 @@ export function GeneratorTab({
       setGenerationProgress(95);
       onPanoramaChange(finalDataUrl);
 
-      // Deduct user credits upon generation success
-      const deductRes = deductCurrentUserCredits(creditsCost);
-      if (deductRes.success) {
+      // Deduct user credits upon generation success (Server-authoritative for cloud users)
+      let deductSuccess = false;
+      let remainingCredits = 0;
+      const hasCloudToken = typeof localStorage !== 'undefined' && Boolean(localStorage.getItem('panorama_server_user_token'));
+
+      if (hasCloudToken && currentUser.id !== 'usr_guest') {
+        const srvRes = await deductServerUserCredits(creditsCost);
+        if (srvRes.success && typeof srvRes.remaining === 'number') {
+          deductSuccess = true;
+          remainingCredits = srvRes.remaining;
+          const updated = { ...currentUser, creditsBalance: srvRes.remaining };
+          setCurrentUser(updated);
+        }
+      }
+
+      if (!deductSuccess) {
+        const localRes = deductCurrentUserCredits(creditsCost);
+        deductSuccess = localRes.success;
+        remainingCredits = localRes.remaining;
+        setCurrentUser(getCurrentUser());
+      }
+
+      if (deductSuccess) {
         const updatedUser = getCurrentUser();
-        setCurrentUser(updatedUser);
-        const isFreeExhausted = updatedUser.plan === 'free' && deductRes.remaining < creditsCost;
+        const isFreeExhausted = updatedUser.plan === 'free' && remainingCredits < creditsCost;
         const toastNotice = isFreeExhausted
-          ? `您的免费体验额度已用完（剩余 ${deductRes.remaining} 积分）！请升级 Pro 会员解锁无限 4K 生成与商业授权。`
+          ? `您的免费体验额度已用完（剩余 ${remainingCredits} 积分）！请升级 Pro 会员解锁无限 4K 生成与商业授权。`
           : hadFailover
           ? `主模型额度耗尽或异常，已自动切换至备用模型 [${usedEndpointName}] 生成成功！已扣除 ${creditsCost} 积分。`
-          : `360° 全景图通过 [${usedEndpointName}] 生成成功！扣除 ${creditsCost} 积分（剩余 ${deductRes.remaining} 积分）。`;
+          : `360° 全景图通过 [${usedEndpointName}] 生成成功！扣除 ${creditsCost} 积分（剩余 ${remainingCredits} 积分）。`;
         setFeedbackNotice(toastNotice);
         if (isFreeExhausted) {
           setTimeout(() => setIsCheckoutOpen(true), 2500);

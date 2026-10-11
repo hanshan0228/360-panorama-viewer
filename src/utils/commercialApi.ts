@@ -259,3 +259,43 @@ export async function adminUpdateCredentialsServer(currentPassword: string, newU
     return { success: false, error: err instanceof Error ? err.message : 'Network error' };
   }
 }
+
+/**
+ * Deducts credits from currently authenticated cloud user via server-authoritative API
+ */
+export async function deductServerUserCredits(credits: number): Promise<{ success: boolean; remaining?: number; error?: string }> {
+  try {
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('panorama_server_user_token') : null;
+    if (!token) return { success: false, error: 'No active session token' };
+
+    const res = await fetch('/api/user/deduct-credits', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ credits }),
+    });
+
+    const data = await res.json();
+    return { success: res.ok && data.success, remaining: data.remaining, error: data.error };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Network error' };
+  }
+}
+
+/**
+ * Persists configured AI model endpoints and routing strategy to server database
+ */
+export async function adminSaveModelsConfigServer(endpoints: any[]): Promise<boolean> {
+  try {
+    const res = await fetch('/api/admin/models', {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ endpoints }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

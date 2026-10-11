@@ -714,7 +714,7 @@ export function ViewerTab({
             <div className="text-base font-extrabold text-white tracking-tight">
               Drag & drop 360° panorama here, or <span className="text-cyan-400 underline decoration-cyan-400/50 underline-offset-4">browse local files</span>
             </div>
-            <p className="text-xs text-cyan-200/70">Supports standard 2:1 equirectangular panoramas (JPG, PNG, WebP, HDR)</p>
+            <p className="text-xs text-cyan-200/70">Supports standard 2:1 equirectangular panoramas (JPG, PNG, WebP)</p>
             <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
           </label>
 
@@ -922,7 +922,7 @@ export function ViewerTab({
               <ChevronDown className="w-4 h-4 text-cyan-400 group-open:rotate-180 transition-transform shrink-0" />
             </summary>
             <p className="mt-2 text-slate-400 leading-relaxed text-[11px]">
-              We support standard 2:1 equirectangular panoramas in PNG, JPEG, WebP, and Radiance RGBE .HDR containers up to 16K resolution (limited only by your local GPU memory).
+              We support standard 2:1 equirectangular panoramas in PNG, JPEG, and WebP up to 16K resolution (limited only by your local GPU memory). You can also export viewed scenes to Radiance RGBE .HDR for 3D engine lighting.
             </p>
           </details>
 

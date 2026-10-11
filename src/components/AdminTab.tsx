@@ -80,6 +80,7 @@ import {
   adminUpdateUserStatusServer,
   adminCreateUserServer,
   adminSaveBillingConfigServer,
+  adminSaveModelsConfigServer,
   adminUpdateCredentialsServer,
   fetchPublicBillingConfig,
 } from '../utils/commercialApi';
@@ -260,14 +261,9 @@ export function AdminTab() {
     setLoginErrorMsg(null);
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPwdErrorMsg(null);
-
-    if (!verifyAdminPassword(currentPwdInput)) {
-      setPwdErrorMsg('当前旧密码输入错误。');
-      return;
-    }
 
     if (newPwdInput.length < 6) {
       setPwdErrorMsg('新密码长度不能少于 6 个字符。');
@@ -279,29 +275,45 @@ export function AdminTab() {
       return;
     }
 
+    if (isServerMode) {
+      const res = await adminUpdateCredentialsServer(currentPwdInput, adminUsernameEdit.trim(), newPwdInput);
+      if (!res.success) {
+        setPwdErrorMsg(res.error || '云端更新管理员凭据失败，请核对旧密码。');
+        return;
+      }
+    } else {
+      if (!verifyAdminPassword(currentPwdInput)) {
+        setPwdErrorMsg('当前旧密码输入错误。');
+        return;
+      }
+    }
+
     if (adminUsernameEdit.trim()) {
       setStoredAdminUsername(adminUsernameEdit.trim());
       setLoginUsernameInput(adminUsernameEdit.trim());
     }
     setStoredAdminPassword(newPwdInput);
-    if (isServerMode) {
-      adminUpdateCredentialsServer(currentPwdInput, adminUsernameEdit.trim(), newPwdInput);
-    }
     setCurrentPwdInput('');
     setNewPwdInput('');
     setConfirmNewPwdInput('');
-    showToast('管理员凭据（账号与主密码）更新成功！请妥善保存。');
+    showToast('管理员凭据（账号与主密码）已成功保存！');
   };
 
-  const handleResetDefaultPassword = () => {
+  const handleResetDefaultPassword = async () => {
     if (confirm('确认将管理员凭证恢复为初始默认值（账号 admin / 密码 admin888）吗？')) {
+      if (isServerMode) {
+        const inputOld = prompt('请输入当前管理员密码以确认重置操作：');
+        if (!inputOld) return;
+        const res = await adminUpdateCredentialsServer(inputOld, DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD);
+        if (!res.success) {
+          alert('云端重置凭据失败：' + (res.error || '旧密码验证不通过'));
+          return;
+        }
+      }
       setStoredAdminPassword(DEFAULT_ADMIN_PASSWORD);
       setStoredAdminUsername(DEFAULT_ADMIN_USERNAME);
       setAdminUsernameEdit(DEFAULT_ADMIN_USERNAME);
       setLoginUsernameInput(DEFAULT_ADMIN_USERNAME);
-      if (isServerMode) {
-        adminUpdateCredentialsServer(DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD);
-      }
       showToast('管理员凭证已恢复默认值：账号 admin / 密码 admin888');
     }
   };
@@ -344,6 +356,9 @@ export function AdminTab() {
   const handleSaveRoutingStrategy = (e: React.FormEvent) => {
     e.preventDefault();
     saveStoredRoutingConfig(routingConfig);
+    if (isServerMode) {
+      adminSaveModelsConfigServer(endpoints);
+    }
     showToast('模型调度与容灾策略已保存生效！');
   };
 
@@ -400,6 +415,9 @@ export function AdminTab() {
     }
     setEndpoints(next);
     saveStoredModelEndpoints(next);
+    if (isServerMode) {
+      adminSaveModelsConfigServer(next);
+    }
     setEditingEndpoint(null);
     setIsAddingEndpoint(false);
     showToast(isAddingEndpoint ? '新 AI 模型端点添加成功。' : '模型端点配置已保存。');
@@ -412,17 +430,28 @@ export function AdminTab() {
     showToast(`当前测试会话用户已切换为：${user.name} (${user.plan.toUpperCase()})`);
   };
 
-  const handleUpdateUserStatus = (userId: string, newStatus: 'active' | 'suspended') => {
+  const handleUpdateUserStatus = async (userId: string, newStatus: 'active' | 'suspended') => {
+    if (isServerMode) {
+      const ok = await adminUpdateUserStatusServer(userId, newStatus);
+      if (!ok) {
+        showToast('云端账号状态更新失败，请检查会话权限。');
+        return;
+      }
+    }
     const next = users.map((u) => (u.id === userId ? { ...u, status: newStatus } : u));
     setUsers(next);
     saveStoredManagedUsers(next);
-    if (isServerMode) {
-      adminUpdateUserStatusServer(userId, newStatus);
-    }
     showToast(`用户账号状态已变更为：${newStatus === 'active' ? '正常活跃' : '已封禁挂起'}`);
   };
 
-  const handleAdjustCredits = (userId: string, delta: number) => {
+  const handleAdjustCredits = async (userId: string, delta: number) => {
+    if (isServerMode) {
+      const ok = await adminAdjustUserCreditsServer(userId, delta);
+      if (!ok) {
+        showToast('云端积分调整失败，请检查会话权限。');
+        return;
+      }
+    }
     const next = users.map((u) => {
       if (u.id === userId) {
         const nextBalance = Math.max(0, u.creditsBalance + delta);
@@ -432,9 +461,6 @@ export function AdminTab() {
     });
     setUsers(next);
     saveStoredManagedUsers(next);
-    if (isServerMode) {
-      adminAdjustUserCreditsServer(userId, delta);
-    }
     setEditingUserCredits(null);
     if (userId === currentSessionUser.id) {
       setCurrentSessionUser(getCurrentUser());
@@ -442,12 +468,27 @@ export function AdminTab() {
     showToast('用户全景图积分已成功调整。');
   };
 
-  const handleCreateNewUser = (e: React.FormEvent) => {
+  const handleCreateNewUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUserForm.name || !newUserForm.email) return;
 
+    let assignedId = `usr_${Date.now().toString().slice(-4)}`;
+    if (isServerMode) {
+      const created = await adminCreateUserServer({
+        name: newUserForm.name.trim(),
+        email: newUserForm.email.trim(),
+        plan: newUserForm.plan,
+        credits: newUserForm.credits,
+      });
+      if (!created) {
+        showToast('云端创建用户失败，请检查输入或权限。');
+        return;
+      }
+      assignedId = created.id;
+    }
+
     const newUsr: ManagedUser = {
-      id: `usr_${Date.now().toString().slice(-4)}`,
+      id: assignedId,
       name: newUserForm.name.trim(),
       email: newUserForm.email.trim(),
       plan: newUserForm.plan,
@@ -462,9 +503,6 @@ export function AdminTab() {
     const next = [newUsr, ...users];
     setUsers(next);
     saveStoredManagedUsers(next);
-    if (isServerMode) {
-      adminCreateUserServer(newUsr);
-    }
     setIsAddingUser(false);
     setNewUserForm({ name: '', email: '', plan: 'pro', credits: 1000 });
     showToast(`成功创建受管用户：${newUsr.name}`);
@@ -494,12 +532,16 @@ export function AdminTab() {
   };
 
   // Billing Config Operations
-  const handleSaveBilling = (e: React.FormEvent) => {
+  const handleSaveBilling = async (e: React.FormEvent) => {
     e.preventDefault();
-    saveStoredBillingConfig(billingConfig);
     if (isServerMode) {
-      adminSaveBillingConfigServer(billingConfig);
+      const ok = await adminSaveBillingConfigServer(billingConfig);
+      if (!ok) {
+        showToast('云端保存计费规则失败，请检查网络或会话。');
+        return;
+      }
     }
+    saveStoredBillingConfig(billingConfig);
     showToast('商业计费规则与积分费率已保存。');
   };
 

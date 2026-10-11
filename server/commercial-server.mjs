@@ -143,9 +143,8 @@ export function createCommercialServer(options = {}) {
             if (!verifyPassword(password, user.password_hash)) {
               return sendJson(res, 401, { success: false, error: '账户密码错误，请核对凭证' });
             }
-          } else if (password && password.length >= 6) {
-            user.password_hash = hashPassword(password);
-            persist(store, file);
+          } else {
+            return sendJson(res, 403, { success: false, error: '该受管账户尚未激活初始密码，请联系管理员获取凭证。' });
           }
         } else {
           user = {
@@ -177,6 +176,29 @@ export function createCommercialServer(options = {}) {
         const user = store.users?.find((u) => u.id === session.userId);
         if (!user) return sendJson(res, 404, { success: false, error: 'User not found' });
         return sendJson(res, 200, { success: true, user });
+      }
+
+      if (pathname === '/api/user/deduct-credits' && req.method === 'POST') {
+        const session = userSessions.get(token);
+        if (!session || session.expires < Date.now()) {
+          return sendJson(res, 401, { success: false, error: 'Unauthorized or session expired' });
+        }
+        const { credits } = JSON.parse((await readRawBody(req)).toString());
+        const amt = typeof credits === 'number' ? Math.floor(credits) : 0;
+        if (amt <= 0) return sendJson(res, 400, { success: false, error: 'Invalid credits' });
+        const store = readStore(file);
+        const user = store.users?.find((u) => u.id === session.userId);
+        if (!user || user.status !== 'active') return sendJson(res, 400, { success: false, error: 'Account inactive' });
+        if (user.creditsBalance < amt) return sendJson(res, 400, { success: false, error: '积分余额不足' });
+        user.creditsBalance -= amt;
+        user.apiCallsCount = (user.apiCallsCount || 0) + 1;
+        persist(store, file);
+        return sendJson(res, 200, { success: true, remaining: user.creditsBalance });
+      }
+
+      if (pathname === '/api/models' && req.method === 'GET') {
+        const store = readStore(file);
+        return sendJson(res, 200, { success: true, endpoints: store.models_config || null });
       }
 
       // Public Billing Rules Query
@@ -283,6 +305,14 @@ export function createCommercialServer(options = {}) {
           store.billing_config = config;
           persist(store, file);
           return sendJson(res, 200, { success: true, config });
+        }
+        if (pathname === '/api/admin/models' && req.method === 'POST') {
+          const { endpoints } = JSON.parse((await readRawBody(req)).toString());
+          if (!Array.isArray(endpoints)) return sendJson(res, 400, { success: false, error: 'Endpoints array required' });
+          const store = readStore(file);
+          store.models_config = endpoints;
+          persist(store, file);
+          return sendJson(res, 200, { success: true, count: endpoints.length });
         }
         // Admin Write: Persist Admin Credentials
         if (pathname === '/api/admin/credentials' && req.method === 'POST') {

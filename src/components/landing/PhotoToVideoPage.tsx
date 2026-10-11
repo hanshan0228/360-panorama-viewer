@@ -29,6 +29,7 @@ export function PhotoToVideoPage({ onLaunchStudio }: PhotoToVideoPageProps) {
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
   const [videoDownloadUrl, setVideoDownloadUrl] = useState<string | null>(null);
+  const [videoBlobType, setVideoBlobType] = useState<string>('');
 
   // Default sample panorama
   const defaultSampleUrl = useMemo(() => {
@@ -86,6 +87,7 @@ export function PhotoToVideoPage({ onLaunchStudio }: PhotoToVideoPageProps) {
       const blob = await renderPanoramaToVideoBlob(activePanoUrl, options);
       const url = URL.createObjectURL(blob);
       setVideoDownloadUrl(url);
+      setVideoBlobType(blob.type || '');
 
       confetti({
         particleCount: 50,
@@ -103,7 +105,7 @@ export function PhotoToVideoPage({ onLaunchStudio }: PhotoToVideoPageProps) {
     if (!videoDownloadUrl) return;
     const a = document.createElement('a');
     a.href = videoDownloadUrl;
-    const ext = videoDownloadUrl.includes('mp4') ? 'mp4' : 'webm';
+    const ext = (videoBlobType.includes('mp4') || videoBlobType.includes('h264') || videoBlobType.includes('avc')) ? 'mp4' : 'webm';
     a.download = `panorama-360-video-${aspectRatio.replace(':', 'x')}.${ext}`;
     document.body.appendChild(a);
     a.click();

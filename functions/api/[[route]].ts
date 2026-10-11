@@ -120,6 +120,13 @@ async function ensureDbInitialized(db: D1Database): Promise<void> {
       );
     `),
   ]);
+
+  // Idempotent table migration: ensure password_hash column exists on pre-existing users tables
+  try {
+    await db.prepare('ALTER TABLE users ADD COLUMN password_hash TEXT').run();
+  } catch {
+    // Column already present, safe to ignore
+  }
 }
 
 export const onRequest: PagesFunction<Env> = async (context) => {
@@ -187,10 +194,25 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       });
     }
 
+    // Public Models Query
+    if (pathname === '/api/models' && request.method === 'GET') {
+      if (env.DB) {
+        const row = await env.DB.prepare('SELECT value FROM admin_config WHERE key = ?')
+          .bind('models_config')
+          .first<{ value: string }>();
+        if (row?.value) {
+          try {
+            return jsonResponse({ success: true, endpoints: JSON.parse(row.value) });
+          } catch {}
+        }
+      }
+      return jsonResponse({ success: true, endpoints: null });
+    }
+
     const authHeader = request.headers.get('Authorization') || '';
     const token = authHeader.replace(/^Bearer\s+/i, '');
 
-    // 2. User Authentication (Register / Login with Password Support)
+    // 2. User Authentication (Register / Login with Password Protection)
     if (pathname === '/api/user/auth' && request.method === 'POST') {
       const body = (await request.json().catch(() => ({}))) as {
         email?: string;
@@ -221,7 +243,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         }>();
 
       if (user) {
-        // Existing user: if password is set, verify credentials
+        // Existing user: strictly verify password if set; prevent unauthorized account claim if unset
         if (user.password_hash) {
           if (!password) {
             return jsonResponse({ success: false, error: '请输入账户密码' }, 401);
@@ -230,19 +252,22 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           if (!valid) {
             return jsonResponse({ success: false, error: '账户密码错误，请核对凭证' }, 401);
           }
-        } else if (password && password.length >= 6) {
-          // Set password on first authentication if legacy user
-          const pwdHash = await hashPasswordWithSalt(password);
-          await env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
-            .bind(pwdHash, user.id)
-            .run();
+        } else {
+          // Pre-created managed accounts without password cannot be claimed without explicit admin initialization
+          return jsonResponse({
+            success: false,
+            error: '该受管账户尚未激活初始密码，请联系管理员获取凭证。',
+          }, 403);
         }
       } else {
-        // New user registration: grant 4 trial credits
+        // New user registration: require password (at least 6 chars) and grant 4 trial credits
+        if (!password || password.length < 6) {
+          return jsonResponse({ success: false, error: '新用户注册必须设置至少 6 位密码' }, 400);
+        }
         const userId = 'usr_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12);
         const displayName = typeof name === 'string' && name.trim() ? name.trim() : email.split('@')[0];
         const now = new Date().toISOString();
-        const pwdHash = password && password.length >= 6 ? await hashPasswordWithSalt(password) : null;
+        const pwdHash = await hashPasswordWithSalt(password);
 
         await env.DB.prepare(`
           INSERT INTO users (id, email, name, plan, credits_balance, credits_total, api_calls_count, status, password_hash, created_at)
@@ -324,7 +349,44 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       });
     }
 
-    // 4. Admin Login with dual username and password credentials
+    // 4. Server-Authoritative User Credit Deduction
+    if (pathname === '/api/user/deduct-credits' && request.method === 'POST') {
+      if (!env.DB) return jsonResponse({ success: false, error: 'Database unavailable' }, 503);
+      if (!token) return jsonResponse({ success: false, error: 'Unauthorized' }, 401);
+
+      const session = await env.DB.prepare('SELECT user_id FROM user_sessions WHERE token = ? AND expires_at > ?')
+        .bind(token, Date.now())
+        .first<{ user_id: string }>();
+
+      if (!session) return jsonResponse({ success: false, error: 'Invalid or expired session' }, 401);
+
+      const body = (await request.json().catch(() => ({}))) as { credits?: number };
+      const credits = typeof body.credits === 'number' ? Math.floor(body.credits) : 0;
+      if (credits <= 0) {
+        return jsonResponse({ success: false, error: 'Invalid credits amount' }, 400);
+      }
+
+      const res = await env.DB.prepare(`
+        UPDATE users
+        SET credits_balance = credits_balance - ?, api_calls_count = api_calls_count + 1
+        WHERE id = ? AND status = 'active' AND credits_balance >= ?
+      `).bind(credits, session.user_id, credits).run();
+
+      if (!res.meta.changes || res.meta.changes === 0) {
+        return jsonResponse({ success: false, error: '积分余额不足或账号异常，无法继续生成' }, 400);
+      }
+
+      const updated = await env.DB.prepare('SELECT credits_balance FROM users WHERE id = ?')
+        .bind(session.user_id)
+        .first<{ credits_balance: number }>();
+
+      return jsonResponse({
+        success: true,
+        remaining: updated?.credits_balance ?? 0,
+      });
+    }
+
+    // 5. Admin Login with dual username and password credentials
     if (pathname === '/api/admin/login' && request.method === 'POST') {
       const body = (await request.json().catch(() => ({}))) as { username?: string; password?: string };
       let expectedUser = (env.ADMIN_USERNAME || 'admin').trim().toLowerCase();
@@ -361,7 +423,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       return jsonResponse({ success: true, token: adminToken });
     }
 
-    // 5. Admin Protected Endpoints
+    // 6. Admin Protected Endpoints
     if (pathname.startsWith('/api/admin/')) {
       if (!env.DB) return jsonResponse({ error: 'Database unavailable' }, 503);
 
@@ -431,18 +493,21 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
       // D1 Write: Create Managed User
       if (pathname === '/api/admin/users/create' && request.method === 'POST') {
-        const { name, email, plan, credits } = (await request.json().catch(() => ({}))) as any;
+        const body = (await request.json().catch(() => ({}))) as any;
+        const { name, email, plan, credits, creditsBalance, password } = body;
         if (!email || !name) {
           return jsonResponse({ success: false, error: 'Name and email are required' }, 400);
         }
         const userId = 'usr_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12);
-        const initCredits = typeof credits === 'number' && credits >= 0 ? credits : 1000;
+        const initCredits = typeof credits === 'number' ? credits : typeof creditsBalance === 'number' ? creditsBalance : 1000;
         const now = new Date().toISOString();
+        const initialPwd = typeof password === 'string' && password.length >= 6 ? password : 'User888!';
+        const pwdHash = await hashPasswordWithSalt(initialPwd);
 
         await env.DB.prepare(`
-          INSERT INTO users (id, email, name, plan, credits_balance, credits_total, api_calls_count, status, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, 0, 'active', ?)
-        `).bind(userId, email.toLowerCase(), name.trim(), plan || 'pro', initCredits, initCredits, now).run();
+          INSERT INTO users (id, email, name, plan, credits_balance, credits_total, api_calls_count, status, password_hash, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, 0, 'active', ?, ?)
+        `).bind(userId, email.toLowerCase(), name.trim(), plan || 'pro', initCredits, initCredits, pwdHash, now).run();
 
         return jsonResponse({
           success: true,
@@ -456,6 +521,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
             status: 'active',
             createdAt: now,
           },
+          initialPassword: initialPwd,
         });
       }
 
@@ -470,6 +536,19 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           ON CONFLICT(key) DO UPDATE SET value = excluded.value
         `).bind(JSON.stringify(body.config)).run();
         return jsonResponse({ success: true, config: body.config });
+      }
+
+      // D1 Write: Persist Model Endpoints Configuration
+      if (pathname === '/api/admin/models' && request.method === 'POST') {
+        const body = (await request.json().catch(() => ({}))) as { endpoints?: any };
+        if (!Array.isArray(body.endpoints)) {
+          return jsonResponse({ success: false, error: 'Endpoints array required' }, 400);
+        }
+        await env.DB.prepare(`
+          INSERT INTO admin_config (key, value) VALUES ('models_config', ?)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        `).bind(JSON.stringify(body.endpoints)).run();
+        return jsonResponse({ success: true, count: body.endpoints.length });
       }
 
       // D1 Write: Persist Admin Credentials (Username and Password)
@@ -507,7 +586,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       }
     }
 
-    // 6. Stripe Checkout Session Creation
+    // 7. Stripe Checkout Session Creation
     if (pathname === '/api/stripe/create-checkout-session' && request.method === 'POST') {
       if (!env.STRIPE_SECRET_KEY) {
         return jsonResponse({

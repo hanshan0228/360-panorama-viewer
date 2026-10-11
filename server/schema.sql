@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   credits_total INTEGER NOT NULL DEFAULT 4,
   api_calls_count INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'active',
+  password_hash TEXT,
   created_at TEXT NOT NULL
 );
 

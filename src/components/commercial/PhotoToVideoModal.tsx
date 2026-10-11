@@ -30,6 +30,7 @@ export function PhotoToVideoModal({
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
   const [videoDownloadUrl, setVideoDownloadUrl] = useState<string | null>(null);
+  const [videoBlobType, setVideoBlobType] = useState<string>('');
 
   if (!isOpen) return null;
 
@@ -63,6 +64,7 @@ export function PhotoToVideoModal({
       const blob = await renderPanoramaToVideoBlob(currentPanoramaUrl, options);
       const url = URL.createObjectURL(blob);
       setVideoDownloadUrl(url);
+      setVideoBlobType(blob.type || '');
 
       confetti({
         particleCount: 50,
@@ -80,7 +82,7 @@ export function PhotoToVideoModal({
     if (!videoDownloadUrl) return;
     const a = document.createElement('a');
     a.href = videoDownloadUrl;
-    const ext = videoDownloadUrl.includes('mp4') ? 'mp4' : 'webm';
+    const ext = (videoBlobType.includes('mp4') || videoBlobType.includes('h264') || videoBlobType.includes('avc')) ? 'mp4' : 'webm';
     a.download = `panorama-360-rotation-${aspectRatio.replace(':', 'x')}.${ext}`;
     document.body.appendChild(a);
     a.click();
