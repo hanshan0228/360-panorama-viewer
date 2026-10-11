@@ -494,12 +494,37 @@ export function AdminTab() {
           </p>
         </div>
 
-        <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-2xl text-amber-200/90 text-xs flex items-start gap-2.5 mb-5">
-          <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+        {/* Dynamic Server / Sandbox Status on Login Gate */}
+        <div
+          className={`p-3 rounded-2xl text-xs flex items-start gap-2.5 mb-5 border ${
+            backendStatus?.isOnline
+              ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-200/90'
+              : 'bg-amber-500/10 border-amber-500/25 text-amber-200/90'
+          }`}
+        >
+          <ShieldAlert
+            className={`w-4 h-4 shrink-0 mt-0.5 ${
+              backendStatus?.isOnline ? 'text-emerald-400' : 'text-amber-400'
+            }`}
+          />
           <div className="space-y-0.5">
-            <span className="font-bold text-amber-300">本地演示沙箱环境 (Demo Sandbox)</span>
-            <p className="text-[11px] text-amber-200/75 leading-relaxed">
-              当前控制台为单机演示界面，密码验证与账目仅保存在浏览器本地，未与生产服务端同步。
+            <span
+              className={`font-bold ${
+                backendStatus?.isOnline ? 'text-emerald-300' : 'text-amber-300'
+              }`}
+            >
+              {backendStatus?.isOnline
+                ? '云端持久化账本已就绪 (Cloud Connected)'
+                : '本地演示沙箱环境 (Demo Sandbox)'}
+            </span>
+            <p
+              className={`text-[11px] leading-relaxed ${
+                backendStatus?.isOnline ? 'text-emerald-200/80' : 'text-amber-200/75'
+              }`}
+            >
+              {backendStatus?.isOnline
+                ? '当前控制台已成功连通云端持久化数据库。输入管理员密码解锁后，将直接同步服务端账本与真实用户。'
+                : '当前处于单机离线演示界面，密码验证与账目仅保存在浏览器本地，未与生产服务端同步。'}
             </p>
           </div>
         </div>
