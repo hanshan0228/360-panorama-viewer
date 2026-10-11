@@ -122,11 +122,13 @@ export function AdminTab() {
     email: string;
     plan: UserPlanTier;
     credits: number;
+    password?: string;
   }>({
     name: '',
     email: '',
     plan: 'pro',
     credits: 1000,
+    password: '',
   });
 
   // 3. Subscriptions & Invoices State
@@ -353,13 +355,13 @@ export function AdminTab() {
     showToast('已设定为【次模型 (Secondary)】。当主模型耗尽配额或故障时将自动接管。');
   };
 
-  const handleSaveRoutingStrategy = (e: React.FormEvent) => {
+  const handleSaveRoutingStrategy = async (e: React.FormEvent) => {
     e.preventDefault();
     saveStoredRoutingConfig(routingConfig);
     if (isServerMode) {
-      adminSaveModelsConfigServer(endpoints);
+      await adminSaveModelsConfigServer({ endpoints, routingConfig });
     }
-    showToast('模型调度与容灾策略已保存生效！');
+    showToast('模型调度与容灾策略已持久化保存！');
   };
 
   const handleDeleteEndpoint = (id: string) => {
@@ -403,7 +405,7 @@ export function AdminTab() {
     }
   };
 
-  const handleSaveEndpointForm = (e: React.FormEvent) => {
+  const handleSaveEndpointForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingEndpoint) return;
 
@@ -416,7 +418,7 @@ export function AdminTab() {
     setEndpoints(next);
     saveStoredModelEndpoints(next);
     if (isServerMode) {
-      adminSaveModelsConfigServer(next);
+      await adminSaveModelsConfigServer({ endpoints: next, routingConfig });
     }
     setEditingEndpoint(null);
     setIsAddingEndpoint(false);
@@ -473,18 +475,23 @@ export function AdminTab() {
     if (!newUserForm.name || !newUserForm.email) return;
 
     let assignedId = `usr_${Date.now().toString().slice(-4)}`;
+    let initialPwdNote = '';
     if (isServerMode) {
       const created = await adminCreateUserServer({
         name: newUserForm.name.trim(),
         email: newUserForm.email.trim(),
         plan: newUserForm.plan,
         credits: newUserForm.credits,
+        password: newUserForm.password?.trim() || undefined,
       });
       if (!created) {
         showToast('云端创建用户失败，请检查输入或权限。');
         return;
       }
       assignedId = created.id;
+      if (created.initialPassword) {
+        initialPwdNote = ` (初始密码: ${created.initialPassword})`;
+      }
     }
 
     const newUsr: ManagedUser = {
@@ -504,8 +511,8 @@ export function AdminTab() {
     setUsers(next);
     saveStoredManagedUsers(next);
     setIsAddingUser(false);
-    setNewUserForm({ name: '', email: '', plan: 'pro', credits: 1000 });
-    showToast(`成功创建受管用户：${newUsr.name}`);
+    setNewUserForm({ name: '', email: '', plan: 'pro', credits: 1000, password: '' });
+    showToast(`成功创建受管用户：${newUsr.name}${initialPwdNote}`);
   };
 
   // Subscription Operations
@@ -1602,6 +1609,19 @@ export function AdminTab() {
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono"
                     />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-1 flex items-center justify-between">
+                    <span>初始登录密码</span>
+                    <span className="text-[10px] text-cyan-400 font-mono">留空自动生成独立随机密码</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={newUserForm.password || ''}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                    placeholder="输入密码或留空自动生成..."
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono text-xs focus:border-cyan-400 focus:outline-none"
+                  />
                 </div>
                 <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
                   <button type="button" onClick={() => setIsAddingUser(false)} className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg">

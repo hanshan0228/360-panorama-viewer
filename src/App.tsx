@@ -35,9 +35,11 @@ import {
   setCurrentUserId,
   getStoredManagedUsers,
   saveStoredManagedUsers,
+  saveStoredModelEndpoints,
+  saveStoredRoutingConfig,
 } from './utils/adminStorage';
 import { generateProceduralPanorama } from './utils/proceduralPanoramas';
-import { fetchServerUser } from './utils/commercialApi';
+import { fetchServerUser, fetchPublicModelsConfig } from './utils/commercialApi';
 import { AiHdriGeneratorPage } from './components/landing/AiHdriGeneratorPage';
 import { SkyboxGeneratorPage } from './components/landing/SkyboxGeneratorPage';
 import { PhotoTo360Page } from './components/landing/PhotoTo360Page';
@@ -85,6 +87,16 @@ export function App() {
   useEffect(() => {
     const refreshUser = () => setCurrentUser(getCurrentUser());
     refreshUser();
+    // 启动时从云端同步管理员配置的公共模型端点与调度策略
+    fetchPublicModelsConfig().then((cloudModels) => {
+      if (cloudModels && cloudModels.endpoints && cloudModels.endpoints.length > 0) {
+        saveStoredModelEndpoints(cloudModels.endpoints);
+        if (cloudModels.routingConfig) {
+          saveStoredRoutingConfig(cloudModels.routingConfig);
+        }
+      }
+    });
+
     // 启动时检查是否有云端登录的 Token，自动拉取真实用户档案
     fetchServerUser().then((res) => {
       if (res.success && res.user) {

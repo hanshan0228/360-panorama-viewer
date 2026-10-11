@@ -175,6 +175,55 @@ test('admin endpoints persist credit adjustments, status, user creation, billing
 
   const newLogin = await post('/api/admin/login', { username: 'superadmin', password: 'newSuperPassword123' });
   assert.equal(newLogin.status, 200);
+
+  // 6. Save models with secret API key and verify public /api/models sanitizes it completely
+  const newHeaders = { Authorization: `Bearer ${ (await newLogin.json()).token }` };
+  const modelsRes = await post('/api/admin/models', {
+    endpoints: [{ id: 'm1', name: 'Cloud Model', baseUrl: 'https://api.openai.com/v1', apiKey: 'sk-secret-never-expose' }],
+    routingConfig: { primaryEndpointId: 'm1', mode: 'single' }
+  }, newHeaders);
+  assert.equal(modelsRes.status, 200);
+
+  const publicModels = await (await fetch(base + '/api/models')).json();
+  assert.equal(publicModels.success, true);
+  assert.equal(publicModels.endpoints[0].id, 'm1');
+  assert.equal(publicModels.endpoints[0].apiKey, ''); // MUST BE BLANK!
+  assert.equal(publicModels.endpoints[0].hasServerKey, true);
+  assert.equal(publicModels.routingConfig.mode, 'single');
+});
+
+test('server-authoritative credit deduction and prevention of unauthorized claims', async (t) => {
+  const { post } = await withServer(t);
+
+  // 1. Register a user with password
+  const reg = await post('/api/user/auth', { email: 'user@example.com', name: 'User', password: 'password123' });
+  assert.equal(reg.status, 200);
+  const { _user, token } = await reg.json();
+  const authHeaders = { Authorization: `Bearer ${token}` };
+
+  // 2. Deduct credits server-side
+  const deductRes = await post('/api/user/deduct-credits', { credits: 2 }, authHeaders);
+  assert.equal(deductRes.status, 200);
+  const deductData = await deductRes.json();
+  assert.equal(deductData.remaining, 2);
+
+  // 3. Reject overdraft attempt
+  const overdraftRes = await post('/api/user/deduct-credits', { credits: 4 }, authHeaders);
+  assert.equal(overdraftRes.status, 400);
+
+  // 4. Admin creates a user without password
+  const adminLogin = await post('/api/admin/login', { username: 'admin', password });
+  const adminToken = (await adminLogin.json()).token;
+  const adminHeaders = { Authorization: `Bearer ${adminToken}` };
+
+  const createdUserRes = await post('/api/admin/users/create', { name: 'VIP Client', email: 'vip@client.com', plan: 'enterprise', credits: 5000 }, adminHeaders);
+  assert.equal(createdUserRes.status, 200);
+  const createdBody = await createdUserRes.json();
+  assert.ok(createdBody.initialPassword);
+
+  // 5. Outsider tries to claim the unactivated account with no password or arbitrary password
+  const claimAttempt = await post('/api/user/auth', { email: 'vip@client.com', password: 'attacker-random-password' });
+  assert.equal(claimAttempt.status, 401);
 });
 
 test('legacy migration preserves backup and removes stored secrets', async (t) => {

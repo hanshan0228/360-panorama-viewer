@@ -216,7 +216,7 @@ export async function adminUpdateUserStatusServer(userId: string, status: 'activ
   }
 }
 
-export async function adminCreateUserServer(userData: { name: string; email: string; plan?: string; credits?: number }): Promise<any | null> {
+export async function adminCreateUserServer(userData: { name: string; email: string; plan?: string; credits?: number; password?: string }): Promise<any | null> {
   try {
     const res = await fetch('/api/admin/users/create', {
       method: 'POST',
@@ -287,15 +287,37 @@ export async function deductServerUserCredits(credits: number): Promise<{ succes
 /**
  * Persists configured AI model endpoints and routing strategy to server database
  */
-export async function adminSaveModelsConfigServer(endpoints: any[]): Promise<boolean> {
+export async function adminSaveModelsConfigServer(payload: { endpoints: any[]; routingConfig?: any } | any[]): Promise<boolean> {
   try {
+    const body = Array.isArray(payload) ? { endpoints: payload } : payload;
     const res = await fetch('/api/admin/models', {
       method: 'POST',
       headers: getAdminHeaders(),
-      body: JSON.stringify({ endpoints }),
+      body: JSON.stringify(body),
     });
     return res.ok;
   } catch {
     return false;
   }
+}
+
+/**
+ * Publicly fetches active AI models and routing configuration from server
+ */
+export async function fetchPublicModelsConfig(): Promise<{ endpoints: any[] | null; routingConfig: any | null } | null> {
+  try {
+    const res = await fetch('/api/models');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        return {
+          endpoints: Array.isArray(data.endpoints) ? data.endpoints : null,
+          routingConfig: data.routingConfig || null,
+        };
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return null;
 }

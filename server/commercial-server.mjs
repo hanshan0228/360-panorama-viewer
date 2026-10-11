@@ -198,7 +198,16 @@ export function createCommercialServer(options = {}) {
 
       if (pathname === '/api/models' && req.method === 'GET') {
         const store = readStore(file);
-        return sendJson(res, 200, { success: true, endpoints: store.models_config || null });
+        const raw = store.models_config;
+        if (!raw) return sendJson(res, 200, { success: true, endpoints: null, routingConfig: null });
+        const rawEndpoints = Array.isArray(raw) ? raw : raw.endpoints || [];
+        const sanitized = rawEndpoints.map((ep) => ({
+          ...ep,
+          apiKey: '',
+          hasServerKey: Boolean(ep.apiKey && String(ep.apiKey).trim()),
+        }));
+        const routing = Array.isArray(raw) ? null : raw.routingConfig || null;
+        return sendJson(res, 200, { success: true, endpoints: sanitized, routingConfig: routing });
       }
 
       // Public Billing Rules Query
@@ -275,27 +284,32 @@ export function createCommercialServer(options = {}) {
         }
         // Admin Write: Create Managed User
         if (pathname === '/api/admin/users/create' && req.method === 'POST') {
-          const { name, email, plan, credits } = JSON.parse((await readRawBody(req)).toString());
+          const body = JSON.parse((await readRawBody(req)).toString());
+          const { name, email, plan, credits, creditsBalance, password } = body;
           if (!email || !name) {
             return sendJson(res, 400, { success: false, error: 'Name and email are required' });
           }
           const store = readStore(file);
           const newId = 'usr_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12);
-          const initCredits = typeof credits === 'number' && credits >= 0 ? credits : 1000;
+          const rawCredits = typeof credits === 'number' ? credits : typeof creditsBalance === 'number' ? creditsBalance : 1000;
+          const initialPwd = typeof password === 'string' && password.length >= 6
+            ? password
+            : 'Pano_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
           const newUsr = {
             id: newId,
             email: email.toLowerCase(),
             name: name.trim(),
             plan: plan || 'pro',
-            creditsBalance: initCredits,
-            creditsTotal: initCredits,
+            creditsBalance: rawCredits,
+            creditsTotal: rawCredits,
             status: 'active',
+            password_hash: hashPassword(initialPwd),
             createdAt: new Date().toISOString(),
           };
           store.users = store.users || [];
           store.users.unshift(newUsr);
           persist(store, file);
-          return sendJson(res, 200, { success: true, user: newUsr });
+          return sendJson(res, 200, { success: true, user: newUsr, initialPassword: initialPwd });
         }
         // Admin Write: Persist Billing Configuration
         if (pathname === '/api/admin/billing' && req.method === 'POST') {
@@ -307,12 +321,15 @@ export function createCommercialServer(options = {}) {
           return sendJson(res, 200, { success: true, config });
         }
         if (pathname === '/api/admin/models' && req.method === 'POST') {
-          const { endpoints } = JSON.parse((await readRawBody(req)).toString());
-          if (!Array.isArray(endpoints)) return sendJson(res, 400, { success: false, error: 'Endpoints array required' });
+          const body = JSON.parse((await readRawBody(req)).toString());
+          const toSave = Array.isArray(body.endpoints)
+            ? { endpoints: body.endpoints, routingConfig: body.routingConfig || null }
+            : body;
+          if (!Array.isArray(toSave.endpoints)) return sendJson(res, 400, { success: false, error: 'Endpoints array required' });
           const store = readStore(file);
-          store.models_config = endpoints;
+          store.models_config = toSave;
           persist(store, file);
-          return sendJson(res, 200, { success: true, count: endpoints.length });
+          return sendJson(res, 200, { success: true, count: toSave.endpoints.length });
         }
         // Admin Write: Persist Admin Credentials
         if (pathname === '/api/admin/credentials' && req.method === 'POST') {

@@ -194,7 +194,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       });
     }
 
-    // Public Models Query
+    // Public Models Query (sanitized - NEVER leak admin API keys)
     if (pathname === '/api/models' && request.method === 'GET') {
       if (env.DB) {
         const row = await env.DB.prepare('SELECT value FROM admin_config WHERE key = ?')
@@ -202,11 +202,20 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           .first<{ value: string }>();
         if (row?.value) {
           try {
-            return jsonResponse({ success: true, endpoints: JSON.parse(row.value) });
+            const parsed = JSON.parse(row.value);
+            const rawEndpoints = Array.isArray(parsed) ? parsed : parsed.endpoints || [];
+            // Strictly sanitize endpoints: blank all apiKeys from public response
+            const sanitized = rawEndpoints.map((ep: any) => ({
+              ...ep,
+              apiKey: '',
+              hasServerKey: Boolean(ep.apiKey && String(ep.apiKey).trim()),
+            }));
+            const routingConfig = Array.isArray(parsed) ? null : parsed.routingConfig || null;
+            return jsonResponse({ success: true, endpoints: sanitized, routingConfig });
           } catch {}
         }
       }
-      return jsonResponse({ success: true, endpoints: null });
+      return jsonResponse({ success: true, endpoints: null, routingConfig: null });
     }
 
     const authHeader = request.headers.get('Authorization') || '';
@@ -501,7 +510,10 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         const userId = 'usr_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12);
         const initCredits = typeof credits === 'number' ? credits : typeof creditsBalance === 'number' ? creditsBalance : 1000;
         const now = new Date().toISOString();
-        const initialPwd = typeof password === 'string' && password.length >= 6 ? password : 'User888!';
+        // Generate unique high-entropy initial password if not explicitly supplied
+        const initialPwd = typeof password === 'string' && password.length >= 6
+          ? password
+          : 'Pano_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
         const pwdHash = await hashPasswordWithSalt(initialPwd);
 
         await env.DB.prepare(`
@@ -538,17 +550,20 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         return jsonResponse({ success: true, config: body.config });
       }
 
-      // D1 Write: Persist Model Endpoints Configuration
+      // D1 Write: Persist Model Endpoints & Routing Strategy
       if (pathname === '/api/admin/models' && request.method === 'POST') {
-        const body = (await request.json().catch(() => ({}))) as { endpoints?: any };
-        if (!Array.isArray(body.endpoints)) {
+        const body = (await request.json().catch(() => ({}))) as any;
+        const toSave = Array.isArray(body.endpoints)
+          ? { endpoints: body.endpoints, routingConfig: body.routingConfig || null }
+          : body;
+        if (!Array.isArray(toSave.endpoints)) {
           return jsonResponse({ success: false, error: 'Endpoints array required' }, 400);
         }
         await env.DB.prepare(`
           INSERT INTO admin_config (key, value) VALUES ('models_config', ?)
           ON CONFLICT(key) DO UPDATE SET value = excluded.value
-        `).bind(JSON.stringify(body.endpoints)).run();
-        return jsonResponse({ success: true, count: body.endpoints.length });
+        `).bind(JSON.stringify(toSave)).run();
+        return jsonResponse({ success: true, count: toSave.endpoints.length });
       }
 
       // D1 Write: Persist Admin Credentials (Username and Password)
