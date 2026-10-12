@@ -221,6 +221,39 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     const authHeader = request.headers.get('Authorization') || '';
     const token = authHeader.replace(/^Bearer\s+/i, '');
 
+    // 2. Guest User Session Initialization (Auto-grants 4 trial credits in D1)
+    if (pathname === '/api/user/guest' && request.method === 'POST') {
+      if (!env.DB) return jsonResponse({ success: false, error: 'Database service unavailable' }, 503);
+      const guestId = 'usr_guest_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
+      const now = new Date().toISOString();
+      const guestEmail = `guest_${guestId}@guest.panoramagenerator.ai`;
+
+      await env.DB.prepare(`
+        INSERT INTO users (id, email, name, plan, credits_balance, credits_total, api_calls_count, status, created_at)
+        VALUES (?, ?, 'Free Trial Guest', 'free', 4, 4, 0, 'active', ?)
+      `).bind(guestId, guestEmail, now).run();
+
+      const sessionToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+      const expiresAt = Date.now() + 7 * 86400000;
+      await env.DB.prepare('INSERT INTO user_sessions (token, user_id, expires_at) VALUES (?, ?, ?)')
+        .bind(sessionToken, guestId, expiresAt)
+        .run();
+
+      return jsonResponse({
+        success: true,
+        user: {
+          id: guestId,
+          email: guestEmail,
+          name: 'Free Trial Guest',
+          plan: 'free',
+          creditsBalance: 4,
+          creditsTotal: 4,
+          status: 'active',
+        },
+        token: sessionToken,
+      });
+    }
+
     // 2. User Authentication (Register / Login with Password Protection)
     if (pathname === '/api/user/auth' && request.method === 'POST') {
       const body = (await request.json().catch(() => ({}))) as {
@@ -709,28 +742,83 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     if (pathname === '/api/generate' && request.method === 'POST') {
       const body = (await request.json().catch(() => ({}))) as {
         prompt?: string;
+        endpointId?: string;
         modelId?: string;
         referenceImages?: string[];
+        creditsCost?: number;
       };
-      const { prompt, modelId, referenceImages } = body;
+      const { prompt, endpointId, modelId, referenceImages, creditsCost } = body;
       if (!prompt || typeof prompt !== 'string') {
         return jsonResponse({ success: false, error: 'Prompt is required' }, 400);
       }
 
-      let endpoints: any[] = [];
-      if (env.DB) {
-        const row = await env.DB.prepare('SELECT value FROM admin_config WHERE key = ?')
-          .bind('models_config')
-          .first<{ value: string }>();
-        if (row?.value) {
-          try {
-            const parsed = JSON.parse(row.value);
-            endpoints = Array.isArray(parsed) ? parsed : parsed.endpoints || [];
-          } catch {}
-        }
+      if (!token) {
+        return jsonResponse({
+          success: false,
+          error: '请先登录账户或初始化试用会话后生成全景图。',
+        }, 401);
       }
 
-      let targetEp = endpoints.find((ep) => ep.id === modelId && ep.isEnabled);
+      if (!env.DB) {
+        return jsonResponse({ success: false, error: 'Database service unavailable' }, 503);
+      }
+
+      const session = await env.DB.prepare('SELECT user_id FROM user_sessions WHERE token = ? AND expires_at > ?')
+        .bind(token, Date.now())
+        .first<{ user_id: string }>();
+
+      if (!session) {
+        return jsonResponse({ success: false, error: '登录会话已过期，请重新登录账户。' }, 401);
+      }
+
+      const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?')
+        .bind(session.user_id)
+        .first<{
+          id: string;
+          status: string;
+          credits_balance: number;
+        }>();
+
+      if (!user) {
+        return jsonResponse({ success: false, error: '用户账户不存在。' }, 404);
+      }
+
+      if (user.status !== 'active') {
+        return jsonResponse({ success: false, error: '该账户已被管理员封禁挂起，无法使用生图服务。' }, 403);
+      }
+
+      const cost = typeof creditsCost === 'number' && creditsCost > 0 ? Math.floor(creditsCost) : 4;
+      if (user.credits_balance < cost) {
+        return jsonResponse({
+          success: false,
+          error: `账户全景图积分不足！本次生成需要 ${cost} 积分，当前可用余额为 ${user.credits_balance} 积分。请升级 Pro 会员或充值。`,
+        }, 400);
+      }
+
+      let endpoints: any[] = [];
+      const row = await env.DB.prepare('SELECT value FROM admin_config WHERE key = ?')
+        .bind('models_config')
+        .first<{ value: string }>();
+      if (row?.value) {
+        try {
+          const parsed = JSON.parse(row.value);
+          endpoints = Array.isArray(parsed) ? parsed : parsed.endpoints || [];
+        } catch {}
+      }
+
+      let targetEp: any = null;
+      if (endpointId) {
+        targetEp = endpoints.find((ep) => ep.id === endpointId);
+        if (!targetEp) {
+          return jsonResponse({ success: false, error: `指定模型端点 [${endpointId}] 不存在` }, 400);
+        }
+        if (!targetEp.isEnabled) {
+          return jsonResponse({ success: false, error: `指定模型端点 [${targetEp.name || endpointId}] 当前已停用` }, 400);
+        }
+      } else if (modelId) {
+        targetEp = endpoints.find((ep) => (ep.id === modelId || ep.model === modelId) && ep.isEnabled);
+      }
+
       if (!targetEp) {
         targetEp = endpoints.find((ep) => ep.isEnabled && ep.isDefault) || endpoints.find((ep) => ep.isEnabled);
       }
@@ -745,26 +833,67 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       const rawBase = (targetEp.baseUrl || '').replace(/\/+$/, '');
       const apiKey = (targetEp.apiKey || '').trim();
       const model = targetEp.model || 'gemini-3.1-flash-image';
-
-      const isChatMode = model.toLowerCase().includes('gemini') || rawBase.includes('/chat');
-      const targetUrl = isChatMode
-        ? (rawBase.endsWith('/v1') ? `${rawBase}/chat/completions` : `${rawBase}/v1/chat/completions`)
-        : (rawBase.endsWith('/v1') ? `${rawBase}/images/generations` : `${rawBase}/v1/images/generations`);
-
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-
       const validRefs = (referenceImages || []).filter(Boolean);
-      const messageContent = validRefs.length > 0 && isChatMode
-        ? [
-            { type: 'text', text: prompt },
-            ...validRefs.map((img) => ({ type: 'image_url', image_url: { url: img } })),
-          ]
-        : prompt;
 
-      const payload = isChatMode
-        ? { model, messages: [{ role: 'user', content: messageContent }] }
-        : { model, prompt, n: 1, size: '1792x1024', response_format: 'b64_json' };
+      const isGoogleOfficial = rawBase.includes('googleapis.com') || (targetEp.provider === 'gemini' && rawBase.includes('googleapis'));
+      const isChatMode = model.toLowerCase().includes('gemini') || rawBase.includes('/chat');
+
+      // Issue 3 fix: Reject reference images on endpoints that do not support them
+      if (validRefs.length > 0 && !isChatMode && !isGoogleOfficial) {
+        return jsonResponse({
+          success: false,
+          error: `所选模型端点 [${targetEp.name || model}] 为纯文本生图接口 (/v1/images/generations)，不支持参考图片条件输入。请切换至支持多模态的 Gemini 模型端点，或移除参考图片后重试。`,
+        }, 400);
+      }
+
+      let targetUrl = '';
+      let headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      let payload: any = null;
+
+      // Issue 4 fix: Google Official API protocol handling
+      if (isGoogleOfficial) {
+        if (!apiKey) {
+          return jsonResponse({ success: false, error: 'Google AI Studio 官方端点需要配置有效 API Key' }, 400);
+        }
+        const isImagen = model.toLowerCase().includes('imagen');
+        if (isImagen) {
+          targetUrl = `${rawBase}/v1beta/models/${model}:predict?key=${encodeURIComponent(apiKey)}`;
+          payload = {
+            instances: [{ prompt }],
+            parameters: {
+              sampleCount: 1,
+              aspectRatio: '16:9',
+              outputMimeType: 'image/png',
+            },
+          };
+        } else {
+          targetUrl = `${rawBase}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+          const parts: any[] = [{ text: prompt }];
+          for (const img of validRefs) {
+            const m = String(img).match(/^data:([^;]+);base64,(.+)$/);
+            if (m) parts.push({ inlineData: { mimeType: m[1], data: m[2] } });
+          }
+          payload = { contents: [{ parts }] };
+        }
+      } else {
+        // OpenAI-compatible / local proxy
+        targetUrl = isChatMode
+          ? (rawBase.endsWith('/v1') ? `${rawBase}/chat/completions` : `${rawBase}/v1/chat/completions`)
+          : (rawBase.endsWith('/v1') ? `${rawBase}/images/generations` : `${rawBase}/v1/images/generations`);
+
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+        const messageContent = validRefs.length > 0 && isChatMode
+          ? [
+              { type: 'text', text: prompt },
+              ...validRefs.map((img) => ({ type: 'image_url', image_url: { url: img } })),
+            ]
+          : prompt;
+
+        payload = isChatMode
+          ? { model, messages: [{ role: 'user', content: messageContent }] }
+          : { model, prompt, n: 1, size: '1792x1024', response_format: 'b64_json' };
+      }
 
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 90000);
@@ -777,8 +906,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           signal: ctrl.signal,
         });
 
-        // 400 降级重试纯文本
-        if (!upstreamRes.ok && upstreamRes.status === 400 && validRefs.length > 0 && isChatMode) {
+        // 400 降级重试纯文本 (chat mode only)
+        if (!upstreamRes.ok && upstreamRes.status === 400 && validRefs.length > 0 && isChatMode && !isGoogleOfficial) {
           upstreamRes = await fetch(targetUrl, {
             method: 'POST',
             headers,
@@ -799,7 +928,20 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
         const data = (await upstreamRes.json()) as any;
         let imageUrl: string | null = null;
-        if (isChatMode) {
+
+        if (isGoogleOfficial && model.toLowerCase().includes('imagen')) {
+          if (data.predictions && data.predictions[0]?.bytesBase64Encoded) {
+            imageUrl = `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`;
+          }
+        } else if (isGoogleOfficial) {
+          const part = data.candidates?.[0]?.content?.parts?.[0];
+          if (part?.inlineData?.data) {
+            imageUrl = `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
+          } else if (typeof part?.text === 'string') {
+            const b64 = part.text.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
+            imageUrl = b64 ? b64[0] : (part.text.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)/i)?.[0] || null);
+          }
+        } else if (isChatMode) {
           const msg = data.choices?.[0]?.message;
           if (msg?.images && msg.images[0]?.image_url?.url) {
             imageUrl = msg.images[0].image_url.url;
@@ -820,7 +962,24 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           return jsonResponse({ success: false, error: '模型响应成功但未返回有效图片数据' }, 502);
         }
 
-        return jsonResponse({ success: true, imageUrl, modelUsed: model });
+        // Server-authoritative credit deduction on generation success
+        await env.DB.prepare(`
+          UPDATE users
+          SET credits_balance = credits_balance - ?, api_calls_count = api_calls_count + 1
+          WHERE id = ? AND credits_balance >= ?
+        `).bind(cost, user.id, cost).run();
+
+        const updated = await env.DB.prepare('SELECT credits_balance FROM users WHERE id = ?')
+          .bind(user.id)
+          .first<{ credits_balance: number }>();
+
+        return jsonResponse({
+          success: true,
+          imageUrl,
+          modelUsed: model,
+          remainingCredits: updated?.credits_balance ?? Math.max(0, user.credits_balance - cost),
+          creditsDeducted: cost,
+        });
       } catch (err: unknown) {
         clearTimeout(timer);
         return jsonResponse({
@@ -829,7 +988,6 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         }, 504);
       }
     }
-
     return jsonResponse({ error: 'Route not found' }, 404);
   } catch (err: unknown) {
     console.error('[Cloudflare Edge Commercial API]', err);

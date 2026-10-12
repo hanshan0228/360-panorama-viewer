@@ -44,7 +44,6 @@ import { CheckoutModal } from './commercial/CheckoutModal';
 import { exportVrReadyJpegBlob } from '../utils/xmpInjector';
 import { healPanoramaSeam } from '../utils/seamHealer';
 import { enhanceAndUpscalePanorama } from '../utils/imageEnhancer';
-import { deductServerUserCredits } from '../utils/commercialApi';
 import {
   getCurrentUser,
   deductCurrentUserCredits,
@@ -387,18 +386,26 @@ export function GeneratorTab({
       let rawGenUrl: string | null = null;
       let usedEndpointName = '';
       let hadFailover = false;
+      let serverRemaining: number | undefined = undefined;
       const failedAttempts: Array<{ endpoint: string; error: string }> = [];
 
       for (let i = 0; i < pipeline.endpoints.length; i++) {
         const ep = pipeline.endpoints[i];
         try {
           const modelConfig: GeminiConfig = {
+            endpointId: ep.id,
+            provider: ep.provider,
             baseUrl: ep.baseUrl,
             apiKey: ep.apiKey,
             model: ep.model,
+            creditsCost,
           };
           const refPreviews = referenceImages.map((r) => r.preview);
-          rawGenUrl = await generateWithGemini(fullPrompt, modelConfig, refPreviews);
+          const genResult = await generateWithGemini(fullPrompt, modelConfig, refPreviews);
+          rawGenUrl = genResult.imageUrl;
+          if (typeof genResult.remainingCredits === 'number') {
+            serverRemaining = genResult.remainingCredits;
+          }
           usedEndpointName = ep.name;
           if (i > 0) {
             hadFailover = true;
@@ -475,34 +482,28 @@ export function GeneratorTab({
       setGenerationProgress(95);
       onPanoramaChange(finalDataUrl);
 
-      // Deduct user credits upon generation success (Server-authoritative for cloud users)
+      // Synchronize credits upon generation success
       let deductSuccess = false;
       let remainingCredits = 0;
-      const hasCloudToken = typeof localStorage !== 'undefined' && Boolean(localStorage.getItem('panorama_server_user_token'));
 
-      if (hasCloudToken && currentUser.id !== 'usr_guest') {
-        const srvRes = await deductServerUserCredits(creditsCost);
-        if (srvRes.success && typeof srvRes.remaining === 'number') {
-          deductSuccess = true;
-          remainingCredits = srvRes.remaining;
-          const updated = { ...currentUser, creditsBalance: srvRes.remaining };
-          setCurrentUser(updated);
-          // 彻底同步本地持久化用户记录，防止下一次生成前的前置余额检查读取到旧值
-          const users = getStoredManagedUsers();
-          const uIdx = users.findIndex((u: ManagedUser) => u.id === currentUser.id);
-          if (uIdx !== -1) {
-            users[uIdx] = updated;
-            saveStoredManagedUsers(users);
-          }
-        } else {
-          // 严密风控：云端账号若扣分失败，严禁退回本地扣分假装成功！直接阻断并弹出升级提示
-          setIsGenerating(false);
-          setApiError(srvRes.error || '云端账户积分扣减失败，请检查余额或重新登录。');
-          setIsCheckoutOpen(true);
-          return;
+      if (typeof serverRemaining === 'number') {
+        // Server-authoritative deduction already executed in /api/generate
+        deductSuccess = true;
+        remainingCredits = serverRemaining;
+        const updated = { ...currentUser, creditsBalance: serverRemaining };
+        setCurrentUser(updated);
+        const users = getStoredManagedUsers();
+        const uIdx = users.findIndex((u: ManagedUser) => u.id === currentUser.id);
+        if (uIdx !== -1) {
+          users[uIdx] = updated;
+          saveStoredManagedUsers(users);
+        } else if (currentUser.id === 'usr_guest') {
+          try {
+            localStorage.setItem('panorama_guest_user_data', JSON.stringify(updated));
+          } catch {}
         }
       } else {
-        // 未登录试用访客才走本地试用积分扣除
+        // Direct local developer offline usage fallback
         const localRes = deductCurrentUserCredits(creditsCost);
         deductSuccess = localRes.success;
         remainingCredits = localRes.remaining;

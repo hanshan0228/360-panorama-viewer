@@ -39,7 +39,7 @@ import {
   saveStoredRoutingConfig,
 } from './utils/adminStorage';
 import { generateProceduralPanorama } from './utils/proceduralPanoramas';
-import { fetchServerUser, fetchPublicModelsConfig } from './utils/commercialApi';
+import { fetchServerUser, fetchPublicModelsConfig, initServerGuestUser } from './utils/commercialApi';
 import { AiHdriGeneratorPage } from './components/landing/AiHdriGeneratorPage';
 import { SkyboxGeneratorPage } from './components/landing/SkyboxGeneratorPage';
 import { PhotoTo360Page } from './components/landing/PhotoTo360Page';
@@ -97,33 +97,48 @@ export function App() {
       }
     });
 
-    // 启动时检查是否有云端登录的 Token，自动拉取真实用户档案
-    fetchServerUser().then((res) => {
-      if (res.success && res.user) {
-        const authedUser: ManagedUser = {
-          id: res.user.id,
-          name: res.user.name,
-          email: res.user.email,
-          plan: res.user.plan,
-          creditsBalance: res.user.creditsBalance,
-          creditsTotal: res.user.creditsTotal,
-          status: res.user.status || 'active',
-          joinedAt: new Date().toISOString().split('T')[0],
-          lastActiveAt: '刚刚活跃',
-          apiCallsCount: res.user.apiCallsCount || 0,
-        };
-        setCurrentUserId(authedUser.id);
-        setCurrentUser(authedUser);
-        const users = getStoredManagedUsers();
-        const existingIdx = users.findIndex((u) => u.id === authedUser.id);
-        if (existingIdx !== -1) {
-          users[existingIdx] = authedUser;
-        } else {
-          users.unshift(authedUser);
-        }
-        saveStoredManagedUsers(users);
+    const applyUser = (u: any) => {
+      const managed: ManagedUser = {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        plan: u.plan,
+        creditsBalance: u.creditsBalance ?? u.credits_balance ?? 4,
+        creditsTotal: u.creditsTotal ?? u.credits_total ?? 4,
+        status: u.status || 'active',
+        joinedAt: u.createdAt || new Date().toISOString().split('T')[0],
+        lastActiveAt: '刚刚活跃',
+        apiCallsCount: u.apiCallsCount || 0,
+      };
+      setCurrentUserId(managed.id);
+      setCurrentUser(managed);
+      const users = getStoredManagedUsers();
+      const existingIdx = users.findIndex((user) => user.id === managed.id);
+      if (existingIdx !== -1) {
+        users[existingIdx] = managed;
+      } else {
+        users.unshift(managed);
       }
-    });
+      saveStoredManagedUsers(users);
+    };
+
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('panorama_server_user_token') : null;
+    if (token) {
+      fetchServerUser(token).then((res) => {
+        if (res.success && res.user) {
+          applyUser(res.user);
+        } else {
+          if (typeof localStorage !== 'undefined') localStorage.removeItem('panorama_server_user_token');
+          initServerGuestUser().then((gres) => {
+            if (gres.success && gres.user) applyUser(gres.user);
+          });
+        }
+      });
+    } else {
+      initServerGuestUser().then((gres) => {
+        if (gres.success && gres.user) applyUser(gres.user);
+      });
+    }
     window.addEventListener('focus', refreshUser);
     return () => window.removeEventListener('focus', refreshUser);
   }, [activeTab]);

@@ -237,6 +237,59 @@ test('server-authoritative credit deduction and prevention of unauthorized claim
   assert.equal(claimAttempt.status, 401);
 });
 
+test('generate proxy strictly verifies authentication, accounts, credits, endpoints, and reference images', async (t) => {
+  const { file, post } = await withServer(t);
+
+  // 1. Guest user initialization
+  const guestRes = await post('/api/user/guest', {});
+  assert.equal(guestRes.status, 200);
+  const { user: guestUser, token: guestToken } = await guestRes.json();
+  assert.equal(guestUser.creditsBalance, 4);
+  const guestHeaders = { Authorization: `Bearer ${guestToken}` };
+
+  // 2. Reject anonymous call without token
+  const anonRes = await post('/api/generate', { prompt: 'cyberpunk street' });
+  assert.equal(anonRes.status, 401);
+
+  // 3. Configure mock model endpoint in store
+  const store = readStore(file);
+  store.models_config = {
+    endpoints: [
+      { id: 'ep_text_only', name: 'DALL-E Text Only', baseUrl: 'https://api.openai.com/v1', model: 'dall-e-3', isEnabled: true, isDefault: true },
+      { id: 'ep_disabled', name: 'Disabled Endpoint', baseUrl: 'http://127.0.0.1:8317', model: 'gemini-flash', isEnabled: false }
+    ],
+    routingConfig: { primaryEndpointId: 'ep_text_only', mode: 'single' }
+  };
+  writeStore(store, file);
+
+  // 4. Reject generation with disabled endpointId
+  const disabledRes = await post('/api/generate', { prompt: 'skyline', endpointId: 'ep_disabled' }, guestHeaders);
+  assert.equal(disabledRes.status, 400);
+
+  // 5. Reject reference images on text-only /v1/images/generations endpoint
+  const refRejectRes = await post('/api/generate', {
+    prompt: 'skyline',
+    endpointId: 'ep_text_only',
+    referenceImages: ['data:image/png;base64,mockImageBase64']
+  }, guestHeaders);
+  assert.equal(refRejectRes.status, 400);
+  assert.ok((await refRejectRes.json()).error.includes('不支持参考图片'));
+
+  // 6. Reject generation when credits are insufficient
+  const overdraftRes = await post('/api/generate', { prompt: 'skyline', creditsCost: 10 }, guestHeaders);
+  assert.equal(overdraftRes.status, 400);
+  assert.ok((await overdraftRes.json()).error.includes('积分不足'));
+
+  // 7. Reject generation for suspended account
+  const bannedStore = readStore(file);
+  const targetUser = bannedStore.users.find(u => u.id === guestUser.id);
+  targetUser.status = 'suspended';
+  writeStore(bannedStore, file);
+
+  const suspendedRes = await post('/api/generate', { prompt: 'skyline' }, guestHeaders);
+  assert.equal(suspendedRes.status, 403);
+});
+
 test('legacy migration preserves backup and removes stored secrets', async (t) => {
   const { file, dir } = await withServer(t);
   writeStore({ ...fixture(), schemaVersion: 1, adminPasswordHash: 'admin888', paymentConfig: { stripeSecretKey: 'mock_secret' } }, file);

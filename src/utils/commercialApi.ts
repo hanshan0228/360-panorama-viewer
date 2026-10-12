@@ -132,6 +132,33 @@ export async function authServerUser(
 }
 
 /**
+ * Initializes an authentic guest user session on backend with 4 trial credits
+ */
+export async function initServerGuestUser(): Promise<{
+  success: boolean;
+  user?: any;
+  token?: string;
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/user/guest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await res.json();
+    if (res.ok && data.success && data.token) {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('panorama_server_user_token', data.token);
+      }
+      return data;
+    }
+    return { success: false, error: data.error || 'Failed to initialize guest session' };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Network error' };
+  }
+}
+
+/**
  * Fetches current verified user profile from commercial backend
  */
 export async function fetchServerUser(token?: string): Promise<{

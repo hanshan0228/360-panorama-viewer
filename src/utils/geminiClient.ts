@@ -2,9 +2,12 @@ import { healPanoramaSeam } from './seamHealer';
 import { getActiveModelEndpoint } from './adminStorage';
 
 export interface GeminiConfig {
+  endpointId?: string;
+  provider?: string;
   apiKey: string;
   baseUrl: string; // e.g. "http://localhost:8045" or "https://generativelanguage.googleapis.com"
   model: string;   // e.g. "imagen-3.0-generate-002" or "gemini-2.5-flash-image" / "gemini-pro-vision"
+  creditsCost?: number;
 }
 
 export const DEFAULT_GEMINI_CONFIG: GeminiConfig = {
@@ -233,7 +236,7 @@ export async function generateWithGemini(
   prompt: string,
   config: GeminiConfig,
   referenceImages?: string[]
-): Promise<string> {
+): Promise<{ imageUrl: string; remainingCredits?: number }> {
   const normalizedBase = (config.baseUrl || 'http://127.0.0.1:8317').replace(/\/+$/, '');
   const apiKey = (config.apiKey || '').trim();
   const model = config.model.trim() || 'gpt-image-2.5';
@@ -241,27 +244,46 @@ export async function generateWithGemini(
   const isGoogleDirect = normalizedBase.includes('googleapis.com');
   let rawImageUrl: string | null = null;
 
-  // Route through secure backend proxy when no client apiKey is present or on public domain
+  // Route through secure backend proxy when on public domain or no client apiKey is provided
   const isPublicWeb = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
   if ((!apiKey || isPublicWeb) && typeof window !== 'undefined') {
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('panorama_server_user_token') : null;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    let proxyRes: Response;
     try {
-      const proxyRes = await fetch('/api/generate', {
+      proxyRes = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           prompt,
+          endpointId: config.endpointId,
           modelId: model,
           referenceImages,
+          creditsCost: config.creditsCost || 4,
         }),
       });
+    } catch (netErr) {
+      // Network failure reaching local/edge server
+      if (!isPublicWeb && apiKey) {
+        // Only allow falling back to direct local connection if user is local developer with own key
+      } else {
+        throw new Error(`连接云端生图服务异常: ${netErr instanceof Error ? netErr.message : String(netErr)}`);
+      }
+    }
+
+    if (proxyRes!) {
       if (proxyRes.ok) {
         const proxyData = await proxyRes.json();
         if (proxyData.success && proxyData.imageUrl) {
-          return proxyData.imageUrl;
+          return { imageUrl: proxyData.imageUrl, remainingCredits: proxyData.remainingCredits };
         }
+      } else {
+        // Server returned an explicit error (400 Insufficient credits, 403 Suspended, etc.): NEVER silently bypass!
+        const errJson = await proxyRes.json().catch(() => ({}));
+        throw new Error(errJson.error || `生图代理服务返回错误 [HTTP ${proxyRes.status}]`);
       }
-    } catch {
-      // Fallback to direct request if proxy unreachable
     }
   }
 
@@ -591,13 +613,13 @@ export async function generateWithGemini(
           ctx.drawImage(img, 0, 0, targetW, targetH);
           // Heal the 360° horizontal wrap boundary so left and right seam connects seamlessly
           const healedCanvas = healPanoramaSeam(canvas, 160);
-          resolve(healedCanvas.toDataURL('image/png'));
+          resolve({ imageUrl: healedCanvas.toDataURL('image/png') });
         } else {
-          resolve(rawImageUrl as string);
+          resolve({ imageUrl: rawImageUrl as string });
         }
       } catch (err) {
         console.warn('Canvas seam healing error:', err);
-        resolve(rawImageUrl as string);
+        resolve({ imageUrl: rawImageUrl as string });
       }
     };
     img.onerror = () => reject(new Error('Failed to load image texture into 360 viewer'));
