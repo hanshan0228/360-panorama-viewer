@@ -9,6 +9,7 @@ export interface GeminiConfig {
   baseUrl: string; // e.g. "http://localhost:8045" or "https://generativelanguage.googleapis.com"
   model: string;   // e.g. "imagen-3.0-generate-002" or "gemini-2.5-flash-image" / "gemini-pro-vision"
   resolution?: ResolutionTier;
+  sessionToken?: string | null;
 }
 
 export const DEFAULT_GEMINI_CONFIG: GeminiConfig = {
@@ -237,7 +238,7 @@ export async function generateWithGemini(
   prompt: string,
   config: GeminiConfig,
   referenceImages?: string[]
-): Promise<{ imageUrl: string; remainingCredits?: number }> {
+): Promise<{ imageUrl: string; remainingCredits?: number; creditsDeducted?: number }> {
   const normalizedBase = (config.baseUrl || 'http://127.0.0.1:8317').replace(/\/+$/, '');
   const apiKey = (config.apiKey || '').trim();
   const model = config.model.trim() || 'gpt-image-2.5';
@@ -248,7 +249,8 @@ export async function generateWithGemini(
   // Route through secure backend proxy when on public domain or no client apiKey is provided
   const isPublicWeb = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
   if ((!apiKey || isPublicWeb) && typeof window !== 'undefined') {
-    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('panorama_server_user_token') : null;
+    const token = config.sessionToken !== undefined ? config.sessionToken
+      : typeof localStorage !== 'undefined' ? localStorage.getItem('panorama_server_user_token') : null;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -278,7 +280,7 @@ export async function generateWithGemini(
       if (proxyRes.ok) {
         const proxyData = await proxyRes.json();
         if (proxyData.success && proxyData.imageUrl) {
-          return { imageUrl: proxyData.imageUrl, remainingCredits: proxyData.remainingCredits };
+          return { imageUrl: proxyData.imageUrl, remainingCredits: proxyData.remainingCredits, creditsDeducted: proxyData.creditsDeducted };
         }
       } else {
         // Server returned an explicit error (400 Insufficient credits, 403 Suspended, etc.): NEVER silently bypass!

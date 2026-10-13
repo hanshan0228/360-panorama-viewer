@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Server,
   Users,
@@ -104,6 +104,7 @@ export function AdminTab() {
   // 1. Models & Routing State
   const [endpoints, setEndpoints] = useState<ModelEndpointConfig[]>(() => getStoredModelEndpoints());
   const [routingConfig, setRoutingConfig] = useState<ModelRoutingConfig>(() => getStoredRoutingConfig());
+  const modelSaveInProgress = useRef(false);
   const [editingEndpoint, setEditingEndpoint] = useState<ModelEndpointConfig | null>(null);
   const [isAddingEndpoint, setIsAddingEndpoint] = useState(false);
   const [testingEndpointId, setTestingEndpointId] = useState<string | null>(null);
@@ -321,14 +322,34 @@ export function AdminTab() {
   };
 
   // Model Operations
-  const handleToggleEndpointEnabled = (id: string) => {
+  const saveModelConfiguration = async (nextEndpoints: ModelEndpointConfig[], nextRouting = routingConfig) => {
+    if (modelSaveInProgress.current) {
+      showToast('模型配置正在保存，请稍后重试。');
+      return false;
+    }
+    modelSaveInProgress.current = true;
+    try {
+      if (isServerMode && !await adminSaveModelsConfigServer({ endpoints: nextEndpoints, routingConfig: nextRouting })) {
+        showToast('云端模型配置保存失败，请检查网络或重新登录。');
+        return false;
+      }
+      saveStoredModelEndpoints(nextEndpoints);
+      saveStoredRoutingConfig(nextRouting);
+      setEndpoints(nextEndpoints);
+      setRoutingConfig(nextRouting);
+      return true;
+    } finally {
+      modelSaveInProgress.current = false;
+    }
+  };
+
+  const handleToggleEndpointEnabled = async (id: string) => {
     const next = endpoints.map((ep) => (ep.id === id ? { ...ep, isEnabled: !ep.isEnabled } : ep));
-    setEndpoints(next);
-    saveStoredModelEndpoints(next);
+    if (!await saveModelConfiguration(next)) return;
     showToast('模型端点启用状态已更新。');
   };
 
-  const handleSetAsPrimaryEndpoint = (id: string) => {
+  const handleSetAsPrimaryEndpoint = async (id: string) => {
     const nextRouting: ModelRoutingConfig = {
       ...routingConfig,
       primaryEndpointId: id,
@@ -337,38 +358,30 @@ export function AdminTab() {
           ? routingConfig.primaryEndpointId
           : routingConfig.secondaryEndpointId,
     };
-    setRoutingConfig(nextRouting);
-    saveStoredRoutingConfig(nextRouting);
     const nextEndpoints = endpoints.map((ep) => ({ ...ep, isDefault: ep.id === id }));
-    setEndpoints(nextEndpoints);
-    saveStoredModelEndpoints(nextEndpoints);
+    if (!await saveModelConfiguration(nextEndpoints, nextRouting)) return;
     showToast('已设定为【主模型 (Primary)】。系统将优先调用此模型生图。');
   };
 
-  const handleSetAsSecondaryEndpoint = (id: string) => {
+  const handleSetAsSecondaryEndpoint = async (id: string) => {
     const nextRouting: ModelRoutingConfig = {
       ...routingConfig,
       secondaryEndpointId: id,
     };
-    setRoutingConfig(nextRouting);
-    saveStoredRoutingConfig(nextRouting);
+    if (!await saveModelConfiguration(endpoints, nextRouting)) return;
     showToast('已设定为【次模型 (Secondary)】。当主模型耗尽配额或故障时将自动接管。');
   };
 
   const handleSaveRoutingStrategy = async (e: React.FormEvent) => {
     e.preventDefault();
-    saveStoredRoutingConfig(routingConfig);
-    if (isServerMode) {
-      await adminSaveModelsConfigServer({ endpoints, routingConfig });
-    }
+    if (!await saveModelConfiguration(endpoints, routingConfig)) return;
     showToast('模型调度与容灾策略已持久化保存！');
   };
 
-  const handleDeleteEndpoint = (id: string) => {
+  const handleDeleteEndpoint = async (id: string) => {
     if (confirm('确认删除此 AI 模型端点配置吗？')) {
       const next = endpoints.filter((ep) => ep.id !== id);
-      setEndpoints(next);
-      saveStoredModelEndpoints(next);
+      if (!await saveModelConfiguration(next)) return;
       showToast('模型端点已删除。');
     }
   };
@@ -415,11 +428,7 @@ export function AdminTab() {
     } else {
       next = endpoints.map((ep) => (ep.id === editingEndpoint.id ? editingEndpoint : ep));
     }
-    setEndpoints(next);
-    saveStoredModelEndpoints(next);
-    if (isServerMode) {
-      await adminSaveModelsConfigServer({ endpoints: next, routingConfig });
-    }
+    if (!await saveModelConfiguration(next)) return;
     setEditingEndpoint(null);
     setIsAddingEndpoint(false);
     showToast(isAddingEndpoint ? '新 AI 模型端点添加成功。' : '模型端点配置已保存。');

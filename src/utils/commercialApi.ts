@@ -147,9 +147,6 @@ export async function initServerGuestUser(): Promise<{
     });
     const data = await res.json();
     if (res.ok && data.success && data.token) {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('panorama_server_user_token', data.token);
-      }
       return data;
     }
     return { success: false, error: data.error || 'Failed to initialize guest session' };
@@ -165,6 +162,7 @@ export async function fetchServerUser(token?: string): Promise<{
   success: boolean;
   user?: any;
   error?: string;
+  status?: number;
 }> {
   try {
     const authToken =
@@ -182,9 +180,10 @@ export async function fetchServerUser(token?: string): Promise<{
 
     if (res.ok) {
       const data = await res.json();
-      return data;
+      return { ...data, status: res.status };
     }
-    return { success: false, error: 'Session expired or invalid' };
+    const data = await res.json().catch(() => ({}));
+    return { success: false, status: res.status, error: data.error || 'Unable to check user profile' };
   } catch {
     return { success: false, error: 'Network error checking user profile' };
   }

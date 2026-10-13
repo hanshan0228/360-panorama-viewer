@@ -849,12 +849,13 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
       const isGoogleOfficial = rawBase.includes('googleapis.com') || (targetEp.provider === 'gemini' && rawBase.includes('googleapis'));
       const isChatMode = model.toLowerCase().includes('gemini') || rawBase.includes('/chat');
+      const isImagen = model.toLowerCase().includes('imagen');
 
       // Issue 3 fix: Reject reference images on endpoints that do not support them
-      if (validRefs.length > 0 && !isChatMode && !isGoogleOfficial) {
+      if (validRefs.length > 0 && ((isGoogleOfficial && isImagen) || (!isChatMode && !isGoogleOfficial))) {
         return jsonResponse({
           success: false,
-          error: `所选模型端点 [${targetEp.name || model}] 为纯文本生图接口 (/v1/images/generations)，不支持参考图片条件输入。请切换至支持多模态的 Gemini 模型端点，或移除参考图片后重试。`,
+          error: `所选模型端点 [${targetEp.name || model}] 不支持参考图片条件输入。请切换至支持多模态的模型端点，或移除参考图片后重试。`,
         }, 400);
       }
 
@@ -867,7 +868,6 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         if (!apiKey) {
           return jsonResponse({ success: false, error: 'Google AI Studio 官方端点需要配置有效 API Key' }, 400);
         }
-        const isImagen = model.toLowerCase().includes('imagen');
         if (isImagen) {
           targetUrl = `${rawBase}/v1beta/models/${model}:predict?key=${encodeURIComponent(apiKey)}`;
           payload = {
@@ -947,7 +947,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         const data = (await upstreamRes.json()) as any;
         let imageUrl: string | null = null;
 
-        if (isGoogleOfficial && model.toLowerCase().includes('imagen')) {
+        if (isGoogleOfficial && isImagen) {
           if (data.predictions && data.predictions[0]?.bytesBase64Encoded) {
             imageUrl = `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`;
           }

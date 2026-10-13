@@ -37,9 +37,12 @@ import {
   saveStoredManagedUsers,
   saveStoredModelEndpoints,
   saveStoredRoutingConfig,
+  getStoredBillingConfig,
+  saveStoredBillingConfig,
+  DEFAULT_BILLING_CONFIG,
 } from './utils/adminStorage';
 import { generateProceduralPanorama } from './utils/proceduralPanoramas';
-import { fetchServerUser, fetchPublicModelsConfig, initServerGuestUser } from './utils/commercialApi';
+import { fetchServerUser, fetchPublicModelsConfig, fetchPublicBillingConfig, initServerGuestUser } from './utils/commercialApi';
 import { AiHdriGeneratorPage } from './components/landing/AiHdriGeneratorPage';
 import { SkyboxGeneratorPage } from './components/landing/SkyboxGeneratorPage';
 import { PhotoTo360Page } from './components/landing/PhotoTo360Page';
@@ -81,20 +84,45 @@ export function App() {
 
   // Active user and modal states
   const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
+  const [billingConfig, setBillingConfig] = useState(getStoredBillingConfig);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
+  const updateCurrentUser = (user: ManagedUser) => {
+    const users = getStoredManagedUsers();
+    const existingIdx = users.findIndex(entry => entry.id === user.id);
+    if (existingIdx !== -1) users[existingIdx] = user;
+    else users.unshift(user);
+    saveStoredManagedUsers(users);
+    if (user.id === 'usr_guest') {
+      try { localStorage.setItem('panorama_guest_user_data', JSON.stringify(user)); } catch {}
+    }
+    setCurrentUserId(user.id);
+    setCurrentUser(user);
+  };
+
   useEffect(() => {
-    const refreshUser = () => setCurrentUser(getCurrentUser());
+    let active = true;
+    const refreshUser = () => {
+      setCurrentUser(getCurrentUser());
+      setBillingConfig(getStoredBillingConfig());
+    };
     refreshUser();
     // 启动时从云端同步管理员配置的公共模型端点与调度策略
     fetchPublicModelsConfig().then((cloudModels) => {
-      if (cloudModels && cloudModels.endpoints && cloudModels.endpoints.length > 0) {
+      if (active && cloudModels && Array.isArray(cloudModels.endpoints)) {
         saveStoredModelEndpoints(cloudModels.endpoints);
         if (cloudModels.routingConfig) {
           saveStoredRoutingConfig(cloudModels.routingConfig);
         }
       }
+    });
+
+    fetchPublicBillingConfig().then(config => {
+      if (!active || !config) return;
+      const merged = { ...DEFAULT_BILLING_CONFIG, ...config };
+      saveStoredBillingConfig(merged);
+      setBillingConfig(merged);
     });
 
     const applyUser = (u: any) => {
@@ -110,37 +138,38 @@ export function App() {
         lastActiveAt: '刚刚活跃',
         apiCallsCount: u.apiCallsCount || 0,
       };
-      setCurrentUserId(managed.id);
-      setCurrentUser(managed);
-      const users = getStoredManagedUsers();
-      const existingIdx = users.findIndex((user) => user.id === managed.id);
-      if (existingIdx !== -1) {
-        users[existingIdx] = managed;
-      } else {
-        users.unshift(managed);
-      }
-      saveStoredManagedUsers(users);
+      updateCurrentUser(managed);
+    };
+
+    const initializeGuest = () => {
+      initServerGuestUser().then(result => {
+        if (!active || localStorage.getItem('panorama_server_user_token')) return;
+        if (result.success && result.user && result.token) {
+          localStorage.setItem('panorama_server_user_token', result.token);
+          applyUser(result.user);
+        }
+      });
     };
 
     const token = typeof localStorage !== 'undefined' ? localStorage.getItem('panorama_server_user_token') : null;
     if (token) {
       fetchServerUser(token).then((res) => {
+        if (!active || localStorage.getItem('panorama_server_user_token') !== token) return;
         if (res.success && res.user) {
           applyUser(res.user);
-        } else {
+        } else if (res.status === 401 || res.status === 404) {
           if (typeof localStorage !== 'undefined') localStorage.removeItem('panorama_server_user_token');
-          initServerGuestUser().then((gres) => {
-            if (gres.success && gres.user) applyUser(gres.user);
-          });
+          initializeGuest();
         }
       });
     } else {
-      initServerGuestUser().then((gres) => {
-        if (gres.success && gres.user) applyUser(gres.user);
-      });
+      initializeGuest();
     }
     window.addEventListener('focus', refreshUser);
-    return () => window.removeEventListener('focus', refreshUser);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', refreshUser);
+    };
   }, [activeTab]);
 
   // Dynamic SEO metadata synchronization across active tabs & landing pages
@@ -781,6 +810,11 @@ export function App() {
       <main id="studio-main" key={activeTab} tabIndex={-1} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 relative z-10 animate-in fade-in duration-200">
         {activeTab === 'generator' && (
           <GeneratorTab
+            currentUser={currentUser}
+            billingConfig={billingConfig}
+            onUserChange={user => {
+              if (user.id === getCurrentUser().id) updateCurrentUser(user);
+            }}
             currentPanoramaUrl={currentPanoramaUrl}
             onPanoramaChange={setCurrentPanoramaUrl}
             onNavigateTab={navigateTo}
@@ -1092,7 +1126,7 @@ export function App() {
         onClose={() => setIsCheckoutModalOpen(false)}
         initialPlan="pro"
         initialCycle="yearly"
-        onSuccess={(u) => setCurrentUser(u)}
+        onSuccess={updateCurrentUser}
       />
 
       {/* Global User Authentication (Sign In / Register / Profile) Modal */}
@@ -1100,18 +1134,7 @@ export function App() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         currentUser={currentUser}
-        onAuthSuccess={(user) => {
-          setCurrentUser(user);
-          setCurrentUserId(user.id);
-          const users = getStoredManagedUsers();
-          const existingIdx = users.findIndex((u) => u.id === user.id);
-          if (existingIdx !== -1) {
-            users[existingIdx] = user;
-          } else {
-            users.unshift(user);
-          }
-          saveStoredManagedUsers(users);
-        }}
+        onAuthSuccess={updateCurrentUser}
       />
     </div>
   );

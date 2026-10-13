@@ -22,7 +22,7 @@ import {
   Code2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import type { ActiveTab, StylePreset, StylePresetId, ResolutionTier, ManagedUser } from '../types/panorama';
+import type { ActiveTab, StylePreset, StylePresetId, ResolutionTier, ManagedUser, SystemBillingConfig } from '../types/panorama';
 import { SphereViewer } from './SphereViewer';
 import { exportCanvasToHdrBlob } from '../utils/hdrExporter';
 import {
@@ -48,9 +48,6 @@ import {
   getCurrentUser,
   deductCurrentUserCredits,
   getModelExecutionPipeline,
-  getStoredBillingConfig,
-  getStoredManagedUsers,
-  saveStoredManagedUsers,
 } from '../utils/adminStorage';
 
 const PROMPT_BUILDER_CATEGORIES = [
@@ -97,6 +94,9 @@ const PROMPT_BUILDER_CATEGORIES = [
 ];
 
 interface GeneratorTabProps {
+  currentUser: ManagedUser;
+  billingConfig: SystemBillingConfig;
+  onUserChange: (user: ManagedUser) => void;
   currentPanoramaUrl: string;
   onPanoramaChange: (url: string) => void;
   onNavigateTab: (tab: ActiveTab) => void;
@@ -195,6 +195,9 @@ const SAMPLE_REFERENCE_PRESETS = [
 ];
 
 export function GeneratorTab({
+  currentUser,
+  billingConfig,
+  onUserChange,
   currentPanoramaUrl,
   onPanoramaChange,
   onNavigateTab,
@@ -253,11 +256,9 @@ export function GeneratorTab({
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
 
   // User credit and commercial checkout state
-  const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
   // Dynamic credit cost from admin billing configuration
-  const billingConfig = getStoredBillingConfig();
   const creditsCost =
     resolution === '4K'
       ? billingConfig.creditCostPer4K
@@ -338,14 +339,15 @@ export function GeneratorTab({
 
   const handleGenerate = async () => {
     // 1. Account status check
-    const user = getCurrentUser();
+    const user = currentUser;
+    const sessionToken = typeof localStorage !== 'undefined' ? localStorage.getItem('panorama_server_user_token') : null;
     if (user.status === 'suspended') {
       setApiError('您的账户当前已被管理员封禁挂起，无法使用 AI 全景图生成服务。请联系系统管理员。');
       return;
     }
 
     // 2. Check credit balance before firing requests
-    if (user.creditsBalance < creditsCost) {
+    if (!sessionToken && user.creditsBalance < creditsCost) {
       setApiError(
         `账户全景图积分不足！生成 ${resolution} 全景图需要 ${creditsCost} 积分，但您的账号 (${user.name}) 当前仅有 ${user.creditsBalance} 积分。请升级会员套餐或充值积分。`
       );
@@ -387,6 +389,7 @@ export function GeneratorTab({
       let usedEndpointName = '';
       let hadFailover = false;
       let serverRemaining: number | undefined = undefined;
+      let serverCost: number | undefined = undefined;
       const failedAttempts: Array<{ endpoint: string; error: string }> = [];
 
       for (let i = 0; i < pipeline.endpoints.length; i++) {
@@ -399,6 +402,7 @@ export function GeneratorTab({
             apiKey: ep.apiKey,
             model: ep.model,
             resolution,
+            sessionToken,
           };
           const refPreviews = referenceImages.map((r) => r.preview);
           const genResult = await generateWithGemini(fullPrompt, modelConfig, refPreviews);
@@ -406,6 +410,7 @@ export function GeneratorTab({
           if (typeof genResult.remainingCredits === 'number') {
             serverRemaining = genResult.remainingCredits;
           }
+          if (typeof genResult.creditsDeducted === 'number') serverCost = genResult.creditsDeducted;
           usedEndpointName = ep.name;
           if (i > 0) {
             hadFailover = true;
@@ -482,6 +487,11 @@ export function GeneratorTab({
       setGenerationProgress(95);
       onPanoramaChange(finalDataUrl);
 
+      if (getCurrentUser().id !== user.id) {
+        setIsGenerating(false);
+        return;
+      }
+
       // Synchronize credits upon generation success
       let deductSuccess = false;
       let remainingCredits = 0;
@@ -490,34 +500,24 @@ export function GeneratorTab({
         // Server-authoritative deduction already executed in /api/generate
         deductSuccess = true;
         remainingCredits = serverRemaining;
-        const updated = { ...currentUser, creditsBalance: serverRemaining };
-        setCurrentUser(updated);
-        const users = getStoredManagedUsers();
-        const uIdx = users.findIndex((u: ManagedUser) => u.id === currentUser.id);
-        if (uIdx !== -1) {
-          users[uIdx] = updated;
-          saveStoredManagedUsers(users);
-        } else if (currentUser.id === 'usr_guest') {
-          try {
-            localStorage.setItem('panorama_guest_user_data', JSON.stringify(updated));
-          } catch {}
-        }
+        onUserChange({ ...user, creditsBalance: serverRemaining, apiCallsCount: (user.apiCallsCount || 0) + 1 });
       } else {
         // Direct local developer offline usage fallback
         const localRes = deductCurrentUserCredits(creditsCost);
         deductSuccess = localRes.success;
         remainingCredits = localRes.remaining;
-        setCurrentUser(getCurrentUser());
+        onUserChange(getCurrentUser());
       }
 
       if (deductSuccess) {
         const updatedUser = getCurrentUser();
-        const isFreeExhausted = updatedUser.plan === 'free' && remainingCredits < creditsCost;
+        const deductedCost = serverCost ?? creditsCost;
+        const isFreeExhausted = updatedUser.plan === 'free' && remainingCredits < deductedCost;
         const toastNotice = isFreeExhausted
           ? `您的免费体验额度已用完（剩余 ${remainingCredits} 积分）！请升级 Pro 会员解锁无限 4K 生成与商业授权。`
           : hadFailover
-          ? `主模型额度耗尽或异常，已自动切换至备用模型 [${usedEndpointName}] 生成成功！已扣除 ${creditsCost} 积分。`
-          : `360° 全景图通过 [${usedEndpointName}] 生成成功！扣除 ${creditsCost} 积分（剩余 ${remainingCredits} 积分）。`;
+          ? `主模型额度耗尽或异常，已自动切换至备用模型 [${usedEndpointName}] 生成成功！已扣除 ${deductedCost} 积分。`
+          : `360° 全景图通过 [${usedEndpointName}] 生成成功！扣除 ${deductedCost} 积分（剩余 ${remainingCredits} 积分）。`;
         setFeedbackNotice(toastNotice);
         if (isFreeExhausted) {
           setTimeout(() => setIsCheckoutOpen(true), 2500);
@@ -1348,7 +1348,7 @@ export function GeneratorTab({
         initialPlan="pro"
         initialCycle="yearly"
         onSuccess={(u) => {
-          setCurrentUser(u);
+          onUserChange(u);
           setFeedbackNotice(`Account upgraded successfully! New balance: ${u.creditsBalance} credits.`);
           setTimeout(() => setFeedbackNotice(null), 4000);
         }}

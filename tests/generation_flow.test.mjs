@@ -94,6 +94,8 @@ async function withBackend(testContext, backend, fetchUpstream = imageResponse) 
       apiKey: 'synthetic-test-key', isEnabled: true, isDefault: true },
     { id: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com', model: 'gemini-image-model',
       apiKey: 'synthetic-google-key', isEnabled: true },
+    { id: 'imagen', baseUrl: 'https://generativelanguage.googleapis.com', model: 'imagen-model',
+      apiKey: 'synthetic-google-key', isEnabled: true },
   ];
   assert.equal((await call('admin/models', { endpoints }, adminToken)).status, 200);
   const guest = await call('user/guest', {});
@@ -112,6 +114,23 @@ async function withBackend(testContext, backend, fetchUpstream = imageResponse) 
 }
 
 for (const backend of ['Node', 'D1']) {
+  test(`${backend}: rejects Imagen reference input without charging, while text generation works`, async testContext => {
+    let calls = 0;
+    const fixture = await withBackend(testContext, backend, url => {
+      calls++;
+      assert.ok(String(url).includes(':predict'));
+      return Response.json({ predictions: [{ bytesBase64Encoded: 'AA==' }] });
+    });
+    const rejected = await fixture.generate({ endpointId: 'imagen', resolution: '1K', referenceImages: ['data:image/png;base64,AA=='] });
+    assert.equal(rejected.status, 400);
+    assert.ok(rejected.data.error.includes('不支持参考图片'));
+    assert.equal(calls, 0);
+    assert.equal((await fixture.profile()).creditsBalance, 4);
+    const generated = await fixture.generate({ endpointId: 'imagen', resolution: '1K' });
+    assert.equal(generated.status, 200);
+    assert.equal(generated.data.remainingCredits, 3);
+  });
+
   test(`${backend}: derives cost from server billing, not client creditsCost`, async testContext => {
     let calls = 0;
     const fixture = await withBackend(testContext, backend, () => { calls++; return imageResponse(); });
@@ -315,7 +334,7 @@ test('generation client sends resolution and auth without a client-determined cr
   let sentRequest;
   testContext.mock.method(globalThis, 'fetch', async (url, options) => {
     sentRequest = { url, options, body: JSON.parse(options.body) };
-    return Response.json({ success: true, imageUrl: 'data:image/png;base64,AA==', remainingCredits: 2 });
+    return Response.json({ success: true, imageUrl: 'data:image/png;base64,AA==', remainingCredits: 2, creditsDeducted: 2 });
   });
   const { generateWithGemini } = loadTsModule('../src/utils/geminiClient.ts', {
     './adminStorage': adminStorage, './seamHealer': { healPanoramaSeam: () => {} },
@@ -327,4 +346,283 @@ test('generation client sends resolution and auth without a client-determined cr
   assert.equal(Object.hasOwn(sentRequest.body, 'creditsCost'), false);
   assert.equal(sentRequest.options.headers.Authorization, 'Bearer synthetic-token');
   assert.equal(result.remainingCredits, 2);
+  assert.equal(result.creditsDeducted, 2);
+});
+
+function sourceCallback(relativePath, name) {
+  const filename = new URL(relativePath, import.meta.url);
+  const source = ts.createSourceFile(filename.pathname, fs.readFileSync(filename, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let callback;
+  const visit = node => {
+    if (!callback && name && ts.isVariableDeclaration(node) && node.name.getText(source) === name) callback = node.initializer;
+    if (!callback && !name && ts.isCallExpression(node) && node.expression.getText(source) === 'useEffect') callback = node.arguments[0];
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  assert.ok(callback, name || 'initial effect');
+  return callback.getText(source);
+}
+
+function callbackWithContext(text, context) {
+  const output = ts.transpileModule('const handler = ' + text + ';', {
+    compilerOptions: { target: ts.ScriptTarget.ES2023 },
+  }).outputText;
+  return new Function('context', `const {${Object.keys(context).join(',')}} = context; ${output}; return handler;`)(context);
+}
+
+function memoryStorage() {
+  const values = new Map();
+  return { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)), removeItem: key => values.delete(key) };
+}
+
+const accountFixture = (id = 'usr_account') => ({ id, name: 'Test Account', email: 'test@example.com', plan: 'free',
+  creditsBalance: 4, creditsTotal: 4, apiCallsCount: 0, status: 'active' });
+const flushPromises = () => new Promise(resolve => setImmediate(resolve));
+
+function appHarness(testContext, overrides = {}) {
+  setGlobal(testContext, 'localStorage', memoryStorage());
+  setGlobal(testContext, 'window', { addEventListener: () => {}, removeEventListener: () => {} });
+  const state = {};
+  const context = {
+    ...adminStorage,
+    setCurrentUser: user => { state.user = user; },
+    setBillingConfig: config => { state.billing = config; },
+    fetchServerUser: commercialApi.fetchServerUser,
+    initServerGuestUser: async () => ({ success: true, user: accountFixture('usr_guest_test'), token: 'guest-token' }),
+    fetchPublicModelsConfig: async () => null,
+    fetchPublicBillingConfig: async () => null,
+    ...overrides,
+  };
+  context.updateCurrentUser = callbackWithContext(sourceCallback('../src/App.tsx', 'updateCurrentUser'), context);
+  const effect = () => callbackWithContext(sourceCallback('../src/App.tsx'), context)();
+  return { state, context, effect };
+}
+
+for (const failure of ['network', 403, 500, 503]) {
+  test(`profile ${failure} failure preserves a valid login and cached account`, async testContext => {
+    let guestCalls = 0;
+    const harness = appHarness(testContext, { initServerGuestUser: async () => { guestCalls++; return { success: false }; } });
+    harness.context.updateCurrentUser(accountFixture());
+    localStorage.setItem('panorama_server_user_token', 'valid-token');
+    testContext.mock.method(globalThis, 'fetch', async () => {
+      if (failure === 'network') throw new Error('Mock network failure');
+      return Response.json({ error: 'Temporarily unavailable' }, { status: failure });
+    });
+    const cleanup = harness.effect();
+    await flushPromises();
+    assert.equal(localStorage.getItem('panorama_server_user_token'), 'valid-token');
+    assert.equal(harness.state.user.id, 'usr_account');
+    assert.equal(guestCalls, 0);
+    cleanup();
+  });
+}
+
+for (const status of [401, 404]) {
+  test(`profile ${status} clears invalid identity and initializes a controlled guest session`, async testContext => {
+    const harness = appHarness(testContext);
+    harness.context.updateCurrentUser(accountFixture());
+    localStorage.setItem('panorama_server_user_token', 'invalid-token');
+    testContext.mock.method(globalThis, 'fetch', async () => Response.json({ error: 'Invalid account' }, { status }));
+    const cleanup = harness.effect();
+    await flushPromises();
+    assert.equal(localStorage.getItem('panorama_server_user_token'), 'guest-token');
+    assert.equal(harness.state.user.id, 'usr_guest_test');
+    assert.equal(adminStorage.getCurrentUser().id, 'usr_guest_test');
+    cleanup();
+  });
+}
+
+test('stale profile replies cannot overwrite a newly logged-in account', async testContext => {
+  let finish;
+  const reply = new Promise(resolve => { finish = resolve; });
+  const harness = appHarness(testContext, { fetchServerUser: () => reply });
+  harness.context.updateCurrentUser(accountFixture('usr_old'));
+  localStorage.setItem('panorama_server_user_token', 'old-token');
+  const cleanup = harness.effect();
+  localStorage.setItem('panorama_server_user_token', 'new-token');
+  harness.context.updateCurrentUser(accountFixture('usr_new'));
+  finish({ success: true, user: accountFixture('usr_old') });
+  await flushPromises();
+  assert.equal(harness.state.user.id, 'usr_new');
+  assert.equal(adminStorage.getCurrentUser().id, 'usr_new');
+  assert.equal(localStorage.getItem('panorama_server_user_token'), 'new-token');
+  cleanup();
+});
+
+test('guest initialization cannot overwrite a login or a cancelled page effect', async testContext => {
+  for (const cancelled of [false, true]) {
+    let finish;
+    const reply = new Promise(resolve => { finish = resolve; });
+    const harness = appHarness(testContext, { initServerGuestUser: () => reply });
+    const cleanup = harness.effect();
+    if (cancelled) cleanup();
+    else {
+      localStorage.setItem('panorama_server_user_token', 'new-token');
+      harness.context.updateCurrentUser(accountFixture('usr_new'));
+    }
+    finish({ success: true, user: accountFixture('usr_guest_late'), token: 'late-guest-token' });
+    await flushPromises();
+    assert.notEqual(localStorage.getItem('panorama_server_user_token'), 'late-guest-token');
+    if (!cancelled) {
+      assert.equal(harness.state.user.id, 'usr_new');
+      cleanup();
+    }
+  }
+});
+
+test('public billing initializes workspace prices and fills missing server defaults', async testContext => {
+  const harness = appHarness(testContext, { fetchPublicBillingConfig: async () => ({ creditCostPer4K: 1 }) });
+  const cleanup = harness.effect();
+  await flushPromises();
+  assert.equal(harness.state.billing.creditCostPer4K, 1);
+  assert.equal(harness.state.billing.creditCostPer2K, 2);
+  assert.equal(adminStorage.getStoredBillingConfig().creditCostPer4K, 1);
+  cleanup();
+});
+
+test('server guest debit updates the active App identity rather than an old guest snapshot', async testContext => {
+  const harness = appHarness(testContext);
+  const cleanup = harness.effect();
+  await flushPromises();
+  const source = fs.readFileSync(new URL('../src/components/GeneratorTab.tsx', import.meta.url), 'utf8');
+  const start = source.indexOf('// Synchronize credits upon generation success');
+  const end = source.indexOf('setGenerationProgress(100);', start);
+  assert.ok(start >= 0 && end > start);
+  callbackWithContext(`()=>{${source.slice(start, end)}}`, {
+    ...adminStorage, user: harness.state.user, serverRemaining: 2, serverCost: 2, creditsCost: 2,
+    onUserChange: harness.context.updateCurrentUser, hadFailover: false, usedEndpointName: 'Test',
+    setFeedbackNotice: () => {}, setIsCheckoutOpen: () => {}, setTimeout: () => {},
+  })();
+  assert.equal(harness.state.user.id, 'usr_guest_test');
+  assert.equal(harness.state.user.creditsBalance, 2);
+  assert.equal(adminStorage.getCurrentUser().creditsBalance, 2);
+  assert.ok(!source.includes('const [currentUser, setCurrentUser]'));
+  cleanup();
+});
+
+test('guest initializer returns credentials without mutating the callers active session', async testContext => {
+  setGlobal(testContext, 'localStorage', memoryStorage());
+  localStorage.setItem('panorama_server_user_token', 'active-token');
+  testContext.mock.method(globalThis, 'fetch', async () => Response.json({ success: true, user: accountFixture('usr_guest_test'), token: 'guest-token' }));
+  const result = await commercialApi.initServerGuestUser();
+  assert.equal(result.token, 'guest-token');
+  assert.equal(localStorage.getItem('panorama_server_user_token'), 'active-token');
+});
+
+test('generation uses its captured session even if another account logs in', async testContext => {
+  setGlobal(testContext, 'localStorage', { getItem: () => 'other-account-token' });
+  setGlobal(testContext, 'window', { location: { hostname: 'review.example' } });
+  let sentToken;
+  testContext.mock.method(globalThis, 'fetch', async (url, options) => {
+    sentToken = options.headers.Authorization;
+    return Response.json({ success: true, imageUrl: 'data:image/png;base64,AA==', remainingCredits: 2 });
+  });
+  const { generateWithGemini } = loadTsModule('../src/utils/geminiClient.ts', {
+    './adminStorage': adminStorage, './seamHealer': { healPanoramaSeam: () => {} },
+  });
+  await generateWithGemini('Test', { apiKey: '', baseUrl: 'https://model.example', model: 'image-model', sessionToken: 'original-token' });
+  assert.equal(sentToken, 'Bearer original-token');
+});
+
+test('cloud generation defers balance checks to server rather than rejecting on a cached price', async testContext => {
+  setGlobal(testContext, 'localStorage', memoryStorage());
+  const source = fs.readFileSync(new URL('../src/components/GeneratorTab.tsx', import.meta.url), 'utf8');
+  const start = source.indexOf('// 1. Account status check');
+  const end = source.indexOf('// 3. Check execution pipeline availability', start);
+  assert.ok(start >= 0 && end > start);
+  let error;
+  const check = callbackWithContext(`()=>{${source.slice(start, end)}return true;}`, {
+    currentUser: { ...accountFixture(), creditsBalance: 2 }, creditsCost: 4, resolution: '4K',
+    setApiError: message => { error = message; },
+  });
+  localStorage.setItem('panorama_server_user_token', 'valid-token');
+  assert.equal(check(), true);
+  assert.equal(error, undefined);
+  localStorage.removeItem('panorama_server_user_token');
+  assert.equal(check(), undefined);
+  assert.ok(error.includes('积分不足'));
+});
+
+test('generation finishing after an account switch does not overwrite the new account', () => {
+  const source = fs.readFileSync(new URL('../src/components/GeneratorTab.tsx', import.meta.url), 'utf8');
+  const start = source.indexOf('if (getCurrentUser().id !== user.id)');
+  const end = source.indexOf('setGenerationProgress(100);', start);
+  assert.ok(start >= 0 && end > start);
+  let updates = 0;
+  let generating = true;
+  callbackWithContext(`()=>{${source.slice(start, end)}}`, {
+    user: accountFixture('usr_old'), getCurrentUser: () => accountFixture('usr_new'),
+    onUserChange: () => { updates++; }, setIsGenerating: value => { generating = value; },
+  })();
+  assert.equal(updates, 0);
+  assert.equal(generating, false);
+});
+
+function adminHarness(testContext, successful = true, serverMode = true) {
+  setGlobal(testContext, 'localStorage', memoryStorage());
+  setGlobal(testContext, 'confirm', () => true);
+  const endpoints = [{ id: 'primary', name: 'Primary', isDefault: true, isEnabled: true },
+    { id: 'secondary', name: 'Secondary', isDefault: false, isEnabled: true }];
+  const routingConfig = { mode: 'single', primaryEndpointId: 'primary', secondaryEndpointId: 'secondary',
+    tertiaryEndpointId: '', roundRobinIndex: 0 };
+  adminStorage.saveStoredModelEndpoints(endpoints);
+  adminStorage.saveStoredRoutingConfig(routingConfig);
+  const state = { notices: [], requests: [], endpoints, routingConfig, editing: true };
+  const context = {
+    ...adminStorage, endpoints, routingConfig, isServerMode: serverMode, modelSaveInProgress: { current: false },
+    editingEndpoint: { ...endpoints[0], name: 'Renamed' }, isAddingEndpoint: false,
+    setEndpoints: next => { state.endpoints = next; }, setRoutingConfig: next => { state.routingConfig = next; },
+    setEditingEndpoint: value => { state.editing = value; }, setIsAddingEndpoint: () => {},
+    showToast: notice => state.notices.push(notice),
+    adminSaveModelsConfigServer: async payload => { state.requests.push(payload); return successful; },
+  };
+  context.saveModelConfiguration = callbackWithContext(sourceCallback('../src/components/AdminTab.tsx', 'saveModelConfiguration'), context);
+  return { state, context, action: name => callbackWithContext(sourceCallback('../src/components/AdminTab.tsx', name), context) };
+}
+
+const modelActions = [
+  ['handleToggleEndpointEnabled', 'primary'], ['handleSetAsPrimaryEndpoint', 'secondary'],
+  ['handleSetAsSecondaryEndpoint', 'secondary'], ['handleDeleteEndpoint', 'primary'],
+  ['handleSaveRoutingStrategy', { preventDefault: () => {} }], ['handleSaveEndpointForm', { preventDefault: () => {} }],
+];
+for (const [name, argument] of modelActions) {
+  test(`${name}: saves cloud configuration before changing local state`, async testContext => {
+    const harness = adminHarness(testContext);
+    await harness.action(name)(argument);
+    assert.equal(harness.state.requests.length, 1);
+    assert.deepEqual(adminStorage.getStoredModelEndpoints(), harness.state.requests[0].endpoints);
+    assert.deepEqual(adminStorage.getStoredRoutingConfig(), harness.state.requests[0].routingConfig);
+    assert.ok(!harness.state.notices.some(notice => notice.includes('失败')));
+  });
+  test(`${name}: failed cloud save leaves local configuration untouched`, async testContext => {
+    const harness = adminHarness(testContext, false);
+    const before = JSON.stringify([adminStorage.getStoredModelEndpoints(), adminStorage.getStoredRoutingConfig()]);
+    await harness.action(name)(argument);
+    assert.equal(JSON.stringify([adminStorage.getStoredModelEndpoints(), adminStorage.getStoredRoutingConfig()]), before);
+    assert.equal(harness.state.notices.length, 1);
+    assert.ok(harness.state.notices[0].includes('失败'));
+    assert.equal(harness.state.editing, true);
+  });
+}
+
+test('offline admin mode keeps local editing without making a server request', async testContext => {
+  const harness = adminHarness(testContext, false, false);
+  await harness.action('handleToggleEndpointEnabled')('primary');
+  assert.equal(harness.state.requests.length, 0);
+  assert.equal(adminStorage.getStoredModelEndpoints()[0].isEnabled, false);
+});
+
+test('overlapping admin saves are rejected rather than overwriting newer state', async testContext => {
+  const harness = adminHarness(testContext);
+  let release;
+  const saved = new Promise(resolve => { release = resolve; });
+  harness.context.adminSaveModelsConfigServer = async payload => { harness.state.requests.push(payload); return saved; };
+  const save = callbackWithContext(sourceCallback('../src/components/AdminTab.tsx', 'saveModelConfiguration'), harness.context);
+  const first = save([{ id: 'first' }]);
+  assert.equal(await save([{ id: 'second' }]), false);
+  assert.equal(harness.state.requests.length, 1);
+  release(true);
+  assert.equal(await first, true);
+  assert.equal(adminStorage.getStoredModelEndpoints()[0].id, 'first');
+  assert.equal(harness.context.modelSaveInProgress.current, false);
 });
