@@ -745,9 +745,9 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         endpointId?: string;
         modelId?: string;
         referenceImages?: string[];
-        creditsCost?: number;
+        resolution?: string;
       };
-      const { prompt, endpointId, modelId, referenceImages, creditsCost } = body;
+      const { prompt, endpointId, modelId, referenceImages } = body;
       if (!prompt || typeof prompt !== 'string') {
         return jsonResponse({ success: false, error: 'Prompt is required' }, 400);
       }
@@ -787,7 +787,19 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         return jsonResponse({ success: false, error: '该账户已被管理员封禁挂起，无法使用生图服务。' }, 403);
       }
 
-      const cost = typeof creditsCost === 'number' && creditsCost > 0 ? Math.floor(creditsCost) : 4;
+      const resolution = body.resolution ?? '4K';
+      const defaultCosts: Record<string, number> = { '1K': 1, '2K': 2, '4K': 4 };
+      if (typeof resolution !== 'string' || !Object.hasOwn(defaultCosts, resolution)) {
+        return jsonResponse({ success: false, error: 'Invalid resolution' }, 400);
+      }
+      const billingRow = await env.DB.prepare('SELECT value FROM admin_config WHERE key = ?')
+        .bind('billing_config')
+        .first<{ value: string }>();
+      const billingConfig = billingRow?.value ? JSON.parse(billingRow.value) : {};
+      const cost = billingConfig?.[`creditCostPer${resolution}`] ?? defaultCosts[resolution];
+      if (!Number.isSafeInteger(cost) || cost <= 0) {
+        return jsonResponse({ success: false, error: '服务端积分费率配置无效，请联系管理员。' }, 503);
+      }
       if (user.credits_balance < cost) {
         return jsonResponse({
           success: false,
@@ -895,6 +907,14 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           : { model, prompt, n: 1, size: '1792x1024', response_format: 'b64_json' };
       }
 
+      const reservation = await env.DB.prepare(`
+        UPDATE users SET credits_balance = credits_balance - ?
+        WHERE id = ? AND status = 'active' AND credits_balance >= ?
+      `).bind(cost, user.id, cost).run();
+      if (!reservation.meta.changes) {
+        return jsonResponse({ success: false, error: '积分余额不足或账号异常，无法继续生成' }, 400);
+      }
+      let completed = false;
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 90000);
 
@@ -916,8 +936,6 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           });
         }
 
-        clearTimeout(timer);
-
         if (!upstreamRes.ok) {
           const errText = await upstreamRes.text();
           return jsonResponse({
@@ -934,12 +952,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
             imageUrl = `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`;
           }
         } else if (isGoogleOfficial) {
-          const part = data.candidates?.[0]?.content?.parts?.[0];
+          const parts = data.candidates?.[0]?.content?.parts || [];
+          const part = parts.find((item: any) => item?.inlineData?.data);
           if (part?.inlineData?.data) {
             imageUrl = `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
-          } else if (typeof part?.text === 'string') {
-            const b64 = part.text.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
-            imageUrl = b64 ? b64[0] : (part.text.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)/i)?.[0] || null);
+          } else {
+            const text = parts.filter((item: any) => typeof item?.text === 'string')
+              .map((item: any) => item.text).join('\n');
+            const b64 = text.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
+            imageUrl = b64 ? b64[0] : (text.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)/i)?.[0] || null);
           }
         } else if (isChatMode) {
           const msg = data.choices?.[0]?.message;
@@ -962,17 +983,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           return jsonResponse({ success: false, error: '模型响应成功但未返回有效图片数据' }, 502);
         }
 
-        // Server-authoritative credit deduction on generation success
         await env.DB.prepare(`
-          UPDATE users
-          SET credits_balance = credits_balance - ?, api_calls_count = api_calls_count + 1
-          WHERE id = ? AND credits_balance >= ?
-        `).bind(cost, user.id, cost).run();
+          UPDATE users SET api_calls_count = api_calls_count + 1 WHERE id = ?
+        `).bind(user.id).run();
 
         const updated = await env.DB.prepare('SELECT credits_balance FROM users WHERE id = ?')
           .bind(user.id)
           .first<{ credits_balance: number }>();
 
+        completed = true;
         return jsonResponse({
           success: true,
           imageUrl,
@@ -981,11 +1000,16 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           creditsDeducted: cost,
         });
       } catch (err: unknown) {
-        clearTimeout(timer);
         return jsonResponse({
           success: false,
           error: `代理调用模型端点异常: ${err instanceof Error ? err.message : String(err)}`,
         }, 504);
+      } finally {
+        clearTimeout(timer);
+        if (!completed) {
+          await env.DB.prepare('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?')
+            .bind(cost, user.id).run();
+        }
       }
     }
     return jsonResponse({ error: 'Route not found' }, 404);

@@ -84,6 +84,14 @@ npm run dev
 ```
 启动后在浏览器打开：`http://localhost:5173/`
 
+### 生图接口与积分
+
+`POST /api/generate` 使用账户或游客会话的 `Authorization: Bearer <token>`，请求包含 `prompt`、`endpointId` 和 `resolution`（`1K`、`2K`、`4K`；省略时按 `4K` 处理）。服务端依据保存的计费配置计算费用，忽略客户端 `creditsCost`；费率必须为正整数，未配置时分别使用 1、2、4 积分。
+
+调用模型前原子预留积分，成功后记录调用次数，模型请求失败或响应不含图片时释放预留积分。Cloudflare 使用 D1 支持并发；本地 JSON 后端仅支持单 Node 进程，不应用作多实例共享账本。
+
+回归检查：`npm run build`、`npm run lint`、`node --test tests/*.test.mjs`。测试使用模拟模型，不调用真实收费服务；D1 适配测试使用 Node 内置 SQLite，与现有 TypeScript 直读测试一起要求支持这些特性的 Node 版本。
+
 ### 2. 生产打包
 ```bash
 npm run build

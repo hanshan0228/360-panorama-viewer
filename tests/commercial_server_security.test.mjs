@@ -276,7 +276,10 @@ test('generate proxy strictly verifies authentication, accounts, credits, endpoi
   assert.ok((await refRejectRes.json()).error.includes('不支持参考图片'));
 
   // 6. Reject generation when credits are insufficient
-  const overdraftRes = await post('/api/generate', { prompt: 'skyline', creditsCost: 10 }, guestHeaders);
+  const depletedStore = readStore(file);
+  depletedStore.users.find(user => user.id === guestUser.id).creditsBalance = 2;
+  writeStore(depletedStore, file);
+  const overdraftRes = await post('/api/generate', { prompt: 'skyline', resolution: '4K' }, guestHeaders);
   assert.equal(overdraftRes.status, 400);
   assert.ok((await overdraftRes.json()).error.includes('积分不足'));
 

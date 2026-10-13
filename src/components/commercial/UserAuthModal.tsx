@@ -34,7 +34,8 @@ export function UserAuthModal({
 
   if (!isOpen) return null;
 
-  const isLoggedIn = typeof localStorage !== 'undefined' && Boolean(localStorage.getItem('panorama_server_user_token'));
+  const isGuest = currentUser.id === 'usr_guest' || currentUser.id.startsWith('usr_guest_');
+  const isLoggedIn = !isGuest && typeof localStorage !== 'undefined' && Boolean(localStorage.getItem('panorama_server_user_token'));
 
   const handleLogout = () => {
     if (typeof localStorage !== 'undefined') {

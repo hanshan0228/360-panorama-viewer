@@ -112,6 +112,7 @@ export function createCommercialServer(options = {}) {
   const file = options.storeFile || STORE_FILE;
   const env = options.env || process.env;
   const persist = options.writeStore || writeStore;
+  const fetchUpstream = options.fetch || fetch;
   const sessions = new Map();
   const userSessions = new Map();
   const failures = new Map();
@@ -237,7 +238,7 @@ export function createCommercialServer(options = {}) {
 
       if (pathname === '/api/generate' && req.method === 'POST') {
         const body = JSON.parse((await readRawBody(req)).toString());
-        const { prompt, endpointId, modelId, referenceImages, creditsCost } = body || {};
+        const { prompt, endpointId, modelId, referenceImages } = body || {};
         if (!prompt || typeof prompt !== 'string') {
           return sendJson(res, 400, { success: false, error: 'Prompt is required' });
         }
@@ -261,7 +262,15 @@ export function createCommercialServer(options = {}) {
           return sendJson(res, 403, { success: false, error: '该账户已被管理员封禁挂起，无法使用生图服务' });
         }
 
-        const cost = typeof creditsCost === 'number' && creditsCost > 0 ? Math.floor(creditsCost) : 4;
+        const resolution = body.resolution ?? '4K';
+        const defaultCosts = { '1K': 1, '2K': 2, '4K': 4 };
+        if (typeof resolution !== 'string' || !Object.hasOwn(defaultCosts, resolution)) {
+          return sendJson(res, 400, { success: false, error: 'Invalid resolution' });
+        }
+        const cost = store.billing_config?.[`creditCostPer${resolution}`] ?? defaultCosts[resolution];
+        if (!Number.isSafeInteger(cost) || cost <= 0) {
+          return sendJson(res, 503, { success: false, error: '服务端积分费率配置无效，请联系管理员。' });
+        }
         if (user.creditsBalance < cost) {
           return sendJson(res, 400, { success: false, error: `账户积分不足！本次生成需要 ${cost} 积分，当前可用余额为 ${user.creditsBalance} 积分。` });
         }
@@ -352,11 +361,17 @@ export function createCommercialServer(options = {}) {
             : { model, prompt, n: 1, size: '1792x1024', response_format: 'b64_json' };
         }
 
+        // ponytail: synchronous reservations cover one Node process; use D1 for multiple instances.
+        user.creditsBalance -= cost;
+        persist(store, file);
+        let completed = false;
+        let responseStatus = 200;
+        let responseData;
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 90000);
 
         try {
-          let upstreamRes = await fetch(targetUrl, {
+          let upstreamRes = await fetchUpstream(targetUrl, {
             method: 'POST',
             headers,
             body: JSON.stringify(payload),
@@ -364,7 +379,7 @@ export function createCommercialServer(options = {}) {
           });
 
           if (!upstreamRes.ok && upstreamRes.status === 400 && validRefs.length > 0 && isChatMode && !isGoogleOfficial) {
-            upstreamRes = await fetch(targetUrl, {
+            upstreamRes = await fetchUpstream(targetUrl, {
               method: 'POST',
               headers,
               body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }] }),
@@ -372,11 +387,10 @@ export function createCommercialServer(options = {}) {
             });
           }
 
-          clearTimeout(timer);
-
           if (!upstreamRes.ok) {
             const errText = await upstreamRes.text();
-            return sendJson(res, 502, { success: false, error: `模型端点返回 HTTP ${upstreamRes.status}: ${errText.slice(0, 240)}` });
+            responseStatus = 502;
+            throw new Error(`模型端点返回 HTTP ${upstreamRes.status}: ${errText.slice(0, 240)}`);
           }
 
           const data = await upstreamRes.json();
@@ -387,12 +401,15 @@ export function createCommercialServer(options = {}) {
               imageUrl = `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`;
             }
           } else if (isGoogleOfficial) {
-            const part = data.candidates?.[0]?.content?.parts?.[0];
+            const parts = data.candidates?.[0]?.content?.parts || [];
+            const part = parts.find((item) => item?.inlineData?.data);
             if (part?.inlineData?.data) {
               imageUrl = `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
-            } else if (typeof part?.text === 'string') {
-              const b64 = part.text.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
-              imageUrl = b64 ? b64[0] : (part.text.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)/i)?.[0] || null);
+            } else {
+              const text = parts.filter((item) => typeof item?.text === 'string')
+                .map((item) => item.text).join('\n');
+              const b64 = text.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
+              imageUrl = b64 ? b64[0] : (text.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)/i)?.[0] || null);
             }
           } else if (isChatMode) {
             const msg = data.choices?.[0]?.message;
@@ -411,24 +428,41 @@ export function createCommercialServer(options = {}) {
             }
           }
 
-          if (!imageUrl) return sendJson(res, 502, { success: false, error: '未返回有效图片' });
+          if (!imageUrl) {
+            responseStatus = 502;
+            throw new Error('未返回有效图片');
+          }
 
-          // Deduct credits on server
-          user.creditsBalance = Math.max(0, user.creditsBalance - cost);
-          user.apiCallsCount = (user.apiCallsCount || 0) + 1;
-          persist(store, file);
+          const latestStore = readStore(file);
+          const latestUser = latestStore.users.find(entry => entry.id === user.id);
+          if (!latestUser) throw new Error('User no longer exists');
+          latestUser.apiCallsCount = (latestUser.apiCallsCount || 0) + 1;
+          persist(latestStore, file);
+          completed = true;
 
-          return sendJson(res, 200, {
+          responseData = {
             success: true,
             imageUrl,
             modelUsed: model,
-            remainingCredits: user.creditsBalance,
+            remainingCredits: latestUser.creditsBalance,
             creditsDeducted: cost,
-          });
+          };
         } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          if (responseStatus === 200) responseStatus = 504;
+          responseData = { success: false, error: responseStatus === 502 ? message : `代理调用异常: ${message}` };
+        } finally {
           clearTimeout(timer);
-          return sendJson(res, 504, { success: false, error: `代理调用异常: ${err instanceof Error ? err.message : String(err)}` });
+          if (!completed) {
+            const latestStore = readStore(file);
+            const latestUser = latestStore.users.find(entry => entry.id === user.id);
+            if (latestUser) {
+              latestUser.creditsBalance += cost;
+              persist(latestStore, file);
+            }
+          }
         }
+        return sendJson(res, responseStatus, responseData);
       }
       // Public Billing Rules Query
       if (pathname === '/api/billing' && req.method === 'GET') {

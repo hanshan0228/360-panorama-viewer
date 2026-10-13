@@ -1,5 +1,6 @@
 import { healPanoramaSeam } from './seamHealer';
 import { getActiveModelEndpoint } from './adminStorage';
+import type { ResolutionTier } from '../types/panorama';
 
 export interface GeminiConfig {
   endpointId?: string;
@@ -7,7 +8,7 @@ export interface GeminiConfig {
   apiKey: string;
   baseUrl: string; // e.g. "http://localhost:8045" or "https://generativelanguage.googleapis.com"
   model: string;   // e.g. "imagen-3.0-generate-002" or "gemini-2.5-flash-image" / "gemini-pro-vision"
-  creditsCost?: number;
+  resolution?: ResolutionTier;
 }
 
 export const DEFAULT_GEMINI_CONFIG: GeminiConfig = {
@@ -261,7 +262,7 @@ export async function generateWithGemini(
           endpointId: config.endpointId,
           modelId: model,
           referenceImages,
-          creditsCost: config.creditsCost || 4,
+          resolution: config.resolution || '4K',
         }),
       });
     } catch (netErr) {

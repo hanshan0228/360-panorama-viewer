@@ -398,7 +398,7 @@ export function GeneratorTab({
             baseUrl: ep.baseUrl,
             apiKey: ep.apiKey,
             model: ep.model,
-            creditsCost,
+            resolution,
           };
           const refPreviews = referenceImages.map((r) => r.preview);
           const genResult = await generateWithGemini(fullPrompt, modelConfig, refPreviews);
