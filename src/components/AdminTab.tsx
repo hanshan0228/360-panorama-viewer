@@ -147,6 +147,8 @@ export function AdminTab() {
 
   // 5. Billing Config State
   const [billingConfig, setBillingConfig] = useState<SystemBillingConfig>(() => getStoredBillingConfig());
+  const [riskReport, setRiskReport] = useState('');
+  const [riskLoading, setRiskLoading] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
   // Probe server on mount and sync store if authenticated
@@ -254,7 +256,7 @@ export function AdminTab() {
       }
     }
 
-    if (sessionStorage.getItem('panorama_admin_server_mode')) {
+    if ((typeof window !== 'undefined' && !['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)) || sessionStorage.getItem('panorama_admin_server_mode')) {
       setLoginErrorMsg('服务器不可用，请恢复连接后重新登录。');
       return;
     }
@@ -671,7 +673,7 @@ export function AdminTab() {
           <div>
             <label className="block text-slate-300 text-xs font-semibold mb-1.5 flex items-center justify-between">
               <span>管理员账号</span>
-              <span className="text-[10px] text-cyan-400 font-mono">默认: admin</span>
+              <span className="text-[10px] text-cyan-400 font-mono">使用已配置的账号</span>
             </label>
             <div className="relative">
               <input
@@ -689,7 +691,7 @@ export function AdminTab() {
           <div>
             <label className="block text-slate-300 text-xs font-semibold mb-1.5 flex items-center justify-between">
               <span>管理员主密码</span>
-              <span className="text-[10px] text-cyan-400 font-mono">默认: admin888</span>
+              <span className="text-[10px] text-cyan-400 font-mono">使用已配置的密码</span>
             </label>
             <div className="relative">
               <input
@@ -727,11 +729,7 @@ export function AdminTab() {
         </form>
 
         <div className="mt-6 pt-4 border-t border-slate-800/80 text-center text-[11px] text-slate-500">
-          <span>初始默认凭据：账号 </span>
-          <code className="text-cyan-400 font-mono font-bold">admin</code>
-          <span> / 密码 </span>
-          <code className="text-cyan-400 font-mono font-bold">admin888</code>
-          <span>。登录后可在【安全与凭证】面板中随时修改。</span>
+          <span>请使用已配置的管理员凭证。公网管理后台需要服务端验证。</span>
         </div>
       </div>
     );
@@ -808,6 +806,25 @@ export function AdminTab() {
           </span>
         </div>
       </div>
+
+      {isServerMode && <section className="rounded-2xl border border-cyan-500/30 bg-slate-900/60 p-4">
+        <button type="button" disabled={riskLoading} className="rounded-lg border border-cyan-400/40 px-4 py-2 text-sm text-cyan-200 disabled:opacity-50" onClick={async () => {
+          const token = sessionStorage.getItem('panorama_admin_server_token');
+          setRiskLoading(true); setRiskReport('');
+          try {
+            const response = await fetch('/api/admin/risk', { headers: { Authorization: `Bearer ${token || ''}` }, signal: AbortSignal.timeout(15000) });
+            const data = await response.json();
+            if (sessionStorage.getItem('panorama_admin_server_token') !== token) return;
+            if (!response.ok) throw new Error(data.error || '无法读取云端风控用量');
+            const mb = (bytes: number) => (bytes / 1024 / 1024).toFixed(1);
+            const used = (key: string) => data.counters?.find((row: { key: string; used: number }) => row.key === key)?.used || 0;
+            setRiskReport(`原图库 ${mb(data.works.bytes)} / ${mb(data.works.limit)} MiB；分享 ${mb(data.shares.bytes)} / ${mb(data.shares.limit)} MiB。今日模型调用额度 ${used('generation-all')} / ${data.limits.totalDailyCredits} 积分，其中免费 ${used('generation-free')} / ${data.limits.freeDailyCredits}。当前并发 ${data.leases.count} / ${data.limits.concurrent}。生成${data.limits.enabled ? '开启' : '暂停'}，免费试用${data.limits.trialEnabled ? '开启' : '暂停'}。`);
+          } catch (error) { if (sessionStorage.getItem('panorama_admin_server_token') === token) setRiskReport(error instanceof Error ? error.message : '读取失败，请重试'); }
+          finally { setRiskLoading(false); }
+        }}>{riskLoading ? '正在读取…' : '查看 / 刷新风控用量'}</button>
+        {riskReport && <p role="status" className="mt-3 text-sm text-slate-200">{riskReport}</p>}
+        <p className="mt-2 text-xs text-slate-400">每日额度按 UTC 重置（北京时间 08:00）；失败与退款调用也计入风控额度。容量按存储占用计算，原图包含 Base64 开销。</p>
+      </section>}
 
       {/* Header & Sub Section Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 backdrop-blur-xl border border-slate-800 p-6 rounded-2xl shadow-xl">

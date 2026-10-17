@@ -175,6 +175,8 @@ for (const backend of ['Node', 'D1']) {
     assert.equal(result.data.imageResolution.status, 'met');
     assert.equal(result.data.creditsDeducted, 4);
     assert.equal(result.data.creditsRefunded, 0);
+    assert.ok(result.data.generationTiming.upstreamWaitMs >= 0);
+    assert.ok(result.data.generationTiming.upstreamBodyMs >= 0);
     assert.equal((await fixture.profile()).creditsBalance, 0);
     fixture.setUser(4);
     remote = true;
@@ -220,7 +222,7 @@ for (const backend of ['Node', 'D1']) {
     const fixture = await withBackend(testContext, backend, (url, options) => {
       assert.equal(new URL(url).pathname, '/v1beta/models/gemini-3.1-flash-image:generateContent');
       const payload = JSON.parse(options.body);
-      assert.deepEqual(payload.generationConfig, { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '16:9', imageSize: '2K' } });
+      assert.deepEqual(payload.generationConfig, { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '16:9', imageSize: '2K' }, thinkingConfig: { thinkingLevel: 'minimal', includeThoughts: false } });
       return Response.json({ candidates: [{ content: { parts: [{ inlineData: { data: 'AA==', mimeType: 'image/png' } }] } }] });
     });
     assert.equal((await fixture.generate({ endpointId: 'gemini-native', resolution: '2K' })).status, 200);
@@ -403,6 +405,8 @@ test('D1: request deadline covers response body parsing and releases credits', a
   await parsingStarted;
   assert.equal((await fixture.profile()).creditsBalance, 0);
   testContext.mock.timers.tick(90000);
+  assert.equal((await fixture.profile()).creditsBalance, 0, 'the former 90-second deadline must not abort a slow 4K response');
+  testContext.mock.timers.tick(60000);
   assert.equal((await request).status, 504);
   assert.equal((await fixture.profile()).creditsBalance, 4);
 });
@@ -957,7 +961,7 @@ function studioHarness(testContext) {
     'CommercialFaq', 'PhotoToVideoModal', 'EmbedModal',
   ].map(name => [`./commercial/${name}`, { [name]: () => null }]));
   harness = componentHarness('../src/components/GeneratorTab.tsx', 'GeneratorTab', {
-    ...overrides, './SphereViewer': { SphereViewer: 'sphere-preview' },
+    ...overrides, './commercial/MyWorks': { MyWorks: () => null }, './commercial/SharePanorama': { SharePanoramaModal: () => null }, './SphereViewer': { SphereViewer: 'sphere-preview' },
     './HeroPanorama': { HeroPanorama: 'hero-panorama' },
     '../assets/coastal-cover.png': '/coastal-cover.png',
     '../utils/hdrExporter': {}, '../utils/geminiClient': {}, '../utils/xmpInjector': {},
@@ -1220,12 +1224,12 @@ test('account creation feedback uses actual balance and guest logout does not sh
 for (const backend of ['Node', 'D1']) {
   test(`${backend}: registration without a display name remains supported and guest balance is not silently merged`, async testContext => {
     const fixture = await withBackend(testContext, backend);
-    const guest = await fixture.call('user/guest', {});
+    const guest = { data: { token: fixture.token, user: { id: (await fixture.profile()).id } } };
     const response = await fixture.call('user/auth', { email: 'optional-name@example.test', password: 'test-password', mode: 'register' }, guest.data.token);
     assert.equal(response.status, 200);
     assert.equal(response.data.user.name, 'optional-name');
     assert.notEqual(response.data.user.id, guest.data.user.id);
-    assert.equal(response.data.user.creditsBalance, 4);
+    assert.equal(response.data.user.creditsBalance, 0);
   });
 }
 
@@ -1407,9 +1411,8 @@ test('D1: guest trial minting is rate limited per client address', async testCon
     request: new Request('https://review.example/api/user/guest', { method: 'POST' }),
     env: { DB: db },
   });
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    assert.equal((await mint()).status, 200);
-  }
+  assert.equal((await mint()).status, 200);
+  __resetEdgeRateLimits(); // A new edge isolate cannot renew the D1 allowance.
   assert.equal((await mint()).status, 429);
 });
 
@@ -1972,7 +1975,7 @@ test('default preparation preserves native pixels, disables sharpening and does 
   assert.ok(fixture.state.some(([key, value]) => key === 'setOriginalRawUrl' && value === 'raw'));
   assert.ok(fixture.state.some(([key, value]) => key === 'setEnhanced4kUrl' && value === null));
   const source = fs.readFileSync(new URL('../src/components/GeneratorTab.tsx', import.meta.url), 'utf8');
-  assert.match(source, /\[seamCorrection, setSeamCorrection\] = useState\(false\)/);
+  assert.match(source, /\[seamCorrection, setSeamCorrection\] = useState<boolean \| 'auto'>\('auto'\)/);
   assert.equal(source.includes('4K Super-Resolution'), false);
   assert.ok(source.includes('Download model original'));
 });
@@ -2142,3 +2145,103 @@ for (const flow of ['restore', 'login']) {
     }
   });
 }
+
+test('panorama prompt respects the chosen style without injecting photorealism or 8K claims', () => {
+  const { buildPanoramaPrompt } = loadTsModule('../src/utils/geminiClient.ts', { './adminStorage': adminStorage });
+  const prompt = buildPanoramaPrompt('Alpine lake', 'watercolor illustration');
+  assert.match(prompt, /watercolor illustration/);
+  assert.match(prompt, /matching left and right edges/);
+  assert.doesNotMatch(prompt, /photorealistic|8k|ultra sharp/i);
+});
+
+test('an undersized result keeps the fallback failure visible with both attempts in timing', async () => {
+  let calls = 0;
+  const imageUrl = `data:image/png;base64,${pngMetadata(1774, 887)}`;
+  const fixture = generatorRegressionContext({
+    resolution: '4K', creditsCost: 4,
+    getModelExecutionPipeline: () => ({ mode: 'failover', endpoints: [
+      { id: 'gpt', name: 'GPT', model: 'gpt-image-2.5' },
+      { id: 'gemini', name: 'Gemini', model: 'gemini-3.1-flash-image' },
+    ] }),
+    generateWithGemini: async () => {
+      if (++calls === 2) throw new Error('Provider timeout');
+      return { imageUrl, creditsDeducted: 0, creditsRefunded: 4, remainingCredits: 4 };
+    },
+  });
+  await fixture.generate();
+  assert.equal(calls, 2);
+  const notice = fixture.state.filter(([key, value]) => key === 'setApiError' && value).at(-1)[1];
+  assert.match(notice, /4 credits were returned/);
+  assert.match(notice, /gemini-3.1-flash-image: Provider timeout/);
+  const timing = fixture.state.filter(([key, value]) => key === 'setGenerationTiming' && value).at(-1)[1];
+  assert.match(timing, /gpt-image-2.5: 1774×887/);
+  assert.match(timing, /gemini-3.1-flash-image: failed/);
+});
+
+test('share manager discards another account’s late list and aborts requests when closed', async t => {
+  let token = 'account-A';
+  setGlobal(t, 'window', { location: { origin: 'https://studio.example' } });
+  setGlobal(t, 'localStorage', { getItem: () => token });
+  setGlobal(t, 'document', { activeElement: { focus() {} } });
+  const pending = [];
+  t.mock.method(globalThis, 'fetch', (url, init) => new Promise(resolve => pending.push({ resolve, init, url })));
+  const harness = componentHarness('../src/components/commercial/SharePanorama.tsx', 'SharePanoramaModal', { '../SphereViewer': { SphereViewer() {} }, '../../utils/imageOptimizer': {} });
+  const attach = tree => { const node = elementsIn(tree).find(e => e.type === 'dialog'); if (node) node.props.ref.current = { showModal() {}, close() {} }; };
+  const props = { isOpen: true, accountId: 'A', imageUrl: 'data:image/png;base64,AA==', onClose() {} };
+  harness.render(props, attach);
+  token = 'account-B'; harness.render({ ...props, accountId: 'B' }, attach);
+  assert.equal(pending[0].init.signal.aborted, true);
+  assert.equal(pending[1].init.headers.Authorization, 'Bearer account-B');
+  pending[1].resolve(Response.json({ shares: [{ id: 'b'.repeat(32), title: 'B panorama', width: 2, height: 1, allowDownload: true }] }));
+  pending[0].resolve(Response.json({ shares: [{ id: 'a'.repeat(32), title: 'A private title', width: 2, height: 1, allowDownload: true }] }));
+  await flushPromises();
+  const text = elementText(harness.render({ ...props, accountId: 'B' }, attach));
+  assert.ok(text.includes('B panorama'));
+  assert.ok(!text.includes('A private title'));
+  harness.unmount();
+  assert.equal(pending[1].init.signal.aborted, true);
+});
+
+test('public shared panorama loads without login and releases its image on unmount', async t => {
+  const calls = [], revoked = [];
+  setGlobal(t, 'document', { title: '' });
+  const id = 'a'.repeat(32);
+  t.mock.method(URL, 'createObjectURL', () => 'blob:shared-test');
+  t.mock.method(URL, 'revokeObjectURL', url => revoked.push(url));
+  t.mock.method(globalThis, 'fetch', async (url, init) => {
+    calls.push({ url, init });
+    return url.endsWith('/image') ? new Response(new Blob(['png'], { type: 'image/png' }))
+      : Response.json({ share: { id, title: 'Shared lake', width: 4000, height: 2000, allowDownload: true } });
+  });
+  const harness = componentHarness('../src/components/commercial/SharePanorama.tsx', 'SharedPanorama', { '../SphereViewer': { SphereViewer() {} }, '../../utils/imageOptimizer': {} });
+  harness.render({ id });
+  for (let i = 0; i < 5; i++) await flushPromises();
+  const tree = harness.render({ id });
+  assert.ok(elementText(tree).includes('Shared lake'), elementText(tree));
+  assert.ok(elementText(tree).includes('Download shared panorama'));
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every(call => !call.init.headers?.Authorization));
+  assert.equal(calls.some(call => call.url.includes('guest')), false);
+  harness.unmount(); assert.deepEqual(revoked, ['blob:shared-test']);
+});
+
+test('private works discards late account data and closes pending requests', async t => {
+  let token = 'A';
+  setGlobal(t, 'localStorage', { getItem: () => token });
+  setGlobal(t, 'document', { activeElement: { focus() {} } });
+  const pending = [];
+  t.mock.method(globalThis, 'fetch', (url, init) => new Promise(resolve => pending.push({ url, init, resolve })));
+  const harness = componentHarness('../src/components/commercial/MyWorks.tsx', 'MyWorks');
+  const attach = tree => { const dialog = elementsIn(tree).find(e => e.type === 'dialog'); if (dialog) dialog.props.ref.current = { showModal() {}, close() {} }; };
+  const props = { isOpen: true, accountId: 'A', onClose() {}, async onOpen() {} };
+  harness.render(props, attach);
+  token = 'B'; harness.render({ ...props, accountId: 'B' }, attach);
+  assert.equal(pending[0].init.signal.aborted, true);
+  pending[0].resolve(Response.json({ works: [{ id: 'a', prompt: 'Private A' }] }));
+  pending[1].resolve(Response.json({ works: [{ id: 'b', prompt: 'Private B', width: 4000, height: 2000, model: 'test', created_at: Date.now() }] }));
+  await flushPromises();
+  const text = elementText(harness.render({ ...props, accountId: 'B' }, attach));
+  assert.ok(text.includes('Private B')); assert.ok(!text.includes('Private A'));
+  assert.ok(text.includes('Download original')); assert.ok(text.includes('Open panorama'));
+  harness.unmount(); assert.equal(pending[1].init.signal.aborted, true);
+});

@@ -74,9 +74,9 @@ export function FeatureMatrix() {
       title: 'Seam-Aware Post-Processing',
       badge: 'Optional',
       description:
-        'Inspect the left and right edges in the viewer before applying optional seam blending. Blending can soften a boundary, but cannot reconstruct mismatched scene geometry.',
+        'Inspect the left and right edges in the viewer after automatic seam detection and optional blending. Blending can soften a boundary, but cannot reconstruct mismatched scene geometry.',
       bulletPoints: [
-        'Off by default to preserve detail',
+        'Automatic hard-boundary detection',
         'May introduce ghosting at the edges',
         'Keep the original before blending',
       ],

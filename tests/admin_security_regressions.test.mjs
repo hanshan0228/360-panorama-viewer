@@ -87,16 +87,21 @@ for (const backend of ['Node', 'D1']) {
     const call = await backendFixture(context, backend);
     const { token } = await (await call('admin/login', { username: 'admin', password })).json();
     for (const value of [undefined, 0, 9, Number.MAX_SAFE_INTEGER]) {
-      const config = value === undefined ? {} : { freeMonthlyCredits: value };
-      assert.equal((await call('admin/billing', { config }, token)).status, 200);
       for (const route of ['user/guest', 'user/auth']) {
-        const response = await call(route, { email: `${crypto.randomUUID()}@example.com`, password });
+        const isolatedCall = await backendFixture(context, backend);
+        const admin = await (await isolatedCall('admin/login', { username: 'admin', password })).json();
+        const config = value === undefined ? {} : { freeMonthlyCredits: value };
+        assert.equal((await isolatedCall('admin/billing', { config }, admin.token)).status, 200);
+        const response = await isolatedCall(route, { email: `${crypto.randomUUID()}@example.com`, password });
         assert.equal(response.status, 200);
         const { user } = await response.json();
-        assert.equal(user.creditsBalance, value ?? 4);
-        assert.equal(user.creditsTotal, value ?? 4);
+        // A valid billing configuration cannot override the site trial-spend safety budget.
+        const expected = value === Number.MAX_SAFE_INTEGER ? 0 : value ?? 4;
+        assert.equal(user.creditsBalance, expected);
+        assert.equal(user.creditsTotal, expected);
       }
     }
+    await call('admin/billing', { config: { freeMonthlyCredits: Number.MAX_SAFE_INTEGER } }, token);
     for (const value of [-1, 1.5, '9', null, Number.MAX_SAFE_INTEGER + 1]) {
       assert.equal((await call('admin/billing', { config: { freeMonthlyCredits: value } }, token)).status, 400);
     }
@@ -203,4 +208,16 @@ test('credential API treats HTTP failures as failures even when body claims succ
   browserStorage(context);
   context.mock.method(globalThis, 'fetch', async () => Response.json({ success: true }, { status: 401 }));
   assert.deepEqual(await adminUpdateCredentialsServer(password, 'owner', 'replacement-password'), { success: false, error: undefined, requiresLogin: true });
+});
+
+test('public admin never falls back to local demo credentials when the backend is unreachable',async context=>{
+ browserStorage(context);
+ let demoAttempts=0;const errors=[];
+ const handler=loadHandler('handleAdminLogin','handleAdminLogout',{
+   window:{location:{hostname:'panorama-generator.pages.dev'}},
+   probeBackendHealth:async()=>({isOnline:false}),
+   setLoginErrorMsg:message=>errors.push(message),
+   verifyAdminCredentials:()=>{demoAttempts++;return true;},
+ });
+ await handler({preventDefault(){}});assert.equal(demoAttempts,0);assert.ok(errors.some(Boolean));
 });

@@ -133,12 +133,12 @@ test('adminStorage: processCheckoutSubscription upgrades user, generates subscri
   assert.ok(invs.some((i) => i.id === invoice.id));
 });
 
-test('adminStorage: getActiveModelEndpoint returns default enabled endpoint', () => {
+test('adminStorage: active model follows primary routing and explicit default changes', () => {
   const active = adminStorage.getActiveModelEndpoint();
-  assert.equal(active.id, 'gemini-imagen3');
-  assert.equal(active.isDefault, true);
+  assert.equal(active.id, 'gemini-flash-img');
   assert.equal(active.isEnabled, true);
 
+  adminStorage.saveStoredRoutingConfig({ ...adminStorage.getStoredRoutingConfig(), primaryEndpointId: 'gemini-imagen3' });
   // Change default to Flash image
   const endpoints = adminStorage.getStoredModelEndpoints();
   const next = endpoints.map((ep) => ({

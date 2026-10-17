@@ -147,7 +147,7 @@ async function fixture(testContext, backend) {
   const subscription = async () => (await call('paypal/subscription', undefined, token)).data.subscription;
   const sale = (id, overrides = {}, eventId = `WH-${id}`) => call('paypal/webhook', {
     id: eventId, event_type: 'PAYMENT.SALE.COMPLETED', resource: {
-      id, state: 'completed', billing_agreement_id: 'I-SUB1', amount: { total: '19.00', currency: 'USD' },
+      id, state: 'completed', billing_agreement_id: 'I-SUB1', amount: { total: '9.90', currency: 'USD' },
       create_time: '2026-10-13T00:30:00Z', ...overrides,
     },
   }, undefined, signature);
@@ -198,7 +198,7 @@ for (const backend of ['Node', 'D1']) {
     const api = await fixture(testContext, backend);
     await api.create();
     assert.equal((await api.sale('BADPRICE', { amount: { total: '0.01', currency: 'USD' } })).status, 400);
-    assert.equal((await api.sale('BADCURRENCY', { amount: { total: '19.00', currency: 'EUR' } })).status, 400);
+    assert.equal((await api.sale('BADCURRENCY', { amount: { total: '9.90', currency: 'EUR' } })).status, 400);
     assert.equal((await api.sale('BADSTATE', { state: 'pending' })).status, 400);
     const remote = api.remoteSubscriptions.get('I-SUB1');
     remote.plan_id = 'P-FOREIGN';
@@ -253,7 +253,7 @@ for (const backend of ['Node', 'D1']) {
     let store = await ledger();
     assert.equal(store.subscriptions.length, 1);
     assert.equal(store.subscriptions[0].status, 'trialing');
-    assert.equal(store.subscriptions[0].amount, 19);
+    assert.equal(store.subscriptions[0].amount, 9.9);
     api.remoteSubscriptions.get('I-SUB1').status = 'ACTIVE';
     assert.equal((await api.sale('ADMINPAYMENT')).status, 200);
     store = await ledger();
@@ -266,7 +266,7 @@ for (const backend of ['Node', 'D1']) {
     assert.equal(store.invoices.length, 1);
     assert.equal(store.invoices[0].subscriptionId, subscription.id);
     assert.equal(store.invoices[0].userEmail, 'owner@example.com');
-    assert.equal(store.invoices[0].amount, 19);
+    assert.equal(store.invoices[0].amount, 9.9);
     assert.equal(store.invoices[0].status, 'paid');
     assert.ok(store.invoices[0].date);
     assert.equal(store.invoices[0].planName, 'PRO (monthly)');
@@ -369,4 +369,12 @@ test('PayPal plan verification rejects free trials, setup fees, taxes, seat pric
     const plan = planDetails(offer, 'monthly'); mutate(plan);
     assert.throws(() => validatePayPalPlan(plan, offer, 'monthly'));
   }
+});
+
+test('monthly catalog uses revised prices and preserves annual offers', () => {
+  const catalog = paypalCatalog(env);
+  assert.equal(catalog.pro.monthly.amountCents, 990);
+  assert.equal(catalog.enterprise.monthly.amountCents, 2999);
+  assert.equal(catalog.pro.yearly.amountCents, 11880);
+  assert.equal(catalog.enterprise.yearly.amountCents, 34800);
 });

@@ -1,24 +1,29 @@
-/**
- * Advanced Multi-Band Seam & Boundary Healing for 360° Equirectangular Panoramas.
- * 
- * Completely eliminates the vertical stitch/split seam line when viewing 360° panoramas:
- * 1. Wide Harmonic Poisson / Gradient Harmonization (Low Frequency):
- *    Calculates the boundary step difference between the left and right boundary for every row,
- *    and smoothly dissolves it across a wide cosine taper (up to 15% of width) so the overall
- *    illumination, exposure, and color temperature match with zero perceptible banding.
- * 2. True Symmetric S-Curve Cross-Fade (Mid & High Frequency Texture Alignment):
- *    Across a blend zone K (e.g. 140-180 pixels), blends the left-side texture and right-side texture
- *    symmetrically so continuous horizons, clouds, mountains, and structures connect smoothly.
- * 3. Exact 100% Boundary Matching:
- *    Guarantees column 0 and column (width - 1) have bit-for-bit identical colors,
- *    eliminating all possible edge sampling artifacts in WebGL.
- * 4. Pole (Zenith & Nadir) Smoothing:
- *    Smooths the top rows (+90°) and bottom rows (-90°) to prevent pinhole pinching artifacts.
- */
+/** Edge blending reduces a wrap discontinuity; it cannot reconstruct mismatched geometry. */
+export function inspectPanoramaSeam(data: Uint8ClampedArray, width: number, height: number) {
+  if (width < 2 || height < 1 || data.length !== width * height * 4) throw new Error('Invalid panorama pixels');
+  let boundary = 0;
+  let adjacent = 0;
+  for (let y = 0; y < height; y++) {
+    const left = y * width * 4;
+    const right = left + (width - 1) * 4;
+    for (let c = 0; c < 3; c++) {
+      boundary += Math.abs(data[left + c] - data[right + c]);
+      adjacent += (Math.abs(data[left + c] - data[left + 4 + c])
+        + Math.abs(data[right + c] - data[right - 4 + c])) / 2;
+    }
+  }
+  const difference = boundary / (height * 3);
+  const baseline = adjacent / (height * 3);
+  // ponytail: an O(height) color-jump heuristic detects hard boundaries, not semantic geometry;
+  // upgrade to model-assisted seam reconstruction for mismatched objects.
+  return { difference, baseline, needsBlending: difference > Math.max(12, baseline * 3) };
+}
+
 export function healPanoramaSeam<Canvas extends HTMLCanvasElement | OffscreenCanvas>(
   sourceCanvas: Canvas,
   blendWidth = 160,
-  createCanvas: () => Canvas = () => document.createElement('canvas') as Canvas
+  createCanvas: () => Canvas = () => document.createElement('canvas') as Canvas,
+  onlyIfNeeded = false
 ): Canvas {
   const width = sourceCanvas.width;
   const height = sourceCanvas.height;
@@ -37,6 +42,7 @@ export function healPanoramaSeam<Canvas extends HTMLCanvasElement | OffscreenCan
 
   const imgData = ctx.getImageData(0, 0, width, height);
   const data = imgData.data;
+  if (onlyIfNeeded && !inspectPanoramaSeam(data, width, height).needsBlending) return sourceCanvas;
 
   // Clone original buffer so we sample pristine pixels while writing
   const src = new Uint8ClampedArray(data);

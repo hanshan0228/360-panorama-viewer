@@ -120,7 +120,7 @@ export function App() {
 
   const handleAuthSuccess = (user: ManagedUser, action?: 'login' | 'register') => {
     updateCurrentUser(user);
-    if (action) setAuthNotice(action === 'register' ? `Account created. You are signed in with ${user.creditsBalance} credits available.` : 'You are signed in. Welcome back.');
+    if (action) setAuthNotice(action === 'register' ? `Account created. You are signed in with ${user.creditsBalance} credits available.${user.creditsBalance === 0 ? ' Trial credits are shared with guest sessions and other new accounts on this network, once every 7 days, subject to daily availability.' : ''}` : 'You are signed in. Welcome back.');
     if (pendingCheckout && !user.id.startsWith('usr_guest')) {
       setCheckoutSelection(pendingCheckout);
       setPendingCheckout(null);
@@ -194,6 +194,9 @@ export function App() {
         if (result.success && result.user && result.token) {
           localStorage.setItem('panorama_server_user_token', result.token);
           applyUser(result.user);
+        } else if (!result.success) {
+          setAuthNotice(result.error || 'Free trial unavailable. Sign in to continue.');
+          applyUser({ ...getCurrentUser(), creditsBalance: 0, creditsTotal: 0 });
         }
       });
     };

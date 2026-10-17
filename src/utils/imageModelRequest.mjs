@@ -1,3 +1,6 @@
+// Real 4K providers can take over 90 seconds, including response transfer.
+export const IMAGE_GENERATION_TIMEOUT_MS = 150000;
+
 export function buildImageModelRequest(endpoint, { prompt, referenceImages = [], resolution = '4K' }) {
   if (!['1K', '2K', '4K'].includes(resolution)) throw new Error('Invalid resolution');
   if (!Array.isArray(referenceImages) || referenceImages.some(image => typeof image !== 'string')) {
@@ -13,6 +16,7 @@ export function buildImageModelRequest(endpoint, { prompt, referenceImages = [],
   const apiKey = String(endpoint.apiKey || '').trim();
   const refs = referenceImages.filter(Boolean);
   const isGemini = modelName.includes('gemini');
+  const lowLatencyGemini = /gemini-3\.1-flash-image(?:$|[-/])/.test(modelName);
   const isImagen = modelName.includes('imagen');
   const isGptImage = /(?:^|\/)gpt-image-/.test(modelName);
   const isModernGptImage = /(?:^|\/)gpt-image-2(?:[.-]|$)/.test(modelName);
@@ -40,7 +44,9 @@ export function buildImageModelRequest(endpoint, { prompt, referenceImages = [],
     }
     return { url, headers, mode: 'google-gemini', payload: {
       contents: [{ parts }],
-      generationConfig: { responseModalities: ['IMAGE'], imageConfig },
+      generationConfig: { responseModalities: ['IMAGE'], imageConfig,
+        ...(lowLatencyGemini ? { thinkingConfig: { thinkingLevel: 'minimal', includeThoughts: false } } : {}),
+      },
     } };
   }
 
@@ -53,6 +59,7 @@ export function buildImageModelRequest(endpoint, { prompt, referenceImages = [],
     messages: [{ role: 'user', content: refs.length ? [
       { type: 'text', text: prompt }, ...refs.map(image => ({ type: 'image_url', image_url: { url: image } })),
     ] : prompt }],
+    ...(lowLatencyGemini ? { reasoning_effort: 'minimal' } : {}),
     ...(isGemini ? { modalities: ['image'], image_config: {
       aspect_ratio: imageConfig.aspectRatio,
       ...(imageConfig.imageSize ? { image_size: imageConfig.imageSize } : {}),

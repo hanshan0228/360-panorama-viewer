@@ -10,7 +10,7 @@ const FAQS: FaqItem[] = [
   {
     question: 'How do I generate a 360° panorama?',
     answer:
-      'Describe your scene (or attach up to 3 reference photos), choose a style and resolution tier, and click Generate. Inspect the result in the 360° viewer, including the horizon, poles, and wrap-around seam. Seam blending is optional and off by default; it can introduce ghosting and cannot reconstruct inconsistent geometry.',
+      'Describe your scene (or attach up to 3 reference photos), choose a style and resolution tier, and click Generate. Inspect the result in the 360° viewer, including the horizon, poles, and wrap-around seam. Seam blending automatically treats detected hard boundaries; it can introduce ghosting and cannot reconstruct inconsistent geometry.',
   },
   {
     question: 'How long does each panorama take to generate?',

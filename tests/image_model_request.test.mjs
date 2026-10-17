@@ -109,7 +109,7 @@ for (const resolution of ['1K', '2K', '4K']) {
     assert.equal(url.search, '');
     assert.equal(request.headers['x-goog-api-key'], endpoint.apiKey);
     assert.equal(request.mode, 'google-gemini');
-    assert.deepEqual(request.payload.generationConfig, { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '16:9', imageSize: resolution } });
+    assert.deepEqual(request.payload.generationConfig, { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '16:9', imageSize: resolution }, thinkingConfig: { thinkingLevel: 'minimal', includeThoughts: false } });
     assert.equal(request.payload.contents[0].parts[1].inlineData.data, 'AA==');
   });
 
@@ -178,4 +178,18 @@ test('Google routing matches the real hostname, never a misleading substring', (
   assert.equal(new URL(request.url).search, '');
   assert.throws(() => buildImageModelRequest({ ...endpoint, baseUrl: 'https://generativelanguage.googleapis.com', apiKey: '' }, { prompt: 'Test' }), /API Key/);
   assert.throws(() => buildImageModelRequest({ ...endpoint, baseUrl: 'https://generativelanguage.googleapis.com' }, { prompt: 'Test', referenceImages: ['https://image.example/ref.png'] }), /base64/);
+});
+
+test('Flash Image requests lowest latency while preserving native 4K and references', () => {
+  const chat = buildImageModelRequest(endpoint, { prompt: 'Test', resolution: '4K', referenceImages: [reference] });
+  assert.equal(chat.payload.reasoning_effort, 'minimal');
+  assert.equal(chat.payload.image_config.image_size, '4K');
+  assert.equal(chat.payload.messages[0].content[1].image_url.url, reference);
+  const google = buildImageModelRequest({ ...endpoint, baseUrl: 'https://generativelanguage.googleapis.com' }, { prompt: 'Test', resolution: '4K', referenceImages: [reference] });
+  assert.deepEqual(google.payload.generationConfig.thinkingConfig, { thinkingLevel: 'minimal', includeThoughts: false });
+  assert.equal(google.payload.generationConfig.imageConfig.imageSize, '4K');
+  for (const model of ['gemini-2.5-flash-image', 'gemini-3-pro-image-preview', 'gpt-image-2.5']) {
+    const request = buildImageModelRequest({ ...endpoint, model }, { prompt: 'Test', resolution: '4K' });
+    assert.equal(request.payload.reasoning_effort, undefined, 'do not send Flash-only thinking controls to other models');
+  }
 });

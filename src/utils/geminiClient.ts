@@ -1,6 +1,6 @@
 import { getActiveModelEndpoint } from './adminStorage';
 import type { ResolutionTier } from '../types/panorama';
-import { buildImageModelRequest, inspectImageResolution, type ImageResolution } from './imageModelRequest.mjs';
+import { buildImageModelRequest, inspectImageResolution, IMAGE_GENERATION_TIMEOUT_MS, type ImageResolution } from './imageModelRequest.mjs';
 
 export interface GeminiConfig {
   endpointId?: string;
@@ -218,14 +218,14 @@ export function sanitizePromptForSafety(rawPrompt: string): { sanitized: string;
 
 /**
  * Builds a 360 VR Equirectangular skybox prompt with rigorous topological constraints.
- * Ensures the AI generates a full-bleed panoramic environment rather than a framed picture.
+ * Requests full spherical coverage; geometry and edge continuity still require inspection.
  */
 export function buildPanoramaPrompt(userPrompt: string, styleSuffix = ''): string {
   const { sanitized } = sanitizePromptForSafety(userPrompt.trim());
   const suffix = styleSuffix ? `, ${styleSuffix}` : '';
   // Equirectangular 360 panoramic magic tokens:
-  // Forbids borders, frames, vignettes, and circular fisheyes so the AI generates a true full-bleed 360 environment!
-  return `${sanitized}${suffix}, full 360 degree equirectangular projection panorama, 360 spherical VR skybox, 2:1 ratio texture map, seamless horizontal wrap, continuous 360 panoramic loop, matching left and right edges, level horizontal horizon at 50% vertical center, flat camera zero pitch, ultra sharp focus, 8k uhd resolution, crisp micro-details, highly detailed photorealistic environment, full frame edge to edge, no borders, no circular lens, no black frame, no vignettes`;
+  // Keep projection constraints separate from the selected visual style and API resolution.
+  return `${sanitized}${suffix}, full 360 degree equirectangular projection panorama, 360 spherical VR skybox, 2:1 ratio texture map, seamless horizontal wrap, continuous 360 panoramic loop, matching left and right edges, level horizontal horizon at 50% vertical center, flat camera zero pitch, full frame edge to edge, no borders, no circular lens, no black frame, no vignettes`;
 }
 
 /**
@@ -238,7 +238,7 @@ export async function generateWithGemini(
   prompt: string,
   config: GeminiConfig,
   referenceImages?: string[]
-): Promise<{ imageUrl: string; remainingCredits?: number; creditsDeducted?: number; creditsRefunded?: number; imageResolution?: ImageResolution }> {
+): Promise<{ imageUrl: string; remainingCredits?: number; creditsDeducted?: number; creditsRefunded?: number; imageResolution?: ImageResolution; modelUsed?: string; library?: { saved: boolean; id?: string; error?: string }; generationTiming?: { upstreamWaitMs: number; upstreamBodyMs: number } }> {
   const normalizedBase = (config.baseUrl || 'http://127.0.0.1:8317').replace(/\/+$/, '');
   const apiKey = (config.apiKey || '').trim();
   const model = config.model.trim() || 'gpt-image-2.5';
@@ -280,7 +280,7 @@ export async function generateWithGemini(
         const proxyData = await proxyRes.json();
         if (proxyData.success && proxyData.imageUrl) {
           return {
-            imageUrl: proxyData.imageUrl, remainingCredits: proxyData.remainingCredits,
+            library: proxyData.library, generationTiming: proxyData.generationTiming, modelUsed: proxyData.modelUsed, imageUrl: proxyData.imageUrl, remainingCredits: proxyData.remainingCredits,
             creditsDeducted: proxyData.creditsDeducted, creditsRefunded: proxyData.creditsRefunded,
             imageResolution: proxyData.imageResolution ?? inspectImageResolution(proxyData.imageUrl, config.resolution || '4K'),
           };
@@ -307,7 +307,7 @@ export async function generateWithGemini(
       const headers = directRequest.headers;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000);
+      const timeoutId = setTimeout(() => controller.abort(), IMAGE_GENERATION_TIMEOUT_MS);
 
       let res: Response;
       try {
@@ -372,7 +372,7 @@ export async function generateWithGemini(
       const headers = directRequest.headers;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s timeout for image diffusion
+    const timeoutId = setTimeout(() => controller.abort(), IMAGE_GENERATION_TIMEOUT_MS); // Shared deadline includes model work and response transfer
 
     let res: Response;
     try {
@@ -460,7 +460,7 @@ export async function generateWithGemini(
       method: 'POST',
       headers: directRequest.headers,
       body: JSON.stringify(directRequest.payload),
-      signal: AbortSignal.timeout(90000),
+      signal: AbortSignal.timeout(IMAGE_GENERATION_TIMEOUT_MS),
     });
 
     if (!res.ok) {

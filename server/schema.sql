@@ -89,3 +89,27 @@ CREATE TABLE IF NOT EXISTS processed_events (
   event_id TEXT PRIMARY KEY,
   processed_at TEXT NOT NULL
 );
+
+-- Public-by-link panoramas; image bytes live in the private PANORAMA_SHARES KV namespace.
+CREATE TABLE IF NOT EXISTS panorama_shares (
+  id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, title TEXT NOT NULL, width INTEGER NOT NULL,
+  height INTEGER NOT NULL, size INTEGER NOT NULL, allow_download INTEGER NOT NULL,
+  created_at INTEGER NOT NULL, revoked_at INTEGER, ready INTEGER NOT NULL DEFAULT 0, stored_bytes INTEGER NOT NULL DEFAULT 20971520
+);
+CREATE INDEX IF NOT EXISTS panorama_shares_owner ON panorama_shares(owner_id, created_at);
+
+CREATE TABLE IF NOT EXISTS panorama_works (
+ id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, prompt TEXT NOT NULL, model TEXT NOT NULL,
+ resolution TEXT NOT NULL, width INTEGER NOT NULL, height INTEGER NOT NULL, mime TEXT NOT NULL,
+ parts INTEGER NOT NULL, created_at INTEGER NOT NULL, ready INTEGER NOT NULL DEFAULT 0,
+ deleted_at INTEGER, stored_bytes INTEGER NOT NULL DEFAULT 67108864
+);
+CREATE INDEX IF NOT EXISTS panorama_works_owner ON panorama_works(owner_id, created_at);
+
+CREATE TABLE IF NOT EXISTS risk_counters (key TEXT PRIMARY KEY, used INTEGER NOT NULL, expires_at INTEGER NOT NULL);
+
+CREATE INDEX IF NOT EXISTS risk_counters_expiry ON risk_counters(expires_at);
+
+CREATE TABLE IF NOT EXISTS generation_leases (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, expires_at INTEGER NOT NULL);
+
+CREATE INDEX IF NOT EXISTS generation_leases_expiry ON generation_leases(expires_at);

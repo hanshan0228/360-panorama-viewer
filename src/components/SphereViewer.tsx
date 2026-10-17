@@ -762,7 +762,7 @@ export const SphereViewer = memo(function SphereViewer({
       )}
 
       {/* Projection Mode Quick Switcher Tag */}
-      <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-1.5 p-1 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-xl text-xs shadow-lg">
+      <div className="absolute top-4 left-4 right-4 sm:right-auto z-20 flex flex-wrap items-center gap-1.5 p-1 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-xl text-xs shadow-lg">
         <button
           type="button"
           onClick={() => selectProjectionMode('sphere')}
@@ -821,7 +821,7 @@ export const SphereViewer = memo(function SphereViewer({
       </div>
 
       {/* Top Right Mini Compass, Gyroscope & Hotspots Trigger */}
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+      <div className="absolute top-24 sm:top-4 right-4 z-20 flex items-center gap-2">
         {gyroAvailable && (
           <button
             type="button"

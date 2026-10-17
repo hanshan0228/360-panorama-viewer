@@ -1,9 +1,19 @@
+import { WORK_STORAGE_LIMIT, SHARE_STORAGE_LIMIT, ensureByteAccounting } from '../../server/storageBudget.mjs';
+import { riskSchema, consumeLimit, sourceKey, claimTrial, acquireGeneration, readJsonLimited } from '../../server/risk.mjs';
+import { handleWorksRequest, saveGeneratedWork, workSchema } from '../../server/works.mjs';
+import { handleShareRequest, shareSchema } from '../../server/shares.mjs';
 // Cloudflare Pages Functions - Edge Commercial Backend with D1 Persistence
 import { handlePayPalRequest, createD1PayPalLedger, paypalConfigured, paypalSchema, formatAdminBilling } from '../../server/paypal.mjs';
-import { buildImageModelRequest, inspectImageResolution } from '../../src/utils/imageModelRequest.mjs';
+import { buildImageModelRequest, inspectImageResolution, IMAGE_GENERATION_TIMEOUT_MS } from '../../src/utils/imageModelRequest.mjs';
 
 interface Env {
   DB?: D1Database;
+  GENERATION_ENABLED?: string;
+  FREE_TRIAL_ENABLED?: string;
+  MAX_DAILY_GENERATION_CREDITS?: string;
+  MAX_DAILY_FREE_CREDITS?: string;
+  MAX_CONCURRENT_GENERATIONS?: string;
+  PANORAMA_SHARES?: KVNamespace;
   ADMIN_USERNAME?: string;
   ADMIN_PASSWORD?: string;
   STRIPE_SECRET_KEY?: string;
@@ -139,6 +149,10 @@ function clientIp(request: Request): string {
 async function ensureDbInitialized(db: D1Database): Promise<void> {
   await db.batch([
     ...paypalSchema.map((sql: string) => db.prepare(sql)),
+    ...riskSchema.map((sql: string) => db.prepare(sql)),
+    db.prepare(workSchema),
+    db.prepare(shareSchema),
+    db.prepare('DELETE FROM risk_counters WHERE key IN (SELECT key FROM risk_counters WHERE expires_at <= ? LIMIT 100)').bind(Date.now()),
     db.prepare(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
@@ -214,6 +228,7 @@ async function ensureDbInitialized(db: D1Database): Promise<void> {
         processed_at TEXT NOT NULL
       );
     `),
+    db.prepare('DELETE FROM user_sessions WHERE token IN (SELECT token FROM user_sessions WHERE expires_at <= ? LIMIT 100)').bind(Date.now()),
   ]);
 
   // Idempotent table migration: ensure password_hash column exists on pre-existing users tables
@@ -262,6 +277,14 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       await ensureDbInitialized(env.DB);
     }
 
+    if (pathname === '/api/works' || pathname.startsWith('/api/works/')) {
+      return handleWorksRequest({ request, db: env.DB, storage: env.PANORAMA_SHARES });
+    }
+
+    if (pathname === '/api/shares' || pathname.startsWith('/api/shares/')) {
+      return handleShareRequest({ request, db: env.DB, storage: env.PANORAMA_SHARES });
+    }
+
     if (pathname.startsWith('/api/paypal/')) {
       if (!env.DB) return jsonResponse({ error: 'Database unavailable' }, 503);
       const db = env.DB;
@@ -293,7 +316,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         success: true,
         config: {
           freeMonthlyCredits: 4,
-          proMonthlyPriceUsd: 19,
+          proMonthlyPriceUsd: 9.9,
           proMonthlyCredits: 1000,
           enterpriseCustomPricing: true,
           creditCostPer1K: 1,
@@ -333,6 +356,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     // 2. Guest User Session Initialization (Auto-grants 4 trial credits in D1)
     if (pathname === '/api/user/guest' && request.method === 'POST') {
       if (!env.DB) return jsonResponse({ success: false, error: 'Database service unavailable' }, 503);
+      if (env.FREE_TRIAL_ENABLED === 'false') return jsonResponse({ success: false, error: 'Guest trials are temporarily paused. Sign in to continue.' }, 429);
       const guestIp = clientIp(request);
       if (rateLimitExceeded(`guest:hour:${guestIp}`, 5, 3600000)
         || rateLimitExceeded(`guest:day:${guestIp}`, 20, 86400000)) {
@@ -340,7 +364,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       }
       recordRateHit(`guest:hour:${guestIp}`);
       recordRateHit(`guest:day:${guestIp}`);
-      const credits = await freeCredits(env.DB);
+      const source = await sourceKey(request);
+      if (!await consumeLimit(env.DB, 'guest-create-global', 200, 86400000)
+        || !await consumeLimit(env.DB, 'guest-create:'+source, 1, 7*86400000, 1, Date.now(), true)) {
+        return jsonResponse({ success: false, error: 'This network has already initialized a trial. Sign in to continue; clearing browser data does not renew trial credits.' }, 429);
+      }
+      const credits = await claimTrial(env.DB, source, await freeCredits(env.DB), env.FREE_TRIAL_ENABLED !== 'false');
       const guestId = 'usr_guest_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
       const now = new Date().toISOString();
       const guestEmail = `guest_${guestId}@guest.panoramagenerator.ai`;
@@ -373,7 +402,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
     // 2. User Authentication (Register / Login with Password Protection)
     if (pathname === '/api/user/auth' && request.method === 'POST') {
-      const body = (await request.json().catch(() => ({}))) as {
+      const body = (await readJsonLimited(request, 16384)) as {
         email?: string;
         name?: string;
         password?: string;
@@ -390,6 +419,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         return jsonResponse({ success: false, error: 'Database service unavailable' }, 503);
       }
 
+      const authSource = await sourceKey(request);
+      if (!await consumeLimit(env.DB, 'auth-global', 2000, 86400000) || !await consumeLimit(env.DB, 'auth-source:'+authSource, 30, 600000)) return jsonResponse({ error: 'Sign-in safety limit reached. Please retry later.' }, 429);
       const authIp = clientIp(request);
       const authFailKey = `authfail:${authIp}`;
       if (rateLimitExceeded(authFailKey, 10, 600000)) {
@@ -452,7 +483,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         const displayName = typeof name === 'string' && name.trim() ? name.trim() : email.split('@')[0];
         const now = new Date().toISOString();
         const pwdHash = await hashPasswordWithSalt(password);
-        const credits = await freeCredits(env.DB);
+        const source = await sourceKey(request);
+        if (!await consumeLimit(env.DB, 'register-create-global', 100, 86400000)
+          || !await consumeLimit(env.DB, 'register-create:'+source, 5, 86400000)) {
+          return jsonResponse({ success: false, error: 'Account creation safety limit reached. Try again later.' }, 429);
+        }
+        const credits = await claimTrial(env.DB, source, await freeCredits(env.DB), env.FREE_TRIAL_ENABLED !== 'false');
 
         await env.DB.prepare(`
           INSERT INTO users (id, email, name, plan, credits_balance, credits_total, api_calls_count, status, password_hash, created_at)
@@ -577,6 +613,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
     // 5. Admin Login with dual username and password credentials
     if (pathname === '/api/admin/login' && request.method === 'POST') {
+      if (env.DB && !await consumeLimit(env.DB, 'admin-auth:'+await sourceKey(request), 10, 60000)) return jsonResponse({ error: 'Too many login attempts' }, 429);
       const adminIp = clientIp(request);
       const adminFailKey = `adminlogin:${adminIp}`;
       if (rateLimitExceeded(adminFailKey, 5, 60000)) {
@@ -650,6 +687,17 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
       if (!session) {
         return jsonResponse({ error: 'Unauthorized' }, 401);
+      }
+
+      if (pathname === '/api/admin/risk' && request.method === 'GET') {
+        await env.DB.prepare(workSchema).run(); await ensureByteAccounting(env.DB, 'panorama_works', 67108864);
+        await env.DB.prepare(shareSchema).run(); await ensureByteAccounting(env.DB, 'panorama_shares', 20971520);
+        const works = await env.DB.prepare('SELECT COALESCE(SUM(stored_bytes),0) AS bytes FROM panorama_works').first();
+        const shares = await env.DB.prepare('SELECT COALESCE(SUM(stored_bytes),0) AS bytes FROM panorama_shares').first();
+        const counters = await env.DB.prepare("SELECT key,used,expires_at FROM risk_counters WHERE key IN ('trial-global','generation-all','generation-free','generation-attempts','generation-free-attempts','share-read-global','original-read-global') AND expires_at > ?").bind(Date.now()).all();
+        const leases = await env.DB.prepare('SELECT COUNT(*) AS count FROM generation_leases WHERE expires_at > ?').bind(Date.now()).first();
+        return jsonResponse({ works: { ...works, limit: WORK_STORAGE_LIMIT }, shares: { ...shares, limit: SHARE_STORAGE_LIMIT }, counters: counters.results, leases,
+          limits: { totalDailyCredits: env.MAX_DAILY_GENERATION_CREDITS ?? '1000', freeDailyCredits: env.MAX_DAILY_FREE_CREDITS ?? '100', concurrent: env.MAX_CONCURRENT_GENERATIONS ?? '4', enabled: env.GENERATION_ENABLED !== 'false', trialEnabled: env.FREE_TRIAL_ENABLED !== 'false' } });
       }
 
       if (pathname === '/api/admin/logout' && request.method === 'POST') {
@@ -874,7 +922,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
     // 8. Server-authoritative Generation Proxy (Protects admin API keys, bypasses CORS, serves all visitors)
     if (pathname === '/api/generate' && request.method === 'POST') {
-      const body = (await request.json().catch(() => ({}))) as {
+      if (Number(request.headers.get('Content-Length')) > 24 * 1024 * 1024) return jsonResponse({ error: 'Generation input is too large.' }, 413);
+      const body = (await readJsonLimited(request, 24 * 1024 * 1024)) as {
         prompt?: string;
         endpointId?: string;
         modelId?: string;
@@ -882,7 +931,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         resolution?: string;
       };
       const { prompt, endpointId, modelId, referenceImages } = body;
-      if (!prompt || typeof prompt !== 'string') {
+      if (!prompt || typeof prompt !== 'string' || prompt.length > 10000) {
         return jsonResponse({ success: false, error: 'Prompt is required' }, 400);
       }
 
@@ -911,6 +960,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           id: string;
           status: string;
           credits_balance: number;
+          plan: string;
         }>();
 
       if (!user) {
@@ -988,18 +1038,22 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       const isImagen = mode === 'google-imagen';
       const isChatMode = mode === 'chat';
 
+      const safety = await acquireGeneration(env.DB, user, await sourceKey(request), cost, env);
+      if (!safety.id) return jsonResponse({ success: false, error: safety.error }, 429);
       const reservation = await env.DB.prepare(`
         UPDATE users SET credits_balance = credits_balance - ?
         WHERE id = ? AND status = 'active' AND credits_balance >= ?
       `).bind(cost, user.id, cost).run();
       if (!reservation.meta.changes) {
+        await safety.release();
         return jsonResponse({ success: false, error: 'Insufficient credits or account unavailable. Generation cannot continue.' }, 400);
       }
       let completed = false;
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 90000);
+      const timer = setTimeout(() => ctrl.abort(), IMAGE_GENERATION_TIMEOUT_MS);
 
       try {
+        const upstreamStarted = Date.now();
         const upstreamRes = await fetch(targetUrl, {
           method: 'POST',
           headers,
@@ -1015,7 +1069,9 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           }, 502);
         }
 
+        const upstreamWaitMs = Date.now() - upstreamStarted;
         const data = (await upstreamRes.json()) as any;
+        const generationTiming = { upstreamWaitMs, upstreamBodyMs: Date.now() - upstreamStarted - upstreamWaitMs };
         let imageUrl: string | null = null;
 
         if (isGoogleOfficial && isImagen) {
@@ -1055,6 +1111,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         }
 
         const imageResolution = inspectImageResolution(imageUrl, resolution);
+          console.info('[generation-quality]', JSON.stringify({ endpointId: targetEp.id, model, resolution, imageResolution }));
         const creditsRefunded = imageResolution.status === 'below-request' ? cost : 0;
         if (creditsRefunded) {
           await env.DB.prepare('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?')
@@ -1071,10 +1128,13 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           .first<{ credits_balance: number }>();
 
         completed = true;
+        const library = await saveGeneratedWork({ db: env.DB, storage: env.PANORAMA_SHARES, user, imageUrl, prompt, model, resolution }).catch(() => ({ saved: false, error: 'Cloud history could not save this image. Download it before leaving the page.' }));
         return jsonResponse({
           success: true,
+          library,
           imageUrl,
           modelUsed: model,
+          generationTiming,
           remainingCredits: updated?.credits_balance ?? Math.max(0, user.credits_balance - cost),
           creditsDeducted: cost - creditsRefunded,
           creditsRefunded,
@@ -1088,6 +1148,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         }, 504);
       } finally {
         clearTimeout(timer);
+        await safety.release().catch(() => console.error('[generation-safety] lease cleanup deferred to expiry'));
         if (!completed) {
           await env.DB.prepare('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?')
             .bind(cost, user.id).run();
@@ -1096,6 +1157,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     }
     return jsonResponse({ error: 'Route not found' }, 404);
   } catch (err: unknown) {
+    if (err instanceof RangeError) return jsonResponse({ error: 'Request body is too large.' }, 413);
+    if (err instanceof SyntaxError) return jsonResponse({ error: 'Invalid JSON request.' }, 400);
     console.error('[Cloudflare Edge Commercial API]', err);
     return jsonResponse({
       error: 'Internal edge server error',

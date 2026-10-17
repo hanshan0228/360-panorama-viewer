@@ -43,7 +43,7 @@ export function formatAdminBilling({ subscriptions = [], paypalSubscriptions = [
 }
 
 export function paypalCatalog(env, billing = {}) {
-  const monthlyPrice = billing.proMonthlyPriceUsd ?? 19;
+  const monthlyPrice = billing.proMonthlyPriceUsd ?? 9.9;
   const monthlyCredits = billing.proMonthlyCredits ?? 1000;
   if (!Number.isFinite(monthlyPrice) || monthlyPrice <= 0 || !Number.isSafeInteger(monthlyCredits) || monthlyCredits <= 0) {
     throw new Error('Invalid server billing configuration');
@@ -54,7 +54,7 @@ export function paypalCatalog(env, billing = {}) {
       yearly: { planId: env.PAYPAL_PRO_YEARLY_PLAN_ID, amountCents: 11880, credits: monthlyCredits * 12 },
     },
     enterprise: {
-      monthly: { planId: env.PAYPAL_ENTERPRISE_MONTHLY_PLAN_ID, amountCents: 4900, credits: 5000 },
+      monthly: { planId: env.PAYPAL_ENTERPRISE_MONTHLY_PLAN_ID, amountCents: 2999, credits: 5000 },
       yearly: { planId: env.PAYPAL_ENTERPRISE_YEARLY_PLAN_ID, amountCents: 34800, credits: 60000 },
     },
   };

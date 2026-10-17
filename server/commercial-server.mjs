@@ -1,10 +1,11 @@
+import { consumeJsonLimit, claimJsonTrial, positiveLimit } from './risk.mjs';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { handlePayPalRequest, createJsonPayPalLedger, paypalConfigured, formatAdminBilling } from './paypal.mjs';
-import { buildImageModelRequest, inspectImageResolution } from '../src/utils/imageModelRequest.mjs';
+import { buildImageModelRequest, inspectImageResolution, IMAGE_GENERATION_TIMEOUT_MS } from '../src/utils/imageModelRequest.mjs';
 
 const STORE_FILE = fileURLToPath(new URL('./data/store.json', import.meta.url));
 
@@ -178,6 +179,7 @@ export function createCommercialServer(options = {}) {
 
       // Guest User Session Initialization (Auto-grants 4 trial credits)
       if (pathname === '/api/user/guest' && req.method === 'POST') {
+        if (env.FREE_TRIAL_ENABLED === 'false') return sendJson(res, 429, { error: 'Guest trials are temporarily paused. Sign in to continue.' });
         const guestIp = req.socket.remoteAddress || 'unknown';
         if (rateLimitExceeded(rateBuckets, `guest:hour:${guestIp}`, 5, 3600000)
           || rateLimitExceeded(rateBuckets, `guest:day:${guestIp}`, 20, 86400000)) {
@@ -189,13 +191,18 @@ export function createCommercialServer(options = {}) {
         const guestEmail = `guest_${guestId}@guest.panoramagenerator.ai`;
         const store = readStore(file);
         store.users = store.users || [];
+        const source = crypto.createHash('sha256').update(guestIp).digest('hex');
+        if (!consumeJsonLimit(store,'guest-create-global',200,86400000) || !consumeJsonLimit(store,'guest-create:'+source,1,7*86400000,1,Date.now(),true)) {
+          persist(store,file); return sendJson(res,429,{error:'This network has already initialized a trial. Sign in to continue.'});
+        }
+        const credits = claimJsonTrial(store, source, freeCredits(store.billing_config));
         const guestUser = {
           id: guestId,
           email: guestEmail,
           name: 'Free Trial Guest',
           plan: 'free',
-          creditsBalance: freeCredits(store.billing_config),
-          creditsTotal: freeCredits(store.billing_config),
+          creditsBalance: credits,
+          creditsTotal: credits,
           apiCallsCount: 0,
           status: 'active',
           createdAt: new Date().toISOString(),
@@ -224,6 +231,10 @@ export function createCommercialServer(options = {}) {
         }
         const store = readStore(file);
         store.users = store.users || [];
+        const authSource = crypto.createHash('sha256').update(authIp).digest('hex');
+        const authAllowed = consumeJsonLimit(store,'auth-global',2000,86400000) && consumeJsonLimit(store,'auth-source:'+authSource,30,600000);
+        persist(store,file);
+        if (!authAllowed) return sendJson(res,429,{error:'Sign-in safety limit reached. Retry later.'});
         let user = store.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
         if (!user && mode === 'login') {
           recordRateHit(rateBuckets, authFailKey);
@@ -251,13 +262,18 @@ export function createCommercialServer(options = {}) {
           if (typeof password !== 'string' || password.length < 6 || password.length > 1024) {
             return sendJson(res, 400, { success: false, error: 'New accounts require a password between 6 and 1024 characters.' });
           }
+          const source = crypto.createHash('sha256').update(authIp).digest('hex');
+          if (!consumeJsonLimit(store,'register-create-global',100,86400000) || !consumeJsonLimit(store,'register-create:'+source,5,86400000)) {
+            persist(store,file); return sendJson(res,429,{error:'Account creation safety limit reached. Try later.'});
+          }
+          const credits = claimJsonTrial(store, source, freeCredits(store.billing_config), env.FREE_TRIAL_ENABLED !== 'false');
           user = {
             id: 'usr_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12),
             email: email.toLowerCase(),
             name: typeof name === 'string' && name.trim() ? name.trim() : email.split('@')[0],
             plan: 'free',
-            creditsBalance: freeCredits(store.billing_config),
-            creditsTotal: freeCredits(store.billing_config),
+            creditsBalance: credits,
+            creditsTotal: credits,
             apiCallsCount: 0,
             status: 'active',
             password_hash: hashPassword(password),
@@ -320,7 +336,7 @@ export function createCommercialServer(options = {}) {
       if (pathname === '/api/generate' && req.method === 'POST') {
         const body = JSON.parse((await readRawBody(req)).toString());
         const { prompt, endpointId, modelId, referenceImages } = body || {};
-        if (!prompt || typeof prompt !== 'string') {
+        if (!prompt || typeof prompt !== 'string' || prompt.length > 10000) {
           return sendJson(res, 400, { success: false, error: 'Prompt is required' });
         }
 
@@ -391,6 +407,15 @@ export function createCommercialServer(options = {}) {
         const isImagen = mode === 'google-imagen';
         const isChatMode = mode === 'chat';
 
+        if (env.GENERATION_ENABLED === 'false') return sendJson(res,429,{error:'Generation is temporarily paused. No credits were charged.'});
+        const leaseId = crypto.randomUUID(), now = Date.now();
+        store.riskLeases = (store.riskLeases || []).filter(lease => lease.expires_at > now);
+        if (store.riskLeases.length >= positiveLimit(env.MAX_CONCURRENT_GENERATIONS,4) || store.riskLeases.filter(lease => lease.owner_id === user.id).length >= 2) return sendJson(res,429,{error:'Generation is busy. Retry shortly.'});
+        const source = crypto.createHash('sha256').update(req.socket.remoteAddress || 'unknown').digest('hex');
+        const budgets = [['generation-attempts',200,1],['generation-all',positiveLimit(env.MAX_DAILY_GENERATION_CREDITS,1000),cost]];
+        if (!user.plan || user.plan === 'free' || user.id.startsWith('usr_guest')) budgets.push(['generation-free-attempts',25,1],['generation-free',positiveLimit(env.MAX_DAILY_FREE_CREDITS,100),cost], ['generation-source:'+source,20,cost], ['generation-user:'+user.id,10,1]);
+        for (const [key,limit,amount] of budgets) if (!consumeJsonLimit(store,key,limit,86400000,amount)) { persist(store,file); return sendJson(res,429,{error:'Daily generation safety limit reached. No credits were charged.'}); }
+        store.riskLeases.push({id:leaseId, owner_id:user.id, expires_at:now+240000});
         // ponytail: synchronous reservations cover one Node process; use D1 for multiple instances.
         user.creditsBalance -= cost;
         persist(store, file);
@@ -398,9 +423,10 @@ export function createCommercialServer(options = {}) {
         let responseStatus = 200;
         let responseData;
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 90000);
+        const timer = setTimeout(() => ctrl.abort(), IMAGE_GENERATION_TIMEOUT_MS);
 
         try {
+          const upstreamStarted = Date.now();
           const upstreamRes = await fetchUpstream(targetUrl, {
             method: 'POST',
             headers,
@@ -414,7 +440,9 @@ export function createCommercialServer(options = {}) {
             throw new Error(`Model endpoint returned HTTP ${upstreamRes.status}: ${errText.slice(0, 240)}`);
           }
 
+          const upstreamWaitMs = Date.now() - upstreamStarted;
           const data = await upstreamRes.json();
+          const generationTiming = { upstreamWaitMs, upstreamBodyMs: Date.now() - upstreamStarted - upstreamWaitMs };
           let imageUrl = null;
 
           if (isGoogleOfficial && isImagen) {
@@ -455,6 +483,7 @@ export function createCommercialServer(options = {}) {
           }
 
           const imageResolution = inspectImageResolution(imageUrl, resolution);
+          console.info('[generation-quality]', JSON.stringify({ endpointId: targetEp.id, model, resolution, imageResolution }));
           const creditsRefunded = imageResolution.status === 'below-request' ? cost : 0;
           const latestStore = readStore(file);
           const latestUser = latestStore.users.find(entry => entry.id === user.id);
@@ -468,6 +497,7 @@ export function createCommercialServer(options = {}) {
             success: true,
             imageUrl,
             modelUsed: model,
+            generationTiming,
             remainingCredits: latestUser.creditsBalance,
             creditsDeducted: cost - creditsRefunded,
             creditsRefunded,
@@ -479,6 +509,9 @@ export function createCommercialServer(options = {}) {
           responseData = { success: false, error: responseStatus === 502 ? message : `Image model request failed: ${message}` };
         } finally {
           clearTimeout(timer);
+          const safetyStore = readStore(file);
+          safetyStore.riskLeases = (safetyStore.riskLeases || []).filter(lease => lease.id !== leaseId);
+          persist(safetyStore,file);
           if (!completed) {
             const latestStore = readStore(file);
             const latestUser = latestStore.users.find(entry => entry.id === user.id);
@@ -495,7 +528,7 @@ export function createCommercialServer(options = {}) {
         const store = readStore(file);
         const config = store.billing_config || {
           freeMonthlyCredits: 4,
-          proMonthlyPriceUsd: 19,
+          proMonthlyPriceUsd: 9.9,
           proMonthlyCredits: 1000,
           enterpriseCustomPricing: true,
           creditCostPer1K: 1,
@@ -683,8 +716,8 @@ export function createCommercialServer(options = {}) {
         }
 
         const PRICING_CENTS = {
-          pro: { monthly: 1900, yearly: 11880, credits: 1000 },
-          enterprise: { monthly: 4900, yearly: 34800, credits: 5000 },
+          pro: { monthly: 990, yearly: 11880, credits: 1000 },
+          enterprise: { monthly: 2999, yearly: 34800, credits: 5000 },
         };
         const orderAmount = PRICING_CENTS[plan][billingCycle];
         // Yearly plans grant twelve monthly allotments, matching the PayPal catalog.

@@ -6,3 +6,7 @@ pages_build_output_dir = "dist"
 binding = "DB"
 database_name = "panorama-db"
 database_id = "07c4c533-a2ba-4e4f-b144-481f90e5d249"
+
+[[kv_namespaces]]
+binding = "PANORAMA_SHARES"
+id = "8f4f2171d5bb4990a2b4268964157be0"

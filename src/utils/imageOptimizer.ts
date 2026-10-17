@@ -84,3 +84,38 @@ export function convertFlatPhotoToEquirectangular(
 
   return canvas;
 }
+
+/** Encode a smaller sharing copy without modifying the generation or its local downloads. */
+export async function preparePanoramaShare(source: Blob, signal?: AbortSignal): Promise<{ blob: Blob; width: number; height: number; compressed: boolean }> {
+  const targetBytes = 8 * 1024 * 1024, maximumBytes = 20 * 1024 * 1024;
+  signal?.throwIfAborted();
+  const image = await createImageBitmap(source);
+  try {
+    if (image.width !== image.height * 2 || image.width > 16384 || image.width * image.height > 64 * 1024 * 1024) throw new Error('Share the prepared 2:1 panorama, rather than a non-2:1 model original.');
+    if (['image/png', 'image/jpeg'].includes(source.type) && source.size <= targetBytes) return { blob: source, width: image.width, height: image.height, compressed: false };
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Image preparation is unavailable.');
+    let width = image.width;
+    while (true) {
+      signal?.throwIfAborted();
+      canvas.width = width; canvas.height = width / 2;
+      // JPEG cannot represent transparency; flatten onto a neutral background.
+      context.fillStyle = '#ffffff'; context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      let last: Blob | null = null;
+      for (const quality of [0.92, 0.84, 0.74]) {
+        signal?.throwIfAborted();
+        const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value?.size ? resolve(value) : reject(new Error('Share image encoding failed.')), 'image/jpeg', quality));
+        signal?.throwIfAborted();
+        if (blob.type !== 'image/jpeg') throw new Error('This browser cannot encode a compressed JPEG sharing copy.');
+        last = blob;
+        if (blob.size <= targetBytes) return { blob, width, height: width / 2, compressed: true };
+      }
+      // ponytail: prefer native pixels over the 8 MB target; resize only above the hard 20 MB ceiling.
+      if (last && last.size <= maximumBytes) return { blob: last, width, height: width / 2, compressed: true };
+      if (width <= Math.min(1024, image.width)) throw new Error('The image could not be compressed below the sharing limit.');
+      width = Math.max(Math.min(1024, image.width), Math.floor(width * 0.75 / 2) * 2);
+    }
+  } finally { image.close(); }
+}

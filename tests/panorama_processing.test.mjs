@@ -243,3 +243,89 @@ test('shared canvas factories preserve enhanced pixels, dimensions and exact sea
     assert.deepEqual(worker.pixels.slice(start, start + 3), worker.pixels.slice(end, end + 3));
   }
 });
+
+for (const mismatch of [false, true]) {
+  test(`automatic seam treatment ${mismatch ? 'blends a hard discontinuity' : 'preserves already continuous pixels'}`, () => {
+    const width = 256, height = 16;
+    const pixels = Uint8ClampedArray.from({ length: width * height * 4 }, (_, i) =>
+      i % 4 === 3 ? 255 : mismatch && Math.floor(i / 4) % width >= width / 2 ? 220 : 30);
+    const source = { width, height, pixels };
+    const createCanvas = () => {
+      const canvas = { width: 0, height: 0, pixels: null };
+      canvas.getContext = () => ({
+        drawImage(image) { canvas.pixels = new Uint8ClampedArray(image.pixels); },
+        getImageData: () => ({ data: new Uint8ClampedArray(canvas.pixels) }),
+        putImageData(image) { canvas.pixels = image.data; },
+      });
+      return canvas;
+    };
+    const { healPanoramaSeam, inspectPanoramaSeam } = load('seamHealer.ts');
+    assert.equal(inspectPanoramaSeam(pixels, width, height).needsBlending, mismatch);
+    const result = healPanoramaSeam(source, 160, createCanvas, true);
+    if (!mismatch) assert.equal(result, source);
+    else {
+      assert.notEqual(result, source);
+      assert.equal(inspectPanoramaSeam(result.pixels, width, height).difference, 0);
+      assert.deepEqual(source.pixels, pixels, 'model original must remain untouched');
+    }
+  });
+}
+
+test('automatic seam detection rejects malformed pixel buffers', () => {
+  const { inspectPanoramaSeam } = load('seamHealer.ts');
+  assert.throws(() => inspectPanoramaSeam(new Uint8ClampedArray(4), 256, 16), /Invalid panorama/);
+});
+
+function shareEncoderFixture(sizes) {
+  const state = { closed: 0, encoded: [], drawn: [] };
+  const image = { width: 5504, height: 2752, close() { state.closed++; } };
+  const canvas = { width: 0, height: 0, getContext: () => ({ fillRect() {}, drawImage(...args) { state.drawn.push(args.slice(1)); } }),
+    toBlob(callback, type, quality) { state.encoded.push({ type, quality, width: canvas.width, height: canvas.height }); callback({ type, size: sizes.shift() }); } };
+  const { preparePanoramaShare } = load('imageOptimizer.ts', { createImageBitmap: async () => image, document: { createElement: () => canvas } });
+  return { state, image, canvas, prepare: (source = { type: 'image/png', size: 25 * 1024 * 1024 }, signal) => preparePanoramaShare(source, signal) };
+}
+
+test('share compression keeps small PNG originals without re-encoding', async () => {
+  const f = shareEncoderFixture([]), source = { type: 'image/png', size: 1024 };
+  const result = await f.prepare(source);
+  assert.equal(result.blob, source); assert.equal(result.compressed, false);
+  assert.equal(f.state.encoded.length, 0); assert.equal(f.state.closed, 1);
+});
+
+test('share compression keeps small JPEG originals without re-encoding', async () => {
+  const f = shareEncoderFixture([]), source = { type: 'image/jpeg', size: 2 * 1024 * 1024 };
+  const result = await f.prepare(source);
+  assert.equal(result.blob, source); assert.equal(result.compressed, false);
+  assert.equal(f.state.encoded.length, 0); assert.equal(f.state.closed, 1);
+});
+
+test('oversized PNG is JPEG-compressed at its original 4K-plus dimensions', async () => {
+  const f = shareEncoderFixture([10 * 1024 * 1024, 4 * 1024 * 1024]);
+  const result = await f.prepare();
+  assert.equal(result.width, 5504); assert.equal(result.height, 2752);
+  assert.equal(result.blob.type, 'image/jpeg'); assert.equal(result.compressed, true);
+  assert.deepEqual(f.state.encoded.map(x => x.quality), [0.92, 0.84]);
+  assert.ok(f.state.encoded.every(x => x.width === 5504)); assert.equal(f.state.closed, 1);
+});
+
+test('share encoding resizes only if all native quality attempts exceed the hard limit', async () => {
+  const f = shareEncoderFixture([24,23,21,4].map(x => x * 1024 * 1024));
+  const result = await f.prepare();
+  assert.equal(result.width, 4128); assert.equal(result.height, 2064);
+  assert.equal(f.state.encoded.length, 4); assert.equal(f.state.closed, 1);
+  assert.ok(f.state.encoded.every(x => x.width === x.height * 2));
+});
+
+test('native-dimension sharing copy above target but below the hard limit is retained', async () => {
+  const f = shareEncoderFixture([19,18,17].map(x => x * 1024 * 1024));
+  assert.equal((await f.prepare()).width, 5504);
+  assert.equal(f.state.encoded.length, 3);
+});
+
+test('share encoding failure and cancellation release the decoded original', async () => {
+  const f = shareEncoderFixture([]); f.canvas.toBlob = callback => callback(null);
+  await assert.rejects(f.prepare(), /encoding failed/); assert.equal(f.state.closed, 1);
+  const cancelled = shareEncoderFixture([1024]); const abort = new AbortController(); abort.abort();
+  await assert.rejects(cancelled.prepare(undefined, abort.signal));
+  assert.equal(cancelled.state.encoded.length, 0);
+});

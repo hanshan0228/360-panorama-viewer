@@ -4,7 +4,7 @@ import { healPanoramaSeam } from './seamHealer';
 export async function processPanoramaImage(
   imageUrl: string,
   options: EnhanceOptions,
-  healSeam: boolean,
+  healSeam: boolean | 'auto',
   signal?: AbortSignal
 ): Promise<string> {
   const deadline = AbortSignal.any([AbortSignal.timeout(30000), ...(signal ? [signal] : [])]);
@@ -58,7 +58,7 @@ export async function processPanoramaImage(
       imageElement.onload = () => {
         try {
           const canvas = enhanceAndUpscalePanorama(imageElement, options);
-          const processed = healSeam ? healPanoramaSeam(canvas, 160) : canvas;
+          const processed = healSeam ? healPanoramaSeam(canvas, 160, undefined, healSeam === 'auto') : canvas;
           processed.toBlob(blob => blob?.size ? finish(blob) : finish(undefined, new Error('PNG encoding failed')), 'image/png');
         } catch (error) { finish(undefined, error); }
       };

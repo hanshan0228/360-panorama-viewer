@@ -344,9 +344,7 @@ test('user and admin payloads never expose password hashes', async (t) => {
 
 test('guest trial minting is rate limited per client address', async (t) => {
   const { post } = await withServer(t);
-  for (let mint = 0; mint < 5; mint += 1) {
-    assert.equal((await post('/api/user/guest', {})).status, 200);
-  }
+  assert.equal((await post('/api/user/guest', {})).status, 200);
   assert.equal((await post('/api/user/guest', {})).status, 429);
 });
 

@@ -1,3 +1,5 @@
+import { MyWorks } from './commercial/MyWorks';
+import { SharePanoramaModal } from './commercial/SharePanorama';
 import { useState, useRef, useEffect } from 'react';
 import {
   Sparkles,
@@ -228,12 +230,14 @@ export function GeneratorTab({
   }
 
   const [resolution, setResolution] = useState<ResolutionTier>('4K');
-  const [seamCorrection, setSeamCorrection] = useState(false);
+  const [seamCorrection, setSeamCorrection] = useState<boolean | 'auto'>('auto');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStage, setGenerationStage] = useState('');
   const [generationElapsed, setGenerationElapsed] = useState(0);
   const [generationTiming, setGenerationTiming] = useState<string | null>(null);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isWorksOpen, setIsWorksOpen] = useState(false);
   const [isEmbedModalOpen, setIsEmbedModalOpen] = useState(false);
   const [isPreviewActive, setIsPreviewActive] = useState(false);
   const [initialPanoramaUrl] = useState(currentPanoramaUrl);
@@ -262,7 +266,6 @@ export function GeneratorTab({
   useEffect(() => {
     const generation = generationRef.current;
     generation.mounted = true;
-    setIsGenerating(false);
     const invalidateGeneration = () => {
       generation.request++;
       generation.processing?.abort();
@@ -419,12 +422,14 @@ export function GeneratorTab({
       let serverRefunded = 0;
       let serverDeductedTotal = 0;
       let resultResolution: ImageResolution | undefined;
-      let bestAttempt: { url: string; resolution: ImageResolution; endpointName: string; index: number; cost?: number } | null = null;
+      let bestAttempt: { url: string; resolution: ImageResolution; endpointName: string; index: number; cost?: number; library?: { saved: boolean; error?: string } } | null = null;
       const failedAttempts: Array<{ endpoint: string; error: string }> = [];
+      const attemptDetails: string[] = [];
 
       for (let i = 0; i < pipeline.endpoints.length; i++) {
         const ep = pipeline.endpoints[i];
         setGenerationStage(`Waiting for ${ep.name} and network response (${i + 1}/${pipeline.endpoints.length})`);
+        const attemptStarted = performance.now();
         try {
           const modelConfig: GeminiConfig = {
             endpointId: ep.id,
@@ -441,6 +446,7 @@ export function GeneratorTab({
           if (sessionToken) window.dispatchEvent(new Event('panorama-user-refresh'));
           const attemptResolution = genResult.imageResolution ?? inspectImageResolution(genResult.imageUrl, resolution);
           const attemptRefunded = genResult.creditsRefunded ?? 0;
+          attemptDetails.push(`${genResult.modelUsed || ep.model || ep.name}: ${attemptResolution.width ?? '?'}×${attemptResolution.height ?? '?'} (${attemptResolution.status}), ${((performance.now() - attemptStarted) / 1000).toFixed(1)} s${genResult.generationTiming ? ` [upstream wait ${(genResult.generationTiming.upstreamWaitMs / 1000).toFixed(1)} s; response transfer ${(genResult.generationTiming.upstreamBodyMs / 1000).toFixed(1)} s]` : ''}`);
           serverRefunded += attemptRefunded;
           if (typeof genResult.creditsDeducted === 'number') serverDeductedTotal += genResult.creditsDeducted;
           if (!bestAttempt || (attemptResolution.panoramaWidth ?? 0) > (bestAttempt.resolution.panoramaWidth ?? 0)) {
@@ -450,6 +456,7 @@ export function GeneratorTab({
               endpointName: ep.name,
               index: i,
               cost: genResult.creditsDeducted,
+              library: genResult.library,
             };
           }
           if (typeof genResult.remainingCredits === 'number') {
@@ -466,7 +473,8 @@ export function GeneratorTab({
         } catch (callErr) {
           if (!isCurrentGeneration()) return;
           const errMessage = callErr instanceof Error ? callErr.message : String(callErr);
-          failedAttempts.push({ endpoint: ep.name, error: errMessage });
+          failedAttempts.push({ endpoint: ep.model || ep.name, error: errMessage });
+          attemptDetails.push(`${ep.model || ep.name}: failed after ${((performance.now() - attemptStarted) / 1000).toFixed(1)} s — ${errMessage}`);
 
           // If in strict single model mode, immediately fail without fallback
           if (pipeline.mode === 'single') {
@@ -494,6 +502,13 @@ export function GeneratorTab({
         );
       }
 
+      const attemptSummary = attemptDetails.join(' | ');
+      try {
+        // ponytail: keep only this account's latest attempt summary in the current tab; no prompts or image data.
+        if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(`panorama-last-generation:${user.id}`,
+          JSON.stringify({ timestamp: new Date().toISOString(), resolution, attempts: attemptDetails }));
+      } catch { /* Storage denial must not discard a completed image. */ }
+      const fallbackNotice = failedAttempts.length ? ` Other model attempts failed: ${failedAttempts.map(f => `${f.endpoint}: ${f.error}`).join('; ')}` : '';
       const modelElapsed = performance.now() - startedAt;
       setGenerationStage(seamCorrection ? 'Preparing native-detail panorama with optional seam blending' : 'Preparing native-detail panorama without stretching');
       let finalDataUrl = rawGenUrl;
@@ -519,7 +534,7 @@ export function GeneratorTab({
       const originalSize = resultResolution?.width && resultResolution.height
         ? `Model original: ${resultResolution.width}×${resultResolution.height}`
         : 'Model original dimensions unverified';
-      setGenerationTiming(`Requested: ${resolution} · ${originalSize} · Model/network (including failover): ${(modelElapsed / 1000).toFixed(1)} s · Image processing: ${(processingElapsed / 1000).toFixed(1)} s${processingFailed ? ' (processing failed; original image preserved)' : ''}`);
+      setGenerationTiming(`Requested: ${resolution} · ${originalSize} · Model/network (including failover): ${(modelElapsed / 1000).toFixed(1)} s · Image processing: ${(processingElapsed / 1000).toFixed(1)} s${processingFailed ? ' (processing failed; original image preserved)' : ''} · Attempts: ${attemptSummary}${bestAttempt?.library ? bestAttempt.library.saved ? ' · Saved privately in My works' : ` · NOT saved: ${bestAttempt.library.error}` : ''}`);
       setOriginalRawUrl(rawGenUrl);
       setEnhanced4kUrl(null);
 
@@ -575,11 +590,12 @@ export function GeneratorTab({
           : sessionToken
           ? `The server reported ${serverCost ?? creditsCost} credits charged; no automatic refund was confirmed.`
           : 'No local credits were deducted.';
-        setApiError(`The model returned ${resultResolution.width}×${resultResolution.height}; its 2:1 crop is ${resultResolution.panoramaWidth}×${resultResolution.panoramaHeight}, below the requested ${resolution} panorama (${resultResolution.targetWidth}×${resultResolution.targetHeight}). The image was retained without upscaling. ${billingNotice}`);
+        setApiError(`The model returned ${resultResolution.width}×${resultResolution.height}; its 2:1 crop is ${resultResolution.panoramaWidth}×${resultResolution.panoramaHeight}, below the requested ${resolution} panorama (${resultResolution.targetWidth}×${resultResolution.targetHeight}). The image was retained without upscaling. ${billingNotice}${fallbackNotice}`);
         return;
       }
 
       if (!isCurrentGeneration()) return;
+      if (fallbackNotice) setApiError(`A usable image was retained.${fallbackNotice}`);
       confetti({
         particleCount: 50,
         spread: 70,
@@ -1050,20 +1066,20 @@ export function GeneratorTab({
               <div className="space-y-2 pt-3">
               <button
                 type="button"
-                aria-pressed={seamCorrection}
+                aria-pressed={seamCorrection !== false}
                 aria-label="Optional seam blending"
-                title="May create ghosting when the left and right edges differ. Off preserves edge detail."
-                onClick={() => setSeamCorrection((prev) => !prev)}
+                title="Auto blends detected hard boundaries; On always blends; Off keeps the edges unchanged. May cause ghosting."
+                onClick={() => setSeamCorrection((prev) => prev === 'auto' ? false : prev === false ? true : 'auto')}
                 className={`w-full py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
                   seamCorrection
                     ? 'bg-teal-500/15 border-teal-400/60 text-teal-300 shadow-[0_0_15px_rgba(13,242,201,0.2)]'
                     : 'bg-[#030c1c] border-cyan-500/20 text-cyan-400/60 hover:text-cyan-200'
                 }`}
               >
-                <span>{seamCorrection ? 'Blending: On' : 'Blending: Off'}</span>
+                <span>{seamCorrection === 'auto' ? 'Blending: Auto (detect edge mismatch)' : seamCorrection ? 'Blending: On' : 'Blending: Off'}</span>
                 {seamCorrection && <CheckCircle2 className="w-3.5 h-3.5 text-teal-300" />}
               </button>
-              <p className="text-[10px] text-cyan-200/60">Optional. Mismatched edges may show ghosting; blending does not reconstruct a true 360° scene.</p>
+              <p className="text-[10px] text-cyan-200/60">Auto detects and blends hard wrap boundaries. Smooth edges are preserved. Blending may cause ghosting and cannot reconstruct mismatched objects. The model original remains available.</p>
               </div>
             </details>
           </div>
@@ -1157,6 +1173,8 @@ export function GeneratorTab({
                     Download model original
                   </button>
                 )}
+                <button type="button" disabled={isGenerating} onClick={() => setIsWorksOpen(true)} className="rounded-xl border border-cyan-400/40 px-3 py-2 text-sm text-cyan-200">My works</button>
+                <button type="button" disabled={isGenerating} onClick={() => setIsShareOpen(true)} className="rounded-xl border border-teal-400/40 bg-teal-400/10 px-3 py-2 text-sm font-semibold text-teal-200">Share panorama</button>
                 {/* Restore Original Button */}
                 {originalRawUrl && originalRawUrl !== currentPanoramaUrl && (
                   <button
@@ -1394,6 +1412,16 @@ export function GeneratorTab({
         onClose={() => setIsVideoModalOpen(false)}
         currentPanoramaUrl={currentPanoramaUrl}
       />
+
+      <MyWorks isOpen={isWorksOpen} accountId={currentUser.id} onClose={() => setIsWorksOpen(false)} onOpen={async (original, share, signal) => {
+        const accountToken = localStorage.getItem('panorama_server_user_token');
+        const processed = await processPanoramaImage(original, { resolution: '4K', preserveNative: true, sharpness: 0, contrastBoost: 1 }, 'auto', signal);
+        signal.throwIfAborted();
+        if (localStorage.getItem('panorama_server_user_token') !== accountToken) throw new Error('Account changed. Reopen My works.');
+        setOriginalRawUrl(original); setEnhanced4kUrl(null); onPanoramaChange(processed); setIsPreviewActive(true);
+        if (share) setIsShareOpen(true);
+      }} />
+      <SharePanoramaModal isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} imageUrl={currentPanoramaUrl} accountId={currentUser.id} />
 
       {/* Embed 360 Viewer Modal */}
       <EmbedModal

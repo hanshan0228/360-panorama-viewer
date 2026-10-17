@@ -139,7 +139,7 @@ export const DEFAULT_MANAGED_USERS: ManagedUser[] = [
 
 export const DEFAULT_BILLING_CONFIG: SystemBillingConfig = {
   freeMonthlyCredits: 4,
-  proMonthlyPriceUsd: 19,
+  proMonthlyPriceUsd: 9.9,
   proMonthlyCredits: 1000,
   enterpriseCustomPricing: true,
   creditCostPer1K: 1,
@@ -555,8 +555,8 @@ export function processCheckoutSubscription(params: {
 
 export const DEFAULT_ROUTING_CONFIG: ModelRoutingConfig = {
   mode: 'failover',
-  primaryEndpointId: 'gemini-imagen3',
-  secondaryEndpointId: 'gemini-flash-img',
+  primaryEndpointId: 'gemini-flash-img',
+  secondaryEndpointId: 'gemini-imagen3',
   tertiaryEndpointId: 'fal-flux-schnell',
   roundRobinIndex: 0,
 };

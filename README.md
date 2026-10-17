@@ -137,3 +137,36 @@ GPT Image 2 / 2.5 请求 `1152×576`、`2048×1024`、`3840×1920` 三档原生 
 npm run build
 ```
 打包产物位于 `dist/` 目录，可一键部署至 Vercel、Cloudflare Pages、Netlify 或任何 Nginx/静态托管服务器。
+
+生成质量修复：默认自动检测左右边界颜色跳变，仅在明显不连续时融合；可切换强制融合或关闭，模型原图始终保留。此启发式不能重建错位物体或保证真实球面几何。提示词不再强制写实风格或宣称 8K。结果显示每次模型尝试的实际尺寸、耗时及错误，当前标签页仅保存该账户最近一次尝试摘要（不保存提示词、图片或密钥）。服务端输出不含提示词和密钥的结构化尺寸日志，低分辨率仍全额退款且不伪装成 4K。
+
+2026-10-17 真实 4K 探测：当前 GPT 中转返回 1774×887（75.7 秒），Gemini 返回 5504×3072（101.1 秒）。默认路由改为 Gemini 主、GPT 备，请求含响应体读取的超时统一延长至 150 秒。此结果仅代表本次测试，不保证后续所有请求尺寸。
+
+4K 延迟优化：Gemini 3.1 Flash Image 显式指定 minimal thinking（原生 API 与兼容代理分别使用官方及代理支持的字段），保持原生 4K 与参考图。结果分开显示上游等待响应头、接收响应体和本地后处理耗时，不将上游等待冒充前端加载。单次直接中转测试总耗时 67.1 秒，其中响应头等待 38.0 秒、响应体接收与解析 29.1 秒；历史同接口测试 101.1 秒，非受控统计对照，不保证固定提速比例。
+
+### Interactive panorama sharing
+
+After generating, choose **Share panorama** to publish a standalone `/s/<random-id>` viewer. Publishing requires an active permanent account; recipients need no account. The share manager lists the account's latest links, copies links, controls the download button and revokes access. Sharing copies keep the 2:1 projection. PNG files up to 8 MB are kept; larger images are encoded as high-quality JPEG, prioritizing native pixel dimensions. Only if JPEG quality attempts still exceed 20 MB is the sharing copy resized. The generated image and local original downloads are unchanged; recipients download the sharing copy. Uploads are limited to 20 MB, 10 active links and 5 new links per account per day. Anyone with a link can see and save its displayed image; hiding downloads is not DRM, and revocation cannot erase already-saved copies.
+
+`PANORAMA_SHARES` is a private Workers KV namespace bound in `wrangler.toml`; D1 holds ownership, quota, download permission and revocation. Every media request reads access state from D1's primary session and returns `Cache-Control: no-store`. KV contains immutable PNG/JPEG bytes and MIME metadata, never permissions. Existing PNG links without MIME metadata remain supported. New KV writes may take around a minute to propagate to other regions; an unavailable replica returns retryable 503 and the viewer offers retry. The shared page does not initialize guest sessions or expose account information and uses noindex headers. API endpoints are `GET/POST /api/shares`, `GET /api/shares/:id`, `POST /api/shares/:id` (download permission or revoke), and public `/image` and `/download`. This first version runs on Cloudflare Pages; a local Node backend without the KV binding reports sharing unavailable.
+
+Checks: `node --test tests/shares.test.mjs` and the account-isolation/public-viewer regressions in `tests/generation_flow.test.mjs`, plus the normal build, lint and complete test suite.
+
+### Private generated works (Cloudflare)
+Signed-in permanent accounts automatically archive each new model original in private cloud history. Open **My works** in the studio preview toolbar to reopen a panorama, download the exact original, create an explicit public share, or delete the private original. Existing public links are managed separately in Share panorama. Guest results and images generated before this feature are not archived.
+
+The existing `PANORAMA_SHARES` KV binding stores original base64 in private 4 MiB chunks; D1 `panorama_works` enforces owner/session checks on every request. Limits: 50 works per account and about 48 MiB per original. Failed saves are reported alongside generation timing and never discard the generation. Public sharing uses its own compressed copy. Larger libraries should move to R2 when that service is enabled. The standalone local Node backend does not archive originals.
+
+### Abuse and resource limits
+Cloudflare authorizes these limits with atomic D1 counters (not isolate memory or KV). Node development mode persists equivalent counters in its single-process JSON store.
+
+- Guest sessions: one new session per network source every 7 days. Guest and new registered accounts share one trial grant per source over the same cooldown. IPv6 addresses are grouped by /64; sources are hashed. Clearing cookies does not reset a grant. This can affect users behind a shared network.
+- New accounts: at most 5 registrations/source/day, 100 registrations/site/day, 200 guest initializations/site/day. Free grants/site/day: 100 credits. Registration still works without a second trial gift.
+- Generation: 2 concurrent requests/account, 4/site; leases recover after 4 minutes. UTC daily caps: 1,000 requested credits and 200 attempts/site; free accounts share 100 requested credits and 25 attempts/site, with 20 credits/source and 10 attempts/account. Failed requests and quality refunds DO NOT refund these safety budgets. The user's billable balance is still refunded normally when generation fails or quality is below request.
+- Cloud originals: 128 MiB/free account, 512 MiB/paid account, 768 MiB/site; sharing copies: 100 MiB/account, 128 MiB/site. Counts are actual stored bytes, including base64 overhead for originals. Existing originals retain a conservative 64 MiB reservation and legacy shares 20 MiB until deleted. No existing image is automatically expired or compressed. At capacity, generation remains downloadable but automatic saving explicitly reports failure.
+- Successful physical deletion releases storage reservations. Failed cleanup leaves an inaccessible record with its bytes reserved; an operator must retry cleanup before reclaiming this capacity. This intentionally fails closed rather than accumulating unaccounted images.
+- Image transfers: shared images 120/source/hour and 3,000/site/day; originals 40/account/day and 1,000/site/day. Sign-in attempts have durable limits in addition to the existing failed-password throttle. Generation JSON is limited to 24 MiB, authentication JSON to 16 KiB, prompts to 10,000 characters. Limits include chunked bodies.
+
+Operator overrides via Cloudflare deployment environment: `GENERATION_ENABLED=false` pauses model calls, `FREE_TRIAL_ENABLED=false` pauses guest creation/free grants; `MAX_DAILY_GENERATION_CREDITS` (default 1000), `MAX_DAILY_FREE_CREDITS` (100), and `MAX_CONCURRENT_GENERATIONS` (4) accept nonnegative integer strings (zero disables that allowance). Redeploy after changing deployment variables. Authenticated administrators can inspect `/api/admin/risk` for current storage reservations, daily counters, active leases, configured limits, and pause status. No user tokens or original image data are included.
+
+These caps bound application-authorized model attempts and stored image bytes; they are not a currency-denominated provider spending limit or a DDoS guarantee. Distributed proxies can evade per-source controls but still face site caps. Set provider account spending limits and Cloudflare WAF/Turnstile protection before scaling public traffic. Counters reset daily at UTC midnight, except the rolling trial cooldown. Expired counter/session records are purged in bounded batches.

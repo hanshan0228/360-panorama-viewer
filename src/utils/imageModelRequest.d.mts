@@ -22,3 +22,5 @@ export function buildImageModelRequest(
   mode: 'google-imagen' | 'google-gemini' | 'chat' | 'images';
   payload: Record<string, unknown>;
 };
+
+export const IMAGE_GENERATION_TIMEOUT_MS: number;
