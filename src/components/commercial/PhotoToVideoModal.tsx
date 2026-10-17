@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   X,
   Video,
@@ -29,15 +29,28 @@ export function PhotoToVideoModal({
   const [tilt, setTilt] = useState<boolean>(true);
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
-  const [videoDownloadUrl, setVideoDownloadUrl] = useState<string | null>(null);
-  const [videoBlobType, setVideoBlobType] = useState<string>('');
+  const [videoResult, setVideoResult] = useState<{ source: string; aspectRatio: string; duration: number; tilt: boolean; url: string; type: string } | null>(null);
+  const videoDownloadUrl = videoResult?.source === currentPanoramaUrl && videoResult.aspectRatio === aspectRatio &&
+    videoResult.duration === duration && videoResult.tilt === tilt ? videoResult.url : null;
+  const renderVersionRef = useRef(0);
+
+  useEffect(() => {
+    renderVersionRef.current += 1;
+    return () => { renderVersionRef.current += 1; };
+  }, [isOpen]);
+
+  useEffect(() => {
+    return () => { if (videoResult) URL.revokeObjectURL(videoResult.url); };
+  }, [videoResult]);
 
   if (!isOpen) return null;
 
   const handleStartRender = async () => {
+    if (isRecording) return;
+    const renderVersion = renderVersionRef.current;
     setIsRecording(true);
     setProgress(0);
-    setVideoDownloadUrl(null);
+    setVideoResult(null);
 
     let width = 1920;
     let height = 1080;
@@ -62,9 +75,9 @@ export function PhotoToVideoModal({
       };
 
       const blob = await renderPanoramaToVideoBlob(currentPanoramaUrl, options);
+      if (renderVersionRef.current !== renderVersion) return;
       const url = URL.createObjectURL(blob);
-      setVideoDownloadUrl(url);
-      setVideoBlobType(blob.type || '');
+      setVideoResult({ source: currentPanoramaUrl, aspectRatio, duration, tilt, url, type: blob.type || '' });
 
       confetti({
         particleCount: 50,
@@ -79,11 +92,11 @@ export function PhotoToVideoModal({
   };
 
   const handleDownload = () => {
-    if (!videoDownloadUrl) return;
+    if (!videoDownloadUrl || !videoResult) return;
     const a = document.createElement('a');
     a.href = videoDownloadUrl;
-    const ext = (videoBlobType.includes('mp4') || videoBlobType.includes('h264') || videoBlobType.includes('avc')) ? 'mp4' : 'webm';
-    a.download = `panorama-360-rotation-${aspectRatio.replace(':', 'x')}.${ext}`;
+    const ext = (videoResult.type.includes('mp4') || videoResult.type.includes('h264') || videoResult.type.includes('avc')) ? 'mp4' : 'webm';
+    a.download = `panorama-360-rotation-${videoResult.aspectRatio.replace(':', 'x')}.${ext}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

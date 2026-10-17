@@ -1,4 +1,6 @@
 // Cloudflare Pages Functions - Edge Commercial Backend with D1 Persistence
+import { handlePayPalRequest, createD1PayPalLedger, paypalConfigured, paypalSchema, formatAdminBilling } from '../../server/paypal.mjs';
+import { buildImageModelRequest, inspectImageResolution } from '../../src/utils/imageModelRequest.mjs';
 
 interface Env {
   DB?: D1Database;
@@ -7,6 +9,26 @@ interface Env {
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
   PAYMENT_MODE?: string;
+  PAYPAL_MODE?: string;
+  PAYPAL_CLIENT_ID?: string;
+  PAYPAL_CLIENT_SECRET?: string;
+  PAYPAL_WEBHOOK_ID?: string;
+  PAYPAL_PRO_MONTHLY_PLAN_ID?: string;
+  PAYPAL_PRO_YEARLY_PLAN_ID?: string;
+  PAYPAL_ENTERPRISE_MONTHLY_PLAN_ID?: string;
+  PAYPAL_ENTERPRISE_YEARLY_PLAN_ID?: string;
+  PAYPAL_RETURN_ORIGIN?: string;
+}
+
+async function freeCredits(db: D1Database): Promise<number> {
+  const row = await db.prepare('SELECT value FROM admin_config WHERE key = ?').bind('billing_config').first<{ value: string }>();
+  let value: unknown;
+  try {
+    value = row ? JSON.parse(row.value)?.freeMonthlyCredits : undefined;
+  } catch {
+    return 4;
+  }
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 4;
 }
 
 function jsonResponse(data: unknown, status = 200): Response {
@@ -22,28 +44,101 @@ function jsonResponse(data: unknown, status = 200): Response {
   });
 }
 
-// Lightweight salt-hashed password utilities using Web Crypto API
-async function hashPasswordWithSalt(password: string, salt = crypto.randomUUID().replace(/-/g, '')): Promise<string> {
+// Password hashing with Web Crypto PBKDF2 (per-user salt, 100k iterations).
+// Legacy single-round `sha256:` hashes stay verifiable and are upgraded on successful login.
+const PBKDF2_ITERATIONS = 100000;
+
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function fromHex(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return bytes;
+}
+
+function timingSafeEqualBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+
+async function pbkdf2Hex(password: string, salt: string, iterations: number): Promise<string> {
   const enc = new TextEncoder();
-  const data = enc.encode(`${salt}:${password}`);
-  const hashBuf = await crypto.subtle.digest('SHA-256', data);
-  const hashArr = Array.from(new Uint8Array(hashBuf));
-  const hashHex = hashArr.map((b) => b.toString(16).padStart(2, '0')).join('');
-  return `sha256:${salt}:${hashHex}`;
+  const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: enc.encode(salt), iterations, hash: 'SHA-256' },
+    key,
+    256,
+  );
+  return toHex(new Uint8Array(bits));
+}
+
+async function hashPasswordWithSalt(password: string, salt = crypto.randomUUID().replace(/-/g, '')): Promise<string> {
+  const hex = await pbkdf2Hex(password, salt, PBKDF2_ITERATIONS);
+  return `pbkdf2:${PBKDF2_ITERATIONS}:${salt}:${hex}`;
 }
 
 async function verifyHashedPassword(password: string, storedHash: string): Promise<boolean> {
-  if (!storedHash || !storedHash.startsWith('sha256:')) return false;
-  const parts = storedHash.split(':');
-  if (parts.length !== 3) return false;
-  const salt = parts[1];
-  const computed = await hashPasswordWithSalt(password, salt);
-  return computed === storedHash;
+  if (typeof password !== 'string' || password.length > 1024 || typeof storedHash !== 'string') return false;
+  if (storedHash.startsWith('pbkdf2:')) {
+    const parts = storedHash.split(':');
+    if (parts.length !== 4) return false;
+    const iterations = Number(parts[1]);
+    if (!Number.isSafeInteger(iterations) || iterations < 10000 || !parts[2] || !/^[0-9a-f]{64}$/i.test(parts[3])) return false;
+    const computed = await pbkdf2Hex(password, parts[2], iterations);
+    return timingSafeEqualBytes(fromHex(computed), fromHex(parts[3]));
+  }
+  if (storedHash.startsWith('sha256:')) {
+    const parts = storedHash.split(':');
+    if (parts.length !== 3 || !/^[0-9a-f]{64}$/i.test(parts[2])) return false;
+    const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${parts[1]}:${password}`));
+    return timingSafeEqualBytes(new Uint8Array(hashBuf), fromHex(parts[2]));
+  }
+  return false;
+}
+
+function isLegacyPasswordHash(storedHash: unknown): boolean {
+  return typeof storedHash === 'string' && storedHash.startsWith('sha256:');
+}
+
+// Per-isolate sliding-window counters for abuse-prone endpoints (best effort on the edge).
+const edgeRateBuckets = new Map<string, number[]>();
+
+// Test hook: the worker module is imported once per process, so tests must be able to
+// clear counters between fixtures to avoid cross-test interference.
+export function __resetEdgeRateLimits(): void {
+  edgeRateBuckets.clear();
+}
+
+function rateLimitExceeded(key: string, limit: number, windowMs: number): boolean {
+  const now = Date.now();
+  const hits = (edgeRateBuckets.get(key) || []).filter((time) => now - time < windowMs);
+  edgeRateBuckets.set(key, hits);
+  if (edgeRateBuckets.size > 10000) edgeRateBuckets.clear();
+  return hits.length >= limit;
+}
+
+function recordRateHit(key: string): void {
+  const hits = edgeRateBuckets.get(key) || [];
+  hits.push(Date.now());
+  edgeRateBuckets.set(key, hits);
+}
+
+function clearRateBucket(key: string): void {
+  edgeRateBuckets.delete(key);
+}
+
+function clientIp(request: Request): string {
+  return request.headers.get('CF-Connecting-IP') || 'unknown';
 }
 
 // Auto-bootstrap D1 database tables if they do not exist
 async function ensureDbInitialized(db: D1Database): Promise<void> {
   await db.batch([
+    ...paypalSchema.map((sql: string) => db.prepare(sql)),
     db.prepare(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
@@ -153,17 +248,31 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         status: 'online',
         server: 'cloudflare-pages-edge',
         databaseReady: Boolean(env.DB),
-        paymentsReady: Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET),
+        paymentsReady: Boolean(env.DB) && (paypalConfigured(env) || Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET)),
         gateways: {
           stripeConfigured: Boolean(env.STRIPE_SECRET_KEY),
           stripeWebhookConfigured: Boolean(env.STRIPE_WEBHOOK_SECRET),
-          paypalConfigured: false,
+          paypalConfigured: paypalConfigured(env),
+          paypalMode: env.PAYPAL_MODE || 'sandbox',
         },
       });
     }
 
     if (env.DB) {
       await ensureDbInitialized(env.DB);
+    }
+
+    if (pathname.startsWith('/api/paypal/')) {
+      if (!env.DB) return jsonResponse({ error: 'Database unavailable' }, 503);
+      const db = env.DB;
+      return handlePayPalRequest({ request, env, ledger: createD1PayPalLedger(db),
+        authenticate: async () => {
+          const token = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+          const session = await db.prepare('SELECT user_id FROM user_sessions WHERE token = ? AND expires_at > ?')
+            .bind(token, Date.now()).first<{ user_id: string }>();
+          return session ? db.prepare('SELECT * FROM users WHERE id = ?').bind(session.user_id).first() : null;
+        },
+      });
     }
 
     // Public Pricing / Billing Rules Query
@@ -224,14 +333,22 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     // 2. Guest User Session Initialization (Auto-grants 4 trial credits in D1)
     if (pathname === '/api/user/guest' && request.method === 'POST') {
       if (!env.DB) return jsonResponse({ success: false, error: 'Database service unavailable' }, 503);
+      const guestIp = clientIp(request);
+      if (rateLimitExceeded(`guest:hour:${guestIp}`, 5, 3600000)
+        || rateLimitExceeded(`guest:day:${guestIp}`, 20, 86400000)) {
+        return jsonResponse({ success: false, error: 'Too many trial accounts from this address. Sign in or try again later.' }, 429);
+      }
+      recordRateHit(`guest:hour:${guestIp}`);
+      recordRateHit(`guest:day:${guestIp}`);
+      const credits = await freeCredits(env.DB);
       const guestId = 'usr_guest_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
       const now = new Date().toISOString();
       const guestEmail = `guest_${guestId}@guest.panoramagenerator.ai`;
 
       await env.DB.prepare(`
         INSERT INTO users (id, email, name, plan, credits_balance, credits_total, api_calls_count, status, created_at)
-        VALUES (?, ?, 'Free Trial Guest', 'free', 4, 4, 0, 'active', ?)
-      `).bind(guestId, guestEmail, now).run();
+        VALUES (?, ?, 'Free Trial Guest', 'free', ?, ?, 0, 'active', ?)
+      `).bind(guestId, guestEmail, credits, credits, now).run();
 
       const sessionToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
       const expiresAt = Date.now() + 7 * 86400000;
@@ -246,8 +363,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           email: guestEmail,
           name: 'Free Trial Guest',
           plan: 'free',
-          creditsBalance: 4,
-          creditsTotal: 4,
+          creditsBalance: credits,
+          creditsTotal: credits,
           status: 'active',
         },
         token: sessionToken,
@@ -260,14 +377,23 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         email?: string;
         name?: string;
         password?: string;
+        mode?: 'login' | 'register';
       };
-      const { email, name, password } = body;
+      const { email, name, password, mode } = body;
+      if (password !== undefined && typeof password !== 'string') return jsonResponse({ success: false, error: 'Password must be a string' }, 400);
+      if (mode !== undefined && mode !== 'login' && mode !== 'register') return jsonResponse({ success: false, error: 'Invalid authentication mode' }, 400);
       if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return jsonResponse({ success: false, error: 'Valid email address is required' }, 400);
       }
 
       if (!env.DB) {
         return jsonResponse({ success: false, error: 'Database service unavailable' }, 503);
+      }
+
+      const authIp = clientIp(request);
+      const authFailKey = `authfail:${authIp}`;
+      if (rateLimitExceeded(authFailKey, 10, 600000)) {
+        return jsonResponse({ success: false, error: 'Too many failed sign-in attempts. Try again later.' }, 429);
       }
 
       let user = await env.DB.prepare('SELECT * FROM users WHERE email = ?')
@@ -284,50 +410,69 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           password_hash?: string;
         }>();
 
+      if (!user && mode === 'login') {
+        recordRateHit(authFailKey);
+        return jsonResponse({ success: false, error: 'Email or password is incorrect.' }, 401);
+      }
+      if (user && mode === 'register') return jsonResponse({ success: false, error: 'An account already exists for this email. Sign in instead.' }, 409);
       if (user) {
         // Existing user: strictly verify password if set; prevent unauthorized account claim if unset
         if (user.password_hash) {
           if (!password) {
-            return jsonResponse({ success: false, error: '请输入账户密码' }, 401);
+            recordRateHit(authFailKey);
+            return jsonResponse({ success: false, error: 'Enter your account password.' }, 401);
           }
           const valid = await verifyHashedPassword(password, user.password_hash);
           if (!valid) {
-            return jsonResponse({ success: false, error: '账户密码错误，请核对凭证' }, 401);
+            recordRateHit(authFailKey);
+            return jsonResponse({ success: false, error: 'Email or password is incorrect.' }, 401);
+          }
+          if (isLegacyPasswordHash(user.password_hash)) {
+            // Opportunistic upgrade of pre-PBKDF2 hashes after a verified login.
+            const upgraded = await hashPasswordWithSalt(password);
+            await env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(upgraded, user.id).run();
           }
         } else {
           // Pre-created managed accounts without password cannot be claimed without explicit admin initialization
+          recordRateHit(authFailKey);
           return jsonResponse({
             success: false,
-            error: '该受管账户尚未激活初始密码，请联系管理员获取凭证。',
+            error: 'This managed account has no password yet. Contact your administrator.',
           }, 403);
         }
       } else {
         // New user registration: require password (at least 6 chars) and grant 4 trial credits
-        if (!password || password.length < 6) {
-          return jsonResponse({ success: false, error: '新用户注册必须设置至少 6 位密码' }, 400);
+        if (rateLimitExceeded(`register:${authIp}`, 5, 3600000)) {
+          return jsonResponse({ success: false, error: 'Too many new accounts from this address. Try again later.' }, 429);
+        }
+        if (typeof password !== 'string' || password.length < 6 || password.length > 1024) {
+          return jsonResponse({ success: false, error: 'New accounts require a password between 6 and 1024 characters.' }, 400);
         }
         const userId = 'usr_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12);
         const displayName = typeof name === 'string' && name.trim() ? name.trim() : email.split('@')[0];
         const now = new Date().toISOString();
         const pwdHash = await hashPasswordWithSalt(password);
+        const credits = await freeCredits(env.DB);
 
         await env.DB.prepare(`
           INSERT INTO users (id, email, name, plan, credits_balance, credits_total, api_calls_count, status, password_hash, created_at)
-          VALUES (?, ?, ?, 'free', 4, 4, 0, 'active', ?, ?)
-        `).bind(userId, email.toLowerCase(), displayName, pwdHash, now).run();
+          VALUES (?, ?, ?, 'free', ?, ?, 0, 'active', ?, ?)
+        `).bind(userId, email.toLowerCase(), displayName, credits, credits, pwdHash, now).run();
+        recordRateHit(`register:${authIp}`);
 
         user = {
           id: userId,
           email: email.toLowerCase(),
           name: displayName,
           plan: 'free',
-          credits_balance: 4,
-          credits_total: 4,
+          credits_balance: credits,
+          credits_total: credits,
           api_calls_count: 0,
           status: 'active',
         };
       }
 
+      clearRateBucket(authFailKey);
       const sessionToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
       const expiresAt = Date.now() + 7 * 86400000;
       await env.DB.prepare('INSERT INTO user_sessions (token, user_id, expires_at) VALUES (?, ?, ?)')
@@ -360,6 +505,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         .first<{ user_id: string }>();
 
       if (!session) return jsonResponse({ success: false, error: 'Invalid or expired session' }, 401);
+
+      await createD1PayPalLedger(env.DB).syncAccess(session.user_id);
 
       const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?')
         .bind(session.user_id)
@@ -415,7 +562,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       `).bind(credits, session.user_id, credits).run();
 
       if (!res.meta.changes || res.meta.changes === 0) {
-        return jsonResponse({ success: false, error: '积分余额不足或账号异常，无法继续生成' }, 400);
+        return jsonResponse({ success: false, error: 'Insufficient credits or account unavailable. Generation cannot continue.' }, 400);
       }
 
       const updated = await env.DB.prepare('SELECT credits_balance FROM users WHERE id = ?')
@@ -430,9 +577,16 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
     // 5. Admin Login with dual username and password credentials
     if (pathname === '/api/admin/login' && request.method === 'POST') {
+      const adminIp = clientIp(request);
+      const adminFailKey = `adminlogin:${adminIp}`;
+      if (rateLimitExceeded(adminFailKey, 5, 60000)) {
+        return jsonResponse({ error: 'Too many login attempts' }, 429);
+      }
+
       const body = (await request.json().catch(() => ({}))) as { username?: string; password?: string };
       let expectedUser = (env.ADMIN_USERNAME || 'admin').trim().toLowerCase();
-      let expectedPass = (env.ADMIN_PASSWORD || 'admin888').trim();
+      let expectedPass = (env.ADMIN_PASSWORD || '').trim();
+      let storedPlainPass = false;
 
       // Check if custom credentials are saved in D1 admin_config
       if (env.DB) {
@@ -444,15 +598,36 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           .first<{ value: string }>();
 
         if (storedUser?.value) expectedUser = storedUser.value.trim().toLowerCase();
-        if (storedPass?.value) expectedPass = storedPass.value.trim();
+        if (storedPass?.value) {
+          expectedPass = storedPass.value.trim();
+          // Values written before the hashing upgrade are still plaintext in the database.
+          storedPlainPass = !expectedPass.startsWith('pbkdf2:') && !expectedPass.startsWith('sha256:');
+        }
       }
+
+      if (!expectedPass) return jsonResponse({ error: 'Administrator credentials are not configured' }, 503);
 
       const inputUser = (body.username || '').trim().toLowerCase();
       const inputPass = (body.password || '').trim();
 
-      if (inputUser !== expectedUser || inputPass !== expectedPass) {
+      let passOk = false;
+      if (expectedPass.startsWith('pbkdf2:') || expectedPass.startsWith('sha256:')) {
+        passOk = await verifyHashedPassword(inputPass, expectedPass);
+      } else {
+        passOk = inputPass === expectedPass;
+        // Upgrade a plaintext database value to a PBKDF2 hash after a verified login.
+        if (passOk && storedPlainPass && env.DB) {
+          const upgraded = await hashPasswordWithSalt(inputPass);
+          await env.DB.prepare(`INSERT INTO admin_config (key, value) VALUES ('admin_password', ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value`).bind(upgraded).run();
+        }
+      }
+
+      if (inputUser !== expectedUser || !passOk) {
+        recordRateHit(adminFailKey);
         return jsonResponse({ error: '管理员账号或密码错误，请核对凭证。' }, 401);
       }
+      clearRateBucket(adminFailKey);
 
       const adminToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
       const expiresAt = Date.now() + 3600000;
@@ -486,7 +661,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       if (pathname === '/api/admin/store' && request.method === 'GET') {
         const usersResult = await env.DB.prepare('SELECT * FROM users ORDER BY created_at DESC LIMIT 100').all();
         const subsResult = await env.DB.prepare('SELECT * FROM subscriptions ORDER BY created_at DESC LIMIT 100').all();
-        const invsResult = await env.DB.prepare('SELECT * FROM invoices ORDER BY created_at DESC LIMIT 100').all();
+        const paypalResult = await env.DB.prepare('SELECT p.*, u.email AS user_email, u.name AS user_name FROM paypal_subscriptions p LEFT JOIN users u ON u.id = p.user_id ORDER BY p.created_at DESC').all();
+        const invsResult = await env.DB.prepare('SELECT i.*, u.email AS user_email FROM invoices i LEFT JOIN users u ON u.id = i.user_id ORDER BY i.created_at DESC LIMIT 100').all();
 
         const formattedUsers = (usersResult.results || []).map((u: any) => ({
           id: u.id,
@@ -502,8 +678,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
         return jsonResponse({
           users: formattedUsers,
-          subscriptions: subsResult.results || [],
-          invoices: invsResult.results || [],
+          ...formatAdminBilling({ users: usersResult.results || [], subscriptions: subsResult.results || [],
+            paypalSubscriptions: paypalResult.results || [], invoices: invsResult.results || [] }),
         });
       }
 
@@ -520,7 +696,21 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         `).bind(delta, delta, delta, userId).run();
 
         const updated = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first<any>();
-        return jsonResponse({ success: true, user: updated });
+        if (!updated) return jsonResponse({ success: false, error: 'User not found' }, 404);
+        return jsonResponse({
+          success: true,
+          user: {
+            id: updated.id,
+            email: updated.email,
+            name: updated.name,
+            plan: updated.plan,
+            creditsBalance: updated.credits_balance,
+            creditsTotal: updated.credits_total,
+            apiCallsCount: updated.api_calls_count,
+            status: updated.status,
+            createdAt: updated.created_at,
+          },
+        });
       }
 
       // D1 Write: Update User Account Status (active / suspended)
@@ -576,6 +766,9 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         if (!body.config) {
           return jsonResponse({ success: false, error: 'Billing config required' }, 400);
         }
+        if ('freeMonthlyCredits' in Object(body.config) && (!Number.isSafeInteger(body.config.freeMonthlyCredits) || body.config.freeMonthlyCredits < 0)) {
+          return jsonResponse({ success: false, error: 'Free credits must be a non-negative safe integer' }, 400);
+        }
         await env.DB.prepare(`
           INSERT INTO admin_config (key, value) VALUES ('billing_config', ?)
           ON CONFLICT(key) DO UPDATE SET value = excluded.value
@@ -629,16 +822,22 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       // D1 Write: Persist Admin Credentials (Username and Password)
       if (pathname === '/api/admin/credentials' && request.method === 'POST') {
         const { currentPassword, newUsername, newPassword } = (await request.json().catch(() => ({}))) as any;
-        let expectedPass = (env.ADMIN_PASSWORD || 'admin888').trim();
+        let expectedPass = (env.ADMIN_PASSWORD || '').trim();
         const storedPass = await env.DB.prepare('SELECT value FROM admin_config WHERE key = ?')
           .bind('admin_password')
           .first<{ value: string }>();
         if (storedPass?.value) expectedPass = storedPass.value.trim();
 
-        if (currentPassword?.trim() !== expectedPass) {
+        if (!expectedPass) return jsonResponse({ success: false, error: 'Administrator credentials are not configured' }, 503);
+        const currentOk = typeof currentPassword === 'string' && (
+          expectedPass.startsWith('pbkdf2:') || expectedPass.startsWith('sha256:')
+            ? await verifyHashedPassword(currentPassword.trim(), expectedPass)
+            : currentPassword.trim() === expectedPass
+        );
+        if (!currentOk) {
           return jsonResponse({ success: false, error: '当前旧密码输入错误' }, 401);
         }
-        if (typeof newPassword !== 'string' || newPassword.length < 6) {
+        if (typeof newPassword !== 'string' || newPassword.trim().length < 6 || newPassword.trim().length > 1024) {
           return jsonResponse({ success: false, error: '新密码不能少于 6 个字符' }, 400);
         }
 
@@ -646,7 +845,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           env.DB.prepare(`
             INSERT INTO admin_config (key, value) VALUES ('admin_password', ?)
             ON CONFLICT(key) DO UPDATE SET value = excluded.value
-          `).bind(newPassword.trim()),
+          `).bind(await hashPasswordWithSalt(newPassword.trim())),
         ];
         if (newUsername && typeof newUsername === 'string') {
           writes.push(
@@ -656,86 +855,21 @@ export const onRequest: PagesFunction<Env> = async (context) => {
             `).bind(newUsername.trim())
           );
         }
+        writes.push(env.DB.prepare('DELETE FROM admin_sessions'));
         await env.DB.batch(writes);
         return jsonResponse({ success: true });
       }
     }
 
     // 7. Stripe Checkout Session Creation
+    // Closed on the edge deployment: Stripe order fulfillment needs the signed webhook,
+    // which is implemented on the Node server only. Do not re-enable this until a verified
+    // /api/stripe/webhook exists here, or paid checkouts could never be fulfilled.
     if (pathname === '/api/stripe/create-checkout-session' && request.method === 'POST') {
-      if (!env.STRIPE_SECRET_KEY) {
-        return jsonResponse({
-          success: false,
-          error: '服务端未配置 STRIPE_SECRET_KEY 生产私钥，暂不开放真实收款。',
-        }, 503);
-      }
-
-      const body = (await request.json().catch(() => ({}))) as any;
-      const { plan, billingCycle, userId, userEmail, successUrl, cancelUrl } = body || {};
-      if (!['pro', 'enterprise'].includes(plan) || !['monthly', 'yearly'].includes(billingCycle)) {
-        return jsonResponse({ success: false, error: 'Invalid plan or billing cycle' }, 400);
-      }
-
-      if (!env.DB) return jsonResponse({ success: false, error: 'Database unavailable' }, 503);
-
-      const user = await env.DB.prepare(
-        'SELECT * FROM users WHERE (id = ? OR email = ?) AND status = ?'
-      ).bind(userId || '', (userEmail || '').toLowerCase(), 'active').first<any>();
-
-      if (!user) {
-        return jsonResponse({
-          success: false,
-          error: '必须先绑定有效活跃用户身份才可创建付款会话',
-        }, 400);
-      }
-
-      const PRICING_CENTS = {
-        pro: { monthly: 1900, yearly: 11880, credits: 1000 },
-        enterprise: { monthly: 4900, yearly: 34800, credits: 5000 },
-      };
-      const orderAmount = (PRICING_CENTS as any)[plan][billingCycle];
-      const orderCredits = (PRICING_CENTS as any)[plan].credits;
-
-      const params = new URLSearchParams();
-      params.append('payment_method_types[0]', 'card');
-      params.append('mode', 'payment');
-      params.append('line_items[0][price_data][currency]', 'usd');
-      params.append('line_items[0][price_data][unit_amount]', String(orderAmount));
-      params.append('line_items[0][price_data][product_data][name]', `PanoramaAI Studio ${plan.toUpperCase()} (${billingCycle})`);
-      params.append('line_items[0][quantity]', '1');
-      params.append('client_reference_id', user.id);
-      params.append('customer_email', user.email);
-      params.append('success_url', successUrl || `${url.origin}/?checkout_status=success`);
-      params.append('cancel_url', cancelUrl || `${url.origin}/?checkout_status=cancelled`);
-
-      const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params.toString(),
-      });
-
-      if (!stripeRes.ok) {
-        const errData = (await stripeRes.json().catch(() => ({}))) as any;
-        return jsonResponse({
-          success: false,
-          error: errData.error?.message || 'Stripe API 响应异常，无法创建结账会话',
-        }, 400);
-      }
-
-      const sessionData = (await stripeRes.json()) as any;
-      await env.DB.prepare(`
-        INSERT INTO orders (checkout_session_id, user_id, status, plan, billing_cycle, currency, amount_cents, credits, created_at)
-        VALUES (?, ?, 'pending', ?, ?, 'usd', ?, ?, ?)
-      `).bind(sessionData.id, user.id, plan, billingCycle, orderAmount, orderCredits, new Date().toISOString()).run();
-
       return jsonResponse({
-        success: true,
-        checkoutUrl: sessionData.url,
-        sessionId: sessionData.id,
-      });
+        success: false,
+        error: 'Stripe checkout is not available on this deployment. Use PayPal.',
+      }, 503);
     }
 
     // 8. Server-authoritative Generation Proxy (Protects admin API keys, bypasses CORS, serves all visitors)
@@ -755,7 +889,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       if (!token) {
         return jsonResponse({
           success: false,
-          error: '请先登录账户或初始化试用会话后生成全景图。',
+          error: 'Sign in or initialize a trial session before generating a panorama.',
         }, 401);
       }
 
@@ -768,7 +902,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         .first<{ user_id: string }>();
 
       if (!session) {
-        return jsonResponse({ success: false, error: '登录会话已过期，请重新登录账户。' }, 401);
+        return jsonResponse({ success: false, error: 'Your session has expired. Please sign in again.' }, 401);
       }
 
       const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?')
@@ -780,11 +914,11 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         }>();
 
       if (!user) {
-        return jsonResponse({ success: false, error: '用户账户不存在。' }, 404);
+        return jsonResponse({ success: false, error: 'Account not found.' }, 404);
       }
 
       if (user.status !== 'active') {
-        return jsonResponse({ success: false, error: '该账户已被管理员封禁挂起，无法使用生图服务。' }, 403);
+        return jsonResponse({ success: false, error: 'This account is suspended and cannot generate images.' }, 403);
       }
 
       const resolution = body.resolution ?? '4K';
@@ -798,12 +932,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       const billingConfig = billingRow?.value ? JSON.parse(billingRow.value) : {};
       const cost = billingConfig?.[`creditCostPer${resolution}`] ?? defaultCosts[resolution];
       if (!Number.isSafeInteger(cost) || cost <= 0) {
-        return jsonResponse({ success: false, error: '服务端积分费率配置无效，请联系管理员。' }, 503);
+        return jsonResponse({ success: false, error: 'Generation credit rates are unavailable. Contact support.' }, 503);
       }
       if (user.credits_balance < cost) {
         return jsonResponse({
           success: false,
-          error: `账户全景图积分不足！本次生成需要 ${cost} 积分，当前可用余额为 ${user.credits_balance} 积分。请升级 Pro 会员或充值。`,
+          error: `Insufficient credits. This generation costs ${cost} credits; ${user.credits_balance} are available. View plans to add credits.`,
         }, 400);
       }
 
@@ -822,10 +956,10 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       if (endpointId) {
         targetEp = endpoints.find((ep) => ep.id === endpointId);
         if (!targetEp) {
-          return jsonResponse({ success: false, error: `指定模型端点 [${endpointId}] 不存在` }, 400);
+          return jsonResponse({ success: false, error: `Model endpoint [${endpointId}] was not found.` }, 400);
         }
         if (!targetEp.isEnabled) {
-          return jsonResponse({ success: false, error: `指定模型端点 [${targetEp.name || endpointId}] 当前已停用` }, 400);
+          return jsonResponse({ success: false, error: `Model endpoint [${targetEp.name || endpointId}] is disabled.` }, 400);
         }
       } else if (modelId) {
         targetEp = endpoints.find((ep) => (ep.id === modelId || ep.model === modelId) && ep.isEnabled);
@@ -838,109 +972,46 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       if (!targetEp) {
         return jsonResponse({
           success: false,
-          error: '服务端当前未配置可用的 AI 生图模型端点，请在管理后台配置并启用端点。',
+          error: 'No image model is configured on this server. Please contact support.',
         }, 503);
       }
 
-      const rawBase = (targetEp.baseUrl || '').replace(/\/+$/, '');
-      const apiKey = (targetEp.apiKey || '').trim();
       const model = targetEp.model || 'gemini-3.1-flash-image';
-      const validRefs = (referenceImages || []).filter(Boolean);
-
-      const isGoogleOfficial = rawBase.includes('googleapis.com') || (targetEp.provider === 'gemini' && rawBase.includes('googleapis'));
-      const isChatMode = model.toLowerCase().includes('gemini') || rawBase.includes('/chat');
-      const isImagen = model.toLowerCase().includes('imagen');
-
-      // Issue 3 fix: Reject reference images on endpoints that do not support them
-      if (validRefs.length > 0 && ((isGoogleOfficial && isImagen) || (!isChatMode && !isGoogleOfficial))) {
-        return jsonResponse({
-          success: false,
-          error: `所选模型端点 [${targetEp.name || model}] 不支持参考图片条件输入。请切换至支持多模态的模型端点，或移除参考图片后重试。`,
-        }, 400);
+      let upstreamRequest;
+      try {
+        upstreamRequest = buildImageModelRequest({ ...targetEp, model }, { prompt, referenceImages, resolution });
+      } catch (error) {
+        return jsonResponse({ success: false, error: error instanceof Error ? error.message : 'Invalid model configuration' }, 400);
       }
-
-      let targetUrl = '';
-      let headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      let payload: any = null;
-
-      // Issue 4 fix: Google Official API protocol handling
-      if (isGoogleOfficial) {
-        if (!apiKey) {
-          return jsonResponse({ success: false, error: 'Google AI Studio 官方端点需要配置有效 API Key' }, 400);
-        }
-        if (isImagen) {
-          targetUrl = `${rawBase}/v1beta/models/${model}:predict?key=${encodeURIComponent(apiKey)}`;
-          payload = {
-            instances: [{ prompt }],
-            parameters: {
-              sampleCount: 1,
-              aspectRatio: '16:9',
-              outputMimeType: 'image/png',
-            },
-          };
-        } else {
-          targetUrl = `${rawBase}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-          const parts: any[] = [{ text: prompt }];
-          for (const img of validRefs) {
-            const m = String(img).match(/^data:([^;]+);base64,(.+)$/);
-            if (m) parts.push({ inlineData: { mimeType: m[1], data: m[2] } });
-          }
-          payload = { contents: [{ parts }] };
-        }
-      } else {
-        // OpenAI-compatible / local proxy
-        targetUrl = isChatMode
-          ? (rawBase.endsWith('/v1') ? `${rawBase}/chat/completions` : `${rawBase}/v1/chat/completions`)
-          : (rawBase.endsWith('/v1') ? `${rawBase}/images/generations` : `${rawBase}/v1/images/generations`);
-
-        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-
-        const messageContent = validRefs.length > 0 && isChatMode
-          ? [
-              { type: 'text', text: prompt },
-              ...validRefs.map((img) => ({ type: 'image_url', image_url: { url: img } })),
-            ]
-          : prompt;
-
-        payload = isChatMode
-          ? { model, messages: [{ role: 'user', content: messageContent }] }
-          : { model, prompt, n: 1, size: '1792x1024', response_format: 'b64_json' };
-      }
+      const { url: targetUrl, headers, payload, mode } = upstreamRequest;
+      const isGoogleOfficial = mode.startsWith('google-');
+      const isImagen = mode === 'google-imagen';
+      const isChatMode = mode === 'chat';
 
       const reservation = await env.DB.prepare(`
         UPDATE users SET credits_balance = credits_balance - ?
         WHERE id = ? AND status = 'active' AND credits_balance >= ?
       `).bind(cost, user.id, cost).run();
       if (!reservation.meta.changes) {
-        return jsonResponse({ success: false, error: '积分余额不足或账号异常，无法继续生成' }, 400);
+        return jsonResponse({ success: false, error: 'Insufficient credits or account unavailable. Generation cannot continue.' }, 400);
       }
       let completed = false;
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 90000);
 
       try {
-        let upstreamRes = await fetch(targetUrl, {
+        const upstreamRes = await fetch(targetUrl, {
           method: 'POST',
           headers,
           body: JSON.stringify(payload),
           signal: ctrl.signal,
         });
 
-        // 400 降级重试纯文本 (chat mode only)
-        if (!upstreamRes.ok && upstreamRes.status === 400 && validRefs.length > 0 && isChatMode && !isGoogleOfficial) {
-          upstreamRes = await fetch(targetUrl, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }] }),
-            signal: ctrl.signal,
-          });
-        }
-
         if (!upstreamRes.ok) {
           const errText = await upstreamRes.text();
           return jsonResponse({
             success: false,
-            error: `模型端点返回 HTTP ${upstreamRes.status}: ${errText.slice(0, 240)}`,
+            error: `Model endpoint returned HTTP ${upstreamRes.status}: ${errText.slice(0, 240)}`,
           }, 502);
         }
 
@@ -980,7 +1051,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         }
 
         if (!imageUrl) {
-          return jsonResponse({ success: false, error: '模型响应成功但未返回有效图片数据' }, 502);
+          return jsonResponse({ success: false, error: 'The model responded without a valid image.' }, 502);
+        }
+
+        const imageResolution = inspectImageResolution(imageUrl, resolution);
+        const creditsRefunded = imageResolution.status === 'below-request' ? cost : 0;
+        if (creditsRefunded) {
+          await env.DB.prepare('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?')
+            .bind(creditsRefunded, user.id).run();
+          completed = true;
         }
 
         await env.DB.prepare(`
@@ -997,12 +1076,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           imageUrl,
           modelUsed: model,
           remainingCredits: updated?.credits_balance ?? Math.max(0, user.credits_balance - cost),
-          creditsDeducted: cost,
+          creditsDeducted: cost - creditsRefunded,
+          creditsRefunded,
+          imageResolution,
         });
       } catch (err: unknown) {
+        console.error('[Cloudflare Edge Commercial API] Image model request failed:', err);
         return jsonResponse({
           success: false,
-          error: `代理调用模型端点异常: ${err instanceof Error ? err.message : String(err)}`,
+          error: 'Image model request failed. Please try again.',
         }, 504);
       } finally {
         clearTimeout(timer);
@@ -1017,7 +1099,6 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     console.error('[Cloudflare Edge Commercial API]', err);
     return jsonResponse({
       error: 'Internal edge server error',
-      details: err instanceof Error ? err.message : String(err),
     }, 500);
   }
 };

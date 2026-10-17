@@ -85,8 +85,12 @@ export function App() {
   // Active user and modal states
   const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
   const [billingConfig, setBillingConfig] = useState(getStoredBillingConfig);
-  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(() => new URLSearchParams(window.location.search).has('paypal'));
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authNotice, setAuthNotice] = useState('');
+  const [checkoutSelection, setCheckoutSelection] = useState<{ plan: 'pro' | 'enterprise'; cycle: 'monthly' | 'yearly' }>({ plan: 'pro', cycle: 'monthly' });
+  const [pendingCheckout, setPendingCheckout] = useState<typeof checkoutSelection | null>(null);
 
   const updateCurrentUser = (user: ManagedUser) => {
     const users = getStoredManagedUsers();
@@ -101,8 +105,37 @@ export function App() {
     setCurrentUser(user);
   };
 
+  const handleChoosePlan = (plan: 'pro' | 'enterprise', cycle: 'monthly' | 'yearly') => {
+    const selection = { plan, cycle };
+    if (currentUser.id === 'usr_guest' || currentUser.id.startsWith('usr_guest_') || !localStorage.getItem('panorama_server_user_token')) {
+      setAuthMode('login');
+      setPendingCheckout(selection);
+      setIsCheckoutModalOpen(false);
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setCheckoutSelection(selection);
+    setIsCheckoutModalOpen(true);
+  };
+
+  const handleAuthSuccess = (user: ManagedUser, action?: 'login' | 'register') => {
+    updateCurrentUser(user);
+    if (action) setAuthNotice(action === 'register' ? `Account created. You are signed in with ${user.creditsBalance} credits available.` : 'You are signed in. Welcome back.');
+    if (pendingCheckout && !user.id.startsWith('usr_guest')) {
+      setCheckoutSelection(pendingCheckout);
+      setPendingCheckout(null);
+      setIsCheckoutModalOpen(true);
+    }
+  };
+
+  const handleCloseAuth = () => {
+    setIsAuthModalOpen(false);
+    setPendingCheckout(null);
+  };
+
   useEffect(() => {
     let active = true;
+    let userRequest = 0;
     const refreshUser = () => {
       setCurrentUser(getCurrentUser());
       setBillingConfig(getStoredBillingConfig());
@@ -135,15 +168,29 @@ export function App() {
         creditsTotal: u.creditsTotal ?? u.credits_total ?? 4,
         status: u.status || 'active',
         joinedAt: u.createdAt || new Date().toISOString().split('T')[0],
-        lastActiveAt: '刚刚活跃',
+        lastActiveAt: 'Just now',
         apiCallsCount: u.apiCallsCount || 0,
       };
       updateCurrentUser(managed);
     };
 
+    const refreshPaymentUser = () => {
+      const token = localStorage.getItem('panorama_server_user_token');
+      if (!token) return;
+      const request = ++userRequest;
+      const userId = getCurrentUser().id;
+      fetchServerUser(token).then(result => {
+        if (active && request === userRequest && getCurrentUser().id === userId && localStorage.getItem('panorama_server_user_token') === token && result.success && result.user) applyUser(result.user);
+      });
+    };
+    window.addEventListener('panorama-payment-updated', refreshPaymentUser);
+    window.addEventListener('panorama-user-refresh', refreshPaymentUser);
+
     const initializeGuest = () => {
+      const request = ++userRequest;
+      const userId = getCurrentUser().id;
       initServerGuestUser().then(result => {
-        if (!active || localStorage.getItem('panorama_server_user_token')) return;
+        if (!active || request !== userRequest || getCurrentUser().id !== userId || localStorage.getItem('panorama_server_user_token')) return;
         if (result.success && result.user && result.token) {
           localStorage.setItem('panorama_server_user_token', result.token);
           applyUser(result.user);
@@ -151,10 +198,16 @@ export function App() {
       });
     };
 
-    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('panorama_server_user_token') : null;
-    if (token) {
+    const synchronizeSession = () => {
+      const token = localStorage.getItem('panorama_server_user_token');
+      const request = ++userRequest;
+      const userId = getCurrentUser().id;
+      if (!token) {
+        initializeGuest();
+        return;
+      }
       fetchServerUser(token).then((res) => {
-        if (!active || localStorage.getItem('panorama_server_user_token') !== token) return;
+        if (!active || request !== userRequest || getCurrentUser().id !== userId || localStorage.getItem('panorama_server_user_token') !== token) return;
         if (res.success && res.user) {
           applyUser(res.user);
         } else if (res.status === 401 || res.status === 404) {
@@ -162,12 +215,19 @@ export function App() {
           initializeGuest();
         }
       });
-    } else {
-      initializeGuest();
-    }
+    };
+    const handleSessionChange = () => {
+      refreshUser();
+      synchronizeSession();
+    };
+    synchronizeSession();
+    window.addEventListener('panorama-session-changed', handleSessionChange);
     window.addEventListener('focus', refreshUser);
     return () => {
       active = false;
+      window.removeEventListener('panorama-payment-updated', refreshPaymentUser);
+      window.removeEventListener('panorama-user-refresh', refreshPaymentUser);
+      window.removeEventListener('panorama-session-changed', handleSessionChange);
       window.removeEventListener('focus', refreshUser);
     };
   }, [activeTab]);
@@ -300,7 +360,7 @@ export function App() {
       }
     })();
 
-    if (window.location.pathname !== targetPath) {
+    if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== targetPath) {
       window.history.pushState(null, '', targetPath);
     }
   };
@@ -405,7 +465,7 @@ export function App() {
   );
 
   if (isEmbedMode) {
-    return <EmbedViewer textureUrl={currentPanoramaUrl} />;
+    return <EmbedViewer textureUrl={currentPanoramaUrl} autoRotate={new URLSearchParams(window.location.search).get('autorotate') === '1'} />;
   }
 
   return (
@@ -780,31 +840,39 @@ export function App() {
           </nav>
 
           {/* Right Action Trigger, Active Account Status & Checkout */}
-          <div className="hidden lg:flex items-center gap-2.5">
-            <button
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {currentUser.id.startsWith('usr_guest') ? <>
+              <span className="hidden xl:inline text-xs text-cyan-200">{currentUser.creditsBalance} guest credits</span>
+              <button type="button" onClick={() => { setAuthMode('login'); setAuthNotice(''); setIsAuthModalOpen(true); }} className="text-xs font-bold text-cyan-100 cursor-pointer">Sign in</button>
+              <button type="button" onClick={() => { setAuthMode('register'); setAuthNotice(''); setIsAuthModalOpen(true); }} className="px-3 py-2 rounded-xl bg-cyan-300 text-slate-950 text-xs font-bold cursor-pointer">Create account</button>
+            </> : <button
               type="button"
-              onClick={() => setIsAuthModalOpen(true)}
+              onClick={() => { setAuthNotice(''); setIsAuthModalOpen(true); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 text-xs font-mono font-bold hover:bg-cyan-900/60 transition-colors cursor-pointer"
-              title={`${currentUser.name} (${currentUser.email}) - 点击登录、注册或查看账户`}
+              title={`${currentUser.name} — Sign in, create an account, or view your profile`}
+              aria-label={currentUser.id.startsWith('usr_guest') ? 'Sign in or create an account' : 'Open your account'}
             >
               <Coins className="w-3.5 h-3.5 text-amber-400" />
               <span>{currentUser.creditsBalance} Credits</span>
               <span className="text-[10px] px-1.5 py-0.2 bg-cyan-500/20 rounded text-cyan-200 uppercase font-bold">
                 {currentUser.plan}
               </span>
-            </button>
+            </button>}
 
             <button
               type="button"
-              onClick={() => setIsCheckoutModalOpen(true)}
-              className="shimmer-btn px-4 py-2 bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 text-xs font-extrabold rounded-xl shadow-lg shadow-cyan-400/35 hover:shadow-cyan-400/60 hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+              onClick={() => currentUser.plan === 'free' ? navigateTo('pricing') : handleChoosePlan(currentUser.plan, 'monthly')}
+              className="flex shimmer-btn px-3 sm:px-4 py-2 bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 text-xs font-extrabold rounded-xl shadow-lg shadow-cyan-400/35 hover:shadow-cyan-400/60 hover:scale-105 active:scale-95 transition-all items-center gap-1.5 cursor-pointer"
             >
               <Zap className="w-3.5 h-3.5 fill-current" />
-              <span>{currentUser.plan === 'enterprise' ? 'Studio Enterprise' : currentUser.plan === 'pro' ? 'Pro Member' : 'Upgrade to Pro'}</span>
+              <span className="hidden sm:inline">{currentUser.plan === 'free' ? 'View plans' : 'Manage subscription'}</span>
+              <span className="sm:hidden">{currentUser.plan === 'free' ? 'Plans' : 'Manage'}</span>
             </button>
           </div>
         </div>
       </header>
+
+      {authNotice && <div role="status" className="mx-auto max-w-5xl w-full px-4 pt-4 text-sm text-cyan-100 flex justify-between gap-3"><span>{authNotice}</span><button type="button" aria-label="Dismiss account notice" onClick={() => setAuthNotice('')} className="underline">Dismiss</button></div>}
 
       {/* Main App Canvas / Tab Container */}
       <main id="studio-main" key={activeTab} tabIndex={-1} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 relative z-10 animate-in fade-in duration-200">
@@ -837,7 +905,7 @@ export function App() {
         {activeTab === 'globe' && (
           <GlobeTab currentPanoramaUrl={currentPanoramaUrl} onNavigateTab={navigateTo} />
         )}
-        {activeTab === 'pricing' && <PricingTab />}
+        {activeTab === 'pricing' && <PricingTab currentUser={currentUser} billingConfig={billingConfig} onChoosePlan={handleChoosePlan} onOpenStudio={() => navigateTo('generator')} />}
         {activeTab === 'admin' && <AdminTab />}
 
         {/* Programmatic SEO Sub-Landing Pages */}
@@ -881,6 +949,8 @@ export function App() {
         {activeTab === 'landing-cubemap' && (
           <CubemapGeneratorPage
             onLaunchStudio={() => navigateTo('generator', '/')}
+            currentPanoramaUrl={currentPanoramaUrl}
+            onPanoramaChange={setCurrentPanoramaUrl}
           />
         )}
         {activeTab === 'landing-metadata' && (
@@ -891,6 +961,8 @@ export function App() {
         {activeTab === 'landing-video' && (
           <PhotoToVideoPage
             onLaunchStudio={() => navigateTo('generator', '/')}
+            currentPanoramaUrl={currentPanoramaUrl}
+            onPanoramaChange={setCurrentPanoramaUrl}
           />
         )}
       </main>
@@ -1124,17 +1196,23 @@ export function App() {
       <CheckoutModal
         isOpen={isCheckoutModalOpen}
         onClose={() => setIsCheckoutModalOpen(false)}
-        initialPlan="pro"
-        initialCycle="yearly"
-        onSuccess={updateCurrentUser}
+        currentUser={currentUser}
+        initialPlan={checkoutSelection.plan}
+        initialCycle={checkoutSelection.cycle}
+        onSignIn={() => handleChoosePlan(checkoutSelection.plan, checkoutSelection.cycle)}
       />
 
       {/* Global User Authentication (Sign In / Register / Profile) Modal */}
       <UserAuthModal
+        key={`${isAuthModalOpen}-${authMode}`}
         isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
+        initialMode={authMode}
+        onClose={handleCloseAuth}
         currentUser={currentUser}
-        onAuthSuccess={updateCurrentUser}
+        trialCredits={billingConfig.freeMonthlyCredits}
+        continueToCheckout={Boolean(pendingCheckout)}
+        checkoutIntent={pendingCheckout}
+        onAuthSuccess={handleAuthSuccess}
       />
     </div>
   );

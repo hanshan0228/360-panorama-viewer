@@ -224,6 +224,10 @@ export function ViewerTab({
         setTimeout(() => setEnhanceSuccessMsg(null), 3500);
       }
     };
+    img.onerror = () => {
+      setEnhanceSuccessMsg('Seam healing failed: the image could not be loaded. Try again.');
+      setTimeout(() => setEnhanceSuccessMsg(null), 4000);
+    };
     img.src = currentPanoramaUrl;
   };
 
@@ -248,6 +252,11 @@ export function ViewerTab({
         setEnhanceSuccessMsg(`4K super-resolution reconstruction complete (${enhancedCanvas.width} × ${enhancedCanvas.height}px)!`);
         confetti({ particleCount: 35, spread: 55, origin: { y: 0.65 } });
         setTimeout(() => setEnhanceSuccessMsg(null), 3500);
+      };
+      img.onerror = () => {
+        setIsUpscaling(false);
+        setEnhanceSuccessMsg('Upscaling failed: the image could not be loaded. Try again.');
+        setTimeout(() => setEnhanceSuccessMsg(null), 4000);
       };
       img.src = currentPanoramaUrl;
     }, 120);
@@ -287,6 +296,11 @@ export function ViewerTab({
           setTimeout(() => setEnhanceSuccessMsg(null), 3500);
         }
         setIsRepairingPoles(false);
+      };
+      img.onerror = () => {
+        setIsRepairingPoles(false);
+        setEnhanceSuccessMsg('Pole repair failed: the image could not be loaded. Try again.');
+        setTimeout(() => setEnhanceSuccessMsg(null), 4000);
       };
       img.src = currentPanoramaUrl;
     }, 120);

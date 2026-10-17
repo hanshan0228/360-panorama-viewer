@@ -1,10 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Sparkles,
   Download,
   Box,
   Globe2,
-  Sliders,
   CheckCircle2,
   RefreshCw,
   FileCode2,
@@ -15,7 +14,8 @@ import {
   Upload,
   Coins,
   Wand2,
-  Star,
+  ArrowUpRight,
+  Play,
   ShieldCheck,
   RotateCcw,
   Film,
@@ -24,6 +24,7 @@ import {
 import confetti from 'canvas-confetti';
 import type { ActiveTab, StylePreset, StylePresetId, ResolutionTier, ManagedUser, SystemBillingConfig } from '../types/panorama';
 import { SphereViewer } from './SphereViewer';
+import { HeroPanorama } from './HeroPanorama';
 import { exportCanvasToHdrBlob } from '../utils/hdrExporter';
 import {
   generateWithGemini,
@@ -32,18 +33,16 @@ import {
 } from '../utils/geminiClient';
 import { ShowcaseGallery } from './commercial/ShowcaseGallery';
 import { FeatureMatrix } from './commercial/FeatureMatrix';
-import { SeamShowcase } from './commercial/SeamShowcase';
-import { CameraComparison } from './commercial/CameraComparison';
 import { HowItWorksSteps } from './commercial/HowItWorksSteps';
 import { IntegrationBadges } from './commercial/IntegrationBadges';
-import { TestimonialsSection } from './commercial/TestimonialsSection';
+import coastalCover from '../assets/coastal-cover.png';
 import { CommercialFaq } from './commercial/CommercialFaq';
 import { PhotoToVideoModal } from './commercial/PhotoToVideoModal';
 import { EmbedModal } from './commercial/EmbedModal';
-import { CheckoutModal } from './commercial/CheckoutModal';
 import { exportVrReadyJpegBlob } from '../utils/xmpInjector';
 import { healPanoramaSeam } from '../utils/seamHealer';
-import { enhanceAndUpscalePanorama } from '../utils/imageEnhancer';
+import { processPanoramaImage } from '../utils/panoramaProcessor';
+import { inspectImageResolution, type ImageResolution } from '../utils/imageModelRequest.mjs';
 import {
   getCurrentUser,
   deductCurrentUserCredits,
@@ -228,13 +227,16 @@ export function GeneratorTab({
     if (externalInputMode !== previousPresets.inputMode && externalInputMode) setInputMode(externalInputMode);
   }
 
-  const [resolution, setResolution] = useState<ResolutionTier>('2K');
-  const [seamCorrection, setSeamCorrection] = useState(true);
+  const [resolution, setResolution] = useState<ResolutionTier>('4K');
+  const [seamCorrection, setSeamCorrection] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generationProgress, setGenerationProgress] = useState<number>(0);
+  const [generationStage, setGenerationStage] = useState('');
+  const [generationElapsed, setGenerationElapsed] = useState(0);
+  const [generationTiming, setGenerationTiming] = useState<string | null>(null);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [isEmbedModalOpen, setIsEmbedModalOpen] = useState(false);
-  const [showPromptBuilder, setShowPromptBuilder] = useState(true);
+  const [isPreviewActive, setIsPreviewActive] = useState(false);
+  const [initialPanoramaUrl] = useState(currentPanoramaUrl);
 
   const handleAppendTag = (tag: string) => {
     setPrompt((prev) => {
@@ -256,7 +258,24 @@ export function GeneratorTab({
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
 
   // User credit and commercial checkout state
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const generationRef = useRef({ mounted: false, request: 0, processing: null as AbortController | null });
+  useEffect(() => {
+    const generation = generationRef.current;
+    generation.mounted = true;
+    setIsGenerating(false);
+    const invalidateGeneration = () => {
+      generation.request++;
+      generation.processing?.abort();
+      setIsGenerating(false);
+    };
+    window.addEventListener('panorama-session-changed', invalidateGeneration);
+    return () => {
+      generation.mounted = false;
+      generation.request++;
+      generation.processing?.abort();
+      window.removeEventListener('panorama-session-changed', invalidateGeneration);
+    };
+  }, [currentUser.id]);
 
   // Dynamic credit cost from admin billing configuration
   const creditsCost =
@@ -341,15 +360,21 @@ export function GeneratorTab({
     // 1. Account status check
     const user = currentUser;
     const sessionToken = typeof localStorage !== 'undefined' ? localStorage.getItem('panorama_server_user_token') : null;
+    const request = ++generationRef.current.request;
+    const isCurrentGeneration = () => generationRef.current.mounted
+      && generationRef.current.request === request
+      && getCurrentUser().id === user.id
+      && localStorage.getItem('panorama_server_user_token') === sessionToken;
+    if (!isCurrentGeneration()) return;
     if (user.status === 'suspended') {
-      setApiError('您的账户当前已被管理员封禁挂起，无法使用 AI 全景图生成服务。请联系系统管理员。');
+      setApiError('This account is suspended. Contact support before generating images.');
       return;
     }
 
     // 2. Check credit balance before firing requests
     if (!sessionToken && user.creditsBalance < creditsCost) {
       setApiError(
-        `账户全景图积分不足！生成 ${resolution} 全景图需要 ${creditsCost} 积分，但您的账号 (${user.name}) 当前仅有 ${user.creditsBalance} 积分。请升级会员套餐或充值积分。`
+        `Insufficient credits. A ${resolution} panorama costs ${creditsCost} credits; your account has ${user.creditsBalance}. View plans to add credits.`
       );
       return;
     }
@@ -358,18 +383,22 @@ export function GeneratorTab({
     const pipeline = getModelExecutionPipeline();
     if (pipeline.endpoints.length === 0) {
       setApiError(
-        '当前无可用 AI 生图模型端点（所有端点均已被管理员停用，或指定的主模型未启用）。请前往管理员控制台检查并启用模型端点。'
+        'No image models are currently available. Please try again later or contact support.'
       );
       return;
     }
 
     setIsGenerating(true);
     setApiError(null);
-    setGenerationProgress(15);
-    let progressTimer: ReturnType<typeof setInterval> | null = null;
+    setGenerationStage('Preparing generation request');
+    setGenerationElapsed(0);
+    setGenerationTiming(null);
+    const startedAt = performance.now();
+    const elapsedTimer = setInterval(() => {
+      if (isCurrentGeneration()) setGenerationElapsed(Math.floor((performance.now() - startedAt) / 1000));
+    }, 1000);
 
     try {
-      setGenerationProgress(25);
       const styleObj = STYLE_PRESETS.find((s) => s.id === selectedStyle);
 
       let promptWithRefs = prompt;
@@ -379,21 +408,23 @@ export function GeneratorTab({
 
       const fullPrompt = buildPanoramaPrompt(promptWithRefs, styleObj?.promptSuffix || '');
 
-      setGenerationProgress(45);
-      progressTimer = setInterval(() => {
-        setGenerationProgress((p) => (p < 85 ? p + 8 : p));
-      }, 500);
-
-      // Attempt AI image generation across execution pipeline (Single, Failover, or Round-Robin)
+      // Attempt AI image generation across execution pipeline (Single, Failover, or Round-Robin).
+      // An undersized result only moves on to the next model when this attempt was confirmed fully
+      // refunded (or runs without server billing), so resolution fallback never charges twice.
       let rawGenUrl: string | null = null;
       let usedEndpointName = '';
       let hadFailover = false;
       let serverRemaining: number | undefined = undefined;
       let serverCost: number | undefined = undefined;
+      let serverRefunded = 0;
+      let serverDeductedTotal = 0;
+      let resultResolution: ImageResolution | undefined;
+      let bestAttempt: { url: string; resolution: ImageResolution; endpointName: string; index: number; cost?: number } | null = null;
       const failedAttempts: Array<{ endpoint: string; error: string }> = [];
 
       for (let i = 0; i < pipeline.endpoints.length; i++) {
         const ep = pipeline.endpoints[i];
+        setGenerationStage(`Waiting for ${ep.name} and network response (${i + 1}/${pipeline.endpoints.length})`);
         try {
           const modelConfig: GeminiConfig = {
             endpointId: ep.id,
@@ -406,26 +437,51 @@ export function GeneratorTab({
           };
           const refPreviews = referenceImages.map((r) => r.preview);
           const genResult = await generateWithGemini(fullPrompt, modelConfig, refPreviews);
-          rawGenUrl = genResult.imageUrl;
+          if (!isCurrentGeneration()) return;
+          if (sessionToken) window.dispatchEvent(new Event('panorama-user-refresh'));
+          const attemptResolution = genResult.imageResolution ?? inspectImageResolution(genResult.imageUrl, resolution);
+          const attemptRefunded = genResult.creditsRefunded ?? 0;
+          serverRefunded += attemptRefunded;
+          if (typeof genResult.creditsDeducted === 'number') serverDeductedTotal += genResult.creditsDeducted;
+          if (!bestAttempt || (attemptResolution.panoramaWidth ?? 0) > (bestAttempt.resolution.panoramaWidth ?? 0)) {
+            bestAttempt = {
+              url: genResult.imageUrl,
+              resolution: attemptResolution,
+              endpointName: ep.name,
+              index: i,
+              cost: genResult.creditsDeducted,
+            };
+          }
           if (typeof genResult.remainingCredits === 'number') {
+            // Freshest server balance includes every attempt's deduction and refund so far.
             serverRemaining = genResult.remainingCredits;
           }
-          if (typeof genResult.creditsDeducted === 'number') serverCost = genResult.creditsDeducted;
-          usedEndpointName = ep.name;
-          if (i > 0) {
-            hadFailover = true;
+          const refundConfirmed = attemptRefunded > 0 && (genResult.creditsDeducted ?? 0) === 0;
+          const hasNextModel = pipeline.mode !== 'single' && i < pipeline.endpoints.length - 1;
+          if (attemptResolution.status === 'below-request' && hasNextModel && (!sessionToken || refundConfirmed)) {
+            setGenerationStage(`${ep.name} returned ${attemptResolution.width}×${attemptResolution.height}, below the requested ${resolution} panorama; trying the next model`);
+            continue;
           }
-          break; // Succeeded! Stop trying further models
+          break; // Succeeded (or no confirmed refund): stop trying further models
         } catch (callErr) {
+          if (!isCurrentGeneration()) return;
           const errMessage = callErr instanceof Error ? callErr.message : String(callErr);
           failedAttempts.push({ endpoint: ep.name, error: errMessage });
 
           // If in strict single model mode, immediately fail without fallback
           if (pipeline.mode === 'single') {
-            throw new Error(`[单模型模式锁定] ${ep.name} 调用失败：${errMessage}`);
+            throw new Error(`[Single model] ${ep.name} failed: ${errMessage}`);
           }
           // In failover or round-robin mode, seamlessly try next configured fallback model
         }
+      }
+
+      if (bestAttempt) {
+        rawGenUrl = bestAttempt.url;
+        resultResolution = bestAttempt.resolution;
+        serverCost = bestAttempt.cost;
+        usedEndpointName = bestAttempt.endpointName;
+        hadFailover = bestAttempt.index > 0;
       }
 
       if (!rawGenUrl) {
@@ -434,122 +490,136 @@ export function GeneratorTab({
           .map((f) => `• ${f.endpoint}: ${f.error}`)
           .join('\n');
         throw new Error(
-          `所有已配置的大模型端点均调用失败，本次生成未扣除任何积分。\n失败详情：\n${detailLogs}`
+          `All configured image models failed.\nDetails:\n${detailLogs}`
         );
       }
 
-      setOriginalRawUrl(rawGenUrl);
-
-      // Client-side super-resolution, sharpening & seam healing
+      const modelElapsed = performance.now() - startedAt;
+      setGenerationStage(seamCorrection ? 'Preparing native-detail panorama with optional seam blending' : 'Preparing native-detail panorama without stretching');
       let finalDataUrl = rawGenUrl;
+      let processingFailed = false;
+      const processing = new AbortController();
+      generationRef.current.processing = processing;
       try {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        finalDataUrl = await new Promise<string>((resolve) => {
-          img.onload = () => {
-            let canvas: HTMLCanvasElement;
-            if (resolution === '4K') {
-              canvas = enhanceAndUpscalePanorama(img, {
-                scaleFactor: 2,
-                sharpness: 0.8,
-                contrastBoost: 1.1,
-              });
-            } else if (resolution === '2K') {
-              canvas = enhanceAndUpscalePanorama(img, {
-                scaleFactor: 1,
-                sharpness: 0.6,
-                contrastBoost: 1.05,
-              });
-            } else {
-              canvas = document.createElement('canvas');
-              canvas.width = img.naturalWidth || img.width;
-              canvas.height = img.naturalHeight || img.height;
-              const ctx = canvas.getContext('2d');
-              if (ctx) ctx.drawImage(img, 0, 0);
-            }
-
-            const healed = seamCorrection ? healPanoramaSeam(canvas, 160) : canvas;
-            resolve(healed.toDataURL('image/png'));
-          };
-          img.onerror = () => resolve(rawGenUrl!);
-          img.src = rawGenUrl!;
-        });
+        finalDataUrl = await processPanoramaImage(rawGenUrl, {
+          resolution,
+          preserveNative: true,
+          sharpness: 0,
+          contrastBoost: 1,
+        }, seamCorrection, processing.signal);
       } catch {
+        processingFailed = true;
         finalDataUrl = rawGenUrl;
+      } finally {
+        if (generationRef.current.processing === processing) generationRef.current.processing = null;
       }
 
-      if (finalDataUrl !== rawGenUrl) {
-        setEnhanced4kUrl(finalDataUrl);
-      } else {
-        setEnhanced4kUrl(null);
-      }
+      if (!isCurrentGeneration()) return;
+      const processingElapsed = performance.now() - startedAt - modelElapsed;
+      const originalSize = resultResolution?.width && resultResolution.height
+        ? `Model original: ${resultResolution.width}×${resultResolution.height}`
+        : 'Model original dimensions unverified';
+      setGenerationTiming(`Requested: ${resolution} · ${originalSize} · Model/network (including failover): ${(modelElapsed / 1000).toFixed(1)} s · Image processing: ${(processingElapsed / 1000).toFixed(1)} s${processingFailed ? ' (processing failed; original image preserved)' : ''}`);
+      setOriginalRawUrl(rawGenUrl);
+      setEnhanced4kUrl(null);
 
-      setGenerationProgress(95);
-      onPanoramaChange(finalDataUrl);
-
-      if (getCurrentUser().id !== user.id) {
-        setIsGenerating(false);
-        return;
-      }
+      setGenerationStage('Updating panorama preview');
+      if (isCurrentGeneration()) onPanoramaChange(finalDataUrl);
+      if (!isCurrentGeneration()) return;
 
       // Synchronize credits upon generation success
       let deductSuccess = false;
       let remainingCredits = 0;
 
-      if (typeof serverRemaining === 'number') {
+      if (sessionToken) {
         // Server-authoritative deduction already executed in /api/generate
         deductSuccess = true;
-        remainingCredits = serverRemaining;
-        onUserChange({ ...user, creditsBalance: serverRemaining, apiCallsCount: (user.apiCallsCount || 0) + 1 });
+        remainingCredits = serverRemaining ?? getCurrentUser().creditsBalance;
       } else {
         // Direct local developer offline usage fallback
-        const localRes = deductCurrentUserCredits(creditsCost);
+        const localRes = resultResolution?.status === 'below-request'
+          ? { success: true, remaining: getCurrentUser().creditsBalance }
+          : deductCurrentUserCredits(creditsCost);
         deductSuccess = localRes.success;
         remainingCredits = localRes.remaining;
-        onUserChange(getCurrentUser());
+        if (isCurrentGeneration()) onUserChange(getCurrentUser());
       }
 
       if (deductSuccess) {
         const updatedUser = getCurrentUser();
-        const deductedCost = serverCost ?? creditsCost;
+        // Prefer what the server actually netted across all attempts; serverCost only covers the kept attempt.
+        const deductedCost = serverDeductedTotal > 0
+          ? serverDeductedTotal
+          : serverCost ?? (!sessionToken && resultResolution?.status === 'below-request' ? 0 : creditsCost);
         const isFreeExhausted = updatedUser.plan === 'free' && remainingCredits < deductedCost;
         const toastNotice = isFreeExhausted
-          ? `您的免费体验额度已用完（剩余 ${remainingCredits} 积分）！请升级 Pro 会员解锁无限 4K 生成与商业授权。`
+          ? `You have ${remainingCredits} credits left, which is not enough for another generation at this resolution. View plans to add credits.`
           : hadFailover
-          ? `主模型额度耗尽或异常，已自动切换至备用模型 [${usedEndpointName}] 生成成功！已扣除 ${deductedCost} 积分。`
-          : `360° 全景图通过 [${usedEndpointName}] 生成成功！扣除 ${deductedCost} 积分（剩余 ${remainingCredits} 积分）。`;
-        setFeedbackNotice(toastNotice);
-        if (isFreeExhausted) {
-          setTimeout(() => setIsCheckoutOpen(true), 2500);
-        } else {
-          setTimeout(() => setFeedbackNotice(null), 5000);
+          ? `Generated with fallback model ${usedEndpointName}. Used ${deductedCost} credits.`
+          : `Panorama generated with ${usedEndpointName}. Used ${deductedCost} credits; ${remainingCredits} remaining.`;
+        if (isCurrentGeneration()) setFeedbackNotice(toastNotice);
+        if (!isFreeExhausted) {
+          setTimeout(() => { if (isCurrentGeneration()) setFeedbackNotice(null); }, 5000);
         }
       }
 
-      setGenerationProgress(100);
-      setIsGenerating(false);
+      if (isCurrentGeneration()) setIsGenerating(false);
 
+      if (resultResolution?.status === 'below-request') {
+        // Each attempt's creditsDeducted is already net of its own refund, so the sum is the real charge.
+        const netCharged = serverDeductedTotal;
+        const billingNotice = serverRefunded > 0
+          ? netCharged > 0
+            ? `${serverRefunded} credits were returned, but fallback attempts still report ${netCharged} credits charged without a confirmed refund.`
+            : `${serverRefunded} credits were returned; no generation credits were charged.`
+          : sessionToken
+          ? `The server reported ${serverCost ?? creditsCost} credits charged; no automatic refund was confirmed.`
+          : 'No local credits were deducted.';
+        setApiError(`The model returned ${resultResolution.width}×${resultResolution.height}; its 2:1 crop is ${resultResolution.panoramaWidth}×${resultResolution.panoramaHeight}, below the requested ${resolution} panorama (${resultResolution.targetWidth}×${resultResolution.targetHeight}). The image was retained without upscaling. ${billingNotice}`);
+        return;
+      }
+
+      if (!isCurrentGeneration()) return;
       confetti({
         particleCount: 50,
         spread: 70,
         origin: { y: 0.8 },
       });
     } catch (err: unknown) {
+      if (!isCurrentGeneration()) return;
       setIsGenerating(false);
-      const errMsg = err instanceof Error ? err.message : '未知生图错误';
-      setApiError(errMsg);
+      setGenerationTiming(`Request failed after ${((performance.now() - startedAt) / 1000).toFixed(1)} s`);
+      const errMsg = err instanceof Error ? err.message : 'Unknown image generation error';
+      if (isCurrentGeneration()) setApiError(errMsg);
     } finally {
-      if (progressTimer) {
-        clearInterval(progressTimer);
-      }
+      clearInterval(elapsedTimer);
     }
   };
 
   const handleDownloadPng = () => {
     const a = document.createElement('a');
     a.href = currentPanoramaUrl;
-    a.download = `360-panorama-${selectedStyle}-${resolution}-${Date.now()}.png`;
+    a.download = `360-panorama-${selectedStyle}-${Date.now()}.png`;
     a.click();
+  };
+
+  const handleDownloadOriginal = async () => {
+    if (!originalRawUrl) return;
+    try {
+      const response = await fetch(originalRawUrl, { signal: AbortSignal.timeout(30000) });
+      if (!response.ok) throw new Error('Original image download failed');
+      const blob = await response.blob();
+      const extension = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[blob.type];
+      if (!extension || !blob.size) throw new Error('Original image format is not supported');
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `model-original-${Date.now()}.${extension}`;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      setFeedbackNotice(error instanceof Error ? error.message : 'Original image download failed');
+    }
   };
 
   const handleExportHdr = () => {
@@ -571,6 +641,9 @@ export function GeneratorTab({
         URL.revokeObjectURL(url);
       }
     };
+    img.onerror = () => {
+      setFeedbackNotice('HDR export failed: the current panorama could not be loaded.');
+    };
     img.src = currentPanoramaUrl;
   };
 
@@ -588,10 +661,13 @@ export function GeneratorTab({
         const url = URL.createObjectURL(vrBlob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `360-vr-photosphere-${selectedStyle}-${resolution}-${Date.now()}.jpg`;
+        a.download = `360-vr-photosphere-${selectedStyle}-${canvas.width}x${canvas.height}-${Date.now()}.jpg`;
         a.click();
         URL.revokeObjectURL(url);
       }
+    };
+    img.onerror = () => {
+      setFeedbackNotice('VR JPEG export failed: the current panorama could not be loaded.');
     };
     img.src = currentPanoramaUrl;
   };
@@ -632,7 +708,7 @@ export function GeneratorTab({
         ctx.drawImage(img, 0, 0);
         const healed = healPanoramaSeam(canvas, 160);
         onPanoramaChange(healed.toDataURL('image/png'));
-        setFeedbackNotice('360° boundary seam healed successfully! Click "Restore Original" anytime to undo.');
+        setFeedbackNotice('Seam blending applied. It can create ghosting when edges differ; use View Original to undo.');
         confetti({ particleCount: 35, spread: 55, origin: { y: 0.7 } });
         setTimeout(() => setFeedbackNotice(null), 3500);
       }
@@ -640,40 +716,31 @@ export function GeneratorTab({
     img.src = currentPanoramaUrl;
   };
 
-  const handleEnhanceClarity = () => {
-    // If enhanced version is already cached and user is viewing the original, instant toggle!
-    if (enhanced4kUrl && currentPanoramaUrl === originalRawUrl) {
-      onPanoramaChange(enhanced4kUrl);
-      setFeedbackNotice('Switched back to 4K Ultra clarity version.');
-      setTimeout(() => setFeedbackNotice(null), 3000);
-      return;
-    }
-
-    if (!originalRawUrl) {
-      setOriginalRawUrl(currentPanoramaUrl);
-    }
+  const handleEnhanceClarity = async () => {
+    const request = ++generationRef.current.request;
+    const processing = new AbortController();
+    generationRef.current.processing?.abort();
+    generationRef.current.processing = processing;
     setIsUpscalingClarity(true);
-    setTimeout(() => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const enhancedCanvas = enhanceAndUpscalePanorama(img, {
-          scaleFactor: 2,
-          sharpness: 0.8,
-          contrastBoost: 1.1,
-        });
-        const healed = healPanoramaSeam(enhancedCanvas, 160);
-        const enhancedDataUrl = healed.toDataURL('image/png');
-        setEnhanced4kUrl(enhancedDataUrl);
-        onPanoramaChange(enhancedDataUrl);
-        setIsUpscalingClarity(false);
-        setFeedbackNotice('4K Super-Resolution clarity enhancement applied! Click "Restore Original" anytime to undo.');
-        confetti({ particleCount: 45, spread: 60, origin: { y: 0.7 } });
-        setTimeout(() => setFeedbackNotice(null), 4000);
-      };
-      img.onerror = () => setIsUpscalingClarity(false);
-      img.src = currentPanoramaUrl;
-    }, 80);
+    try {
+      const result = await processPanoramaImage(currentPanoramaUrl, {
+        scaleFactor: 1, sharpness: 0.2, contrastBoost: 1,
+      }, false, processing.signal);
+      if (!generationRef.current.mounted || generationRef.current.request !== request || processing.signal.aborted) return;
+      if (!originalRawUrl) setOriginalRawUrl(currentPanoramaUrl);
+      setEnhanced4kUrl(result);
+      onPanoramaChange(result);
+      setFeedbackNotice('Light sharpening applied at the existing resolution. No upscaling or AI super-resolution.');
+    } catch (error) {
+      if (generationRef.current.mounted && generationRef.current.request === request && !processing.signal.aborted) {
+        setFeedbackNotice(error instanceof Error ? error.message : 'Image sharpening failed');
+      }
+    } finally {
+      if (generationRef.current.processing === processing) {
+        generationRef.current.processing = null;
+        if (generationRef.current.mounted) setIsUpscalingClarity(false);
+      }
+    }
   };
 
   const handleRestoreOriginal = () => {
@@ -689,27 +756,33 @@ export function GeneratorTab({
       {/* =========================================================================
           HERO BANNER & VALUE PROP (Benchmarked from panoramagenerator.com)
       ========================================================================= */}
-      <div className="studio-hero text-center max-w-4xl mx-auto pt-2 pb-6">
-        <div className="studio-eyebrow" aria-hidden="true">
-          <span className="studio-coordinate">360° / CREATIVE WORKSPACE</span>
-          <span className="studio-orbit-mark">◎</span>
-          <span className="studio-coordinate">IMAGINE BEYOND THE FRAME</span>
+      <section className="studio-hero" aria-labelledby="studio-hero-title">
+        <img className="studio-hero-image" src={coastalCover} alt="" width={2560} height={1280} fetchPriority="high" />
+        <HeroPanorama textureUrl={coastalCover} />
+        <div className="studio-hero-content">
+          <span className="studio-coordinate">AI 360° PANORAMA GENERATOR</span>
+          <h1 id="studio-hero-title">Create a world.<br /><em>Not just an image.</em></h1>
+          <p>From a few words to a new perspective. Create panoramic environments for your next game, virtual space, or creative escape.</p>
+          <div className="studio-hero-actions">
+            <button type="button" className="studio-primary-action" onClick={() => {
+              const input = document.getElementById('prompt-input');
+              input?.focus({ preventScroll: true });
+              input?.scrollIntoView({ block: 'center' });
+            }}>Start creating <ArrowUpRight aria-hidden="true" size={17} /></button>
+            <button type="button" className="studio-secondary-action" onClick={() => {
+              setIsPreviewActive(true);
+              document.getElementById('studio-preview')?.scrollIntoView({ block: 'center' });
+              document.getElementById('studio-preview')?.focus({ preventScroll: true });
+            }}><Play aria-hidden="true" size={15} /> Try the 360° demo</button>
+          </div>
+          <span className="studio-hero-note">Free starter credits · No card required</span>
         </div>
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/15 border border-cyan-400/35 text-cyan-200 text-xs font-semibold mb-4 shadow-sm backdrop-blur-md">
-          <span className="flex items-center text-amber-400 gap-0.5">
-            <Star className="w-3.5 h-3.5 fill-current" />
-            <span className="font-bold">4.9 / 5</span>
-          </span>
-          <span className="text-cyan-500">•</span>
-          <span>Trusted by 38,000+ 3D Artists, Architects &amp; VR Developers</span>
-        </div>
+        <div className="studio-hero-caption"><span>COASTAL STUDY <span>/ REAL 4K PANORAMA</span></span><span aria-hidden="true">↗ A DIFFERENT PERSPECTIVE</span></div>
+      </section>
 
-        <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
-          AI 360° Panorama Generator
-        </h1>
-        <p className="text-base sm:text-lg text-cyan-200/80 mt-3 max-w-2xl mx-auto leading-relaxed">
-          Turn text prompts or reference photos into seamless, VR-ready 2:1 equirectangular panoramas in seconds. Free to try — no credit card required.
-        </p>
+      <div className="studio-workbench-heading">
+        <div><span className="studio-coordinate">THE WORKSPACE</span><h2>Make room for your next idea.</h2></div>
+        <p>Your scene, your style. Start with a description.</p>
       </div>
 
       {/* =========================================================================
@@ -719,15 +792,15 @@ export function GeneratorTab({
         {/* =========================================================================
             LEFT COLUMN: GENERATOR CONTROLS (Benchmarked from panoramagenerator.com)
         ========================================================================= */}
-        <div className="lg:col-span-5 space-y-5 glass-panel rounded-3xl p-6 relative overflow-hidden shadow-[0_16px_50px_rgba(0,0,0,0.6)]">
+        <div className="studio-controls lg:col-span-5 space-y-5 glass-panel rounded-3xl p-6 relative overflow-hidden shadow-[0_16px_50px_rgba(0,0,0,0.6)]">
           {/* Subtle decorative glow */}
-          <div className="absolute top-0 right-0 w-52 h-52 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
 
           {/* Mode Switcher Tabs (Text Prompt vs Image to Pano) */}
           <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3 relative z-10">
             <div className="flex items-center gap-1 bg-[#020b18] p-1 border border-cyan-500/25 rounded-2xl">
               <button
                 type="button"
+                aria-pressed={inputMode === 'text'}
                 onClick={() => handleModeChange('text')}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   inputMode === 'text'
@@ -741,6 +814,7 @@ export function GeneratorTab({
 
               <button
                 type="button"
+                aria-pressed={inputMode === 'image'}
                 onClick={() => handleModeChange('image')}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   inputMode === 'image'
@@ -857,7 +931,7 @@ export function GeneratorTab({
                   title="Enhance prompt with 360° equirectangular VR keywords"
                 >
                   <Sparkles className="w-3 h-3 text-teal-400" />
-                  <span>Enhance with AI</span>
+                  <span>Add detail</span>
                 </button>
                 <button
                   type="button"
@@ -885,25 +959,14 @@ export function GeneratorTab({
           </div>
 
           {/* 360° Prompt Studio (Keyword Helper) */}
-          <div className="relative z-10 bg-[#020917]/90 border border-cyan-500/20 rounded-2xl p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-cyan-100 flex items-center gap-1.5">
+          <details className="studio-advanced relative z-10">
+            <summary>
+              <span className="flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                <span>360° Prompt Studio</span>
-                <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 bg-teal-400/20 text-teal-300 rounded">
-                  Keyword Helper
-                </span>
+                <span>Prompt keywords</span>
               </span>
-              <button
-                type="button"
-                onClick={() => setShowPromptBuilder((prev) => !prev)}
-                className="text-[11px] text-cyan-400 hover:text-cyan-200 font-semibold cursor-pointer underline"
-              >
-                {showPromptBuilder ? 'Hide Keywords' : 'Show Keywords'}
-              </button>
-            </div>
+            </summary>
 
-            {showPromptBuilder && (
               <div className="space-y-2 pt-1.5 border-t border-cyan-500/15 animate-in fade-in duration-150">
                 {PROMPT_BUILDER_CATEGORIES.map((cat, idx) => (
                   <div key={idx} className="space-y-1">
@@ -925,8 +988,7 @@ export function GeneratorTab({
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+          </details>
 
           {/* Quick "Try:" Chips (Benchmarked directly from panoramagenerator.com) */}
           <div className="relative z-10">
@@ -952,40 +1014,23 @@ export function GeneratorTab({
 
           {/* Style Presets Grid */}
           <div className="space-y-2 relative z-10">
-            <label className="text-xs font-bold text-cyan-100">Environment Style</label>
-            <div className="grid grid-cols-2 gap-2">
-              {STYLE_PRESETS.map((style) => (
-                <button
-                  key={style.id}
-                  type="button"
-                  onClick={() => setSelectedStyle(style.id)}
-                  className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden group active:scale-[0.97] ${
-                    selectedStyle === style.id
-                      ? 'bg-cyan-500/20 border-cyan-400 text-white shadow-[0_0_20px_rgba(0,242,254,0.35)]'
-                      : 'bg-[#030c1c]/60 border-cyan-500/15 text-cyan-200/60 hover:border-cyan-400/40 hover:text-cyan-100'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-xs font-bold">{style.name}</span>
-                    <div
-                      className={`w-2.5 h-2.5 rounded-full bg-gradient-to-r ${style.previewColor} shadow-sm group-hover:scale-110 transition-transform`}
-                    />
-                  </div>
-                  <p className="text-[10px] text-cyan-300/60 truncate">{style.description}</p>
-                </button>
-              ))}
-            </div>
+            <label htmlFor="environment-style" className="text-xs font-bold text-cyan-100">Environment style</label>
+            <select id="environment-style" value={selectedStyle} onChange={event => setSelectedStyle(event.target.value as StylePresetId)} className="studio-style-select">
+              {STYLE_PRESETS.map(style => <option key={style.id} value={style.id}>{style.name}</option>)}
+            </select>
+            <p className="text-xs text-slate-400">{STYLE_PRESETS.find(style => style.id === selectedStyle)?.description}</p>
           </div>
 
           {/* Resolution & Seam Correction Matrix */}
-          <div className="grid grid-cols-2 gap-3 pt-1 relative z-10">
+          <div className="space-y-3 pt-1 relative z-10">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-cyan-100">Image Size</label>
-              <div className="flex items-center gap-1 bg-[#030c1c] p-1 border border-cyan-500/20 rounded-xl">
+              <span className="text-xs font-bold text-cyan-100">Requested resolution</span>
+              <div role="group" aria-label="Requested resolution" className="flex items-center gap-1 bg-[#030c1c] p-1 border border-cyan-500/20 rounded-xl">
                 {(['1K', '2K', '4K'] as ResolutionTier[]).map((res) => (
                   <button
                     key={res}
                     type="button"
+                    aria-pressed={resolution === res}
                     onClick={() => setResolution(res)}
                     className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-95 ${
                       resolution === res
@@ -997,12 +1042,17 @@ export function GeneratorTab({
                   </button>
                 ))}
               </div>
+              <p className="text-[10px] text-cyan-200/60">The provider may return fewer pixels. Check the actual dimensions after generation. Non-2:1 images are center-cropped, never upscaled.</p>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-cyan-100">360° Seam Blending</label>
+            <details className="studio-advanced">
+              <summary>Advanced: seam blending</summary>
+              <div className="space-y-2 pt-3">
               <button
                 type="button"
+                aria-pressed={seamCorrection}
+                aria-label="Optional seam blending"
+                title="May create ghosting when the left and right edges differ. Off preserves edge detail."
                 onClick={() => setSeamCorrection((prev) => !prev)}
                 className={`w-full py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
                   seamCorrection
@@ -1010,23 +1060,25 @@ export function GeneratorTab({
                     : 'bg-[#030c1c] border-cyan-500/20 text-cyan-400/60 hover:text-cyan-200'
                 }`}
               >
-                <span>Symmetric Seam Healing</span>
-                <CheckCircle2 className="w-3.5 h-3.5 text-teal-300" />
+                <span>{seamCorrection ? 'Blending: On' : 'Blending: Off'}</span>
+                {seamCorrection && <CheckCircle2 className="w-3.5 h-3.5 text-teal-300" />}
               </button>
-            </div>
+              <p className="text-[10px] text-cyan-200/60">Optional. Mismatched edges may show ghosting; blending does not reconstruct a true 360° scene.</p>
+              </div>
+            </details>
           </div>
 
           {/* API Error Notice */}
           {apiError && (
-            <div className="p-3 bg-red-950/60 border border-red-500/50 rounded-2xl text-xs text-red-200 flex items-start gap-2">
+            <div role="alert" className="p-3 bg-red-950/60 border border-red-500/50 rounded-2xl text-xs text-red-200 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="font-bold">Generation Notice:</p>
-                <p className="text-[11px] text-red-300 break-all">{apiError}</p>
+                <p className="text-xs leading-relaxed text-red-200 break-words">{apiError}</p>
                 {apiError.includes('Insufficient credit') && (
                   <button
                     type="button"
-                    onClick={() => setIsCheckoutOpen(true)}
+                    onClick={() => onNavigateTab('pricing')}
                     className="mt-2 px-3 py-1.5 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-cyan-500/25"
                   >
                     <Zap className="w-3.5 h-3.5 fill-current" />
@@ -1048,7 +1100,7 @@ export function GeneratorTab({
             </span>
             <button
               type="button"
-              onClick={() => setIsCheckoutOpen(true)}
+              onClick={() => onNavigateTab('pricing')}
               className="text-amber-300 hover:text-white font-mono flex items-center gap-1 cursor-pointer"
             >
               <Coins className="w-3 h-3 text-amber-400" />
@@ -1060,7 +1112,7 @@ export function GeneratorTab({
           <div className="pt-2 relative z-10">
             <button
               type="button"
-              disabled={isGenerating}
+              disabled={isGenerating || isUpscalingClarity}
               onClick={handleGenerate}
               className="shimmer-btn w-full py-4 bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl shadow-cyan-400/35 hover:shadow-cyan-400/60 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer tracking-wide"
             >
@@ -1068,7 +1120,7 @@ export function GeneratorTab({
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
                   <span>
-                    Generating ({generationProgress}%) — {generationProgress < 40 ? 'Synthesizing scene...' : generationProgress < 75 ? 'Healing seams...' : 'Finishing 3D mapping...'}
+                    Generating — {generationElapsed} s elapsed
                   </span>
                 </>
               ) : (
@@ -1078,32 +1130,44 @@ export function GeneratorTab({
                 </>
               )}
             </button>
+            {isGenerating && (
+              <p role="status" className="mt-2 text-xs text-cyan-200">{generationStage}</p>
+            )}
+            {generationTiming && (
+              <p role="status" className="mt-2 text-xs text-slate-300">{generationTiming}</p>
+            )}
           </div>
         </div>
 
         {/* =========================================================================
             RIGHT COLUMN: INTERACTIVE 360 WEBGL VIEWPORT & EXPORT BAR
         ========================================================================= */}
-        <div className="lg:col-span-7 space-y-4">
+        <div className="studio-preview-column lg:col-span-7 space-y-4" id="studio-preview" tabIndex={-1}>
           {/* WebGL 3D Sphere Container with cinematic frame */}
           <div className="glass-panel border border-cyan-500/30 rounded-3xl overflow-hidden shadow-[0_25px_60px_rgba(0,10,30,0.8)]">
-            <div className="px-5 py-3.5 bg-[#030e20]/90 border-b border-cyan-500/20 flex flex-wrap items-center justify-between gap-2 text-xs text-cyan-200">
+            <div className="studio-preview-toolbar px-5 py-3.5 bg-[#030e20]/90 border-b border-cyan-500/20 flex flex-wrap items-center justify-between gap-2 text-xs text-cyan-200">
               <div className="flex items-center gap-2.5">
                 <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#00F2FE]" />
-                <span className="font-bold text-white tracking-wide">Live 360° Sphere Viewport</span>
+                <span className="font-bold text-white tracking-wide">360° preview</span>
                 <span className="text-cyan-400/60 hidden sm:inline">| Drag to look around, scroll to zoom</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {originalRawUrl && (
+                  <button type="button" onClick={handleDownloadOriginal} className="text-[11px] text-cyan-200 underline cursor-pointer">
+                    Download model original
+                  </button>
+                )}
                 {/* Restore Original Button */}
                 {originalRawUrl && originalRawUrl !== currentPanoramaUrl && (
                   <button
                     type="button"
                     onClick={handleRestoreOriginal}
                     className="flex items-center gap-1.5 text-[11px] text-amber-300 hover:text-white bg-amber-500/15 hover:bg-amber-500/25 px-2.5 py-1 rounded-full border border-amber-500/35 transition-all cursor-pointer font-bold active:scale-95 shadow-sm animate-in fade-in"
-                    title="Revert enhancements and restore original pre-4K panorama"
+                    disabled={isGenerating || isUpscalingClarity}
+                    title="View the uncropped model original; a non-2:1 source may look stretched in the sphere viewer"
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Restore Original</span>
+                    <span>View Original</span>
                   </button>
                 )}
 
@@ -1111,39 +1175,34 @@ export function GeneratorTab({
                 {enhanced4kUrl && currentPanoramaUrl === enhanced4kUrl && (
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-200 border border-cyan-400/40 font-mono font-bold flex items-center gap-1">
                     <Sparkles className="w-3 h-3 text-cyan-300" />
-                    <span>4K Ultra</span>
+                    <span>Lightly sharpened</span>
                   </span>
                 )}
 
                 <button
                   type="button"
-                  disabled={isUpscalingClarity}
+                  disabled={isGenerating || isUpscalingClarity || currentPanoramaUrl === enhanced4kUrl}
                   onClick={handleEnhanceClarity}
                   className="flex items-center gap-1.5 text-[11px] text-cyan-300 hover:text-white bg-cyan-500/15 hover:bg-cyan-500/25 px-2.5 py-1 rounded-full border border-cyan-500/30 transition-all cursor-pointer font-semibold active:scale-95 shadow-sm disabled:opacity-50"
-                  title="Apply 4K super-resolution reconstruction and unsharp mask sharpening"
+                  title="Light sharpening at the existing pixel dimensions; no upscaling or AI super-resolution"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
                   <span>
                     {isUpscalingClarity
                       ? 'Enhancing...'
-                      : enhanced4kUrl && currentPanoramaUrl === originalRawUrl
-                      ? 'Apply 4K Enhanced'
-                      : 'Enhance 4K Clarity'}
+                      : 'Light sharpening'}
                   </span>
                 </button>
                 <button
                   type="button"
                   onClick={handleManualHealSeam}
+                  disabled={isGenerating || isUpscalingClarity}
                   className="flex items-center gap-1.5 text-[11px] text-teal-300 hover:text-white bg-teal-500/15 hover:bg-teal-500/25 px-2.5 py-1 rounded-full border border-teal-500/30 transition-all cursor-pointer font-semibold active:scale-95 shadow-sm"
-                  title="Run 160px multi-band seam alignment on current panorama"
+                  title="Optional edge blending. May create ghosting; it cannot reconstruct mismatched scene geometry."
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
-                  <span>Heal Seam</span>
+                  <span>Blend seam (optional)</span>
                 </button>
-                <div className="flex items-center gap-2 text-[11px] text-cyan-300 bg-cyan-950/60 px-2.5 py-1 rounded-full border border-cyan-500/30">
-                  <Sliders className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>FOV: 75° (Interactive)</span>
-                </div>
               </div>
             </div>
 
@@ -1164,8 +1223,18 @@ export function GeneratorTab({
               </div>
             )}
 
-            <div className="h-[490px] w-full relative bg-[#020712]">
-              <SphereViewer textureUrl={currentPanoramaUrl} className="w-full h-full" />
+            <div className="studio-preview-stage h-[490px] w-full relative bg-[#020712]">
+              {isPreviewActive || currentPanoramaUrl !== initialPanoramaUrl ? (
+                <SphereViewer textureUrl={currentPanoramaUrl} initialAutoRotate={false} className="w-full h-full" />
+              ) : (
+                <div className="studio-preview-placeholder">
+                  <div className="studio-preview-orbit" aria-hidden="true"><Globe2 size={66} strokeWidth={0.7} /></div>
+                  <span className="studio-coordinate">A SPACE FOR POSSIBILITY</span>
+                  <h3>Your world goes here.</h3>
+                  <p>Generate a panorama to explore it here.<br />Or open the built-in procedural demo — no credits used.</p>
+                  <button type="button" className="studio-secondary-action" onClick={() => setIsPreviewActive(true)}><Play size={15} aria-hidden="true" /> Open 360° demo</button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1303,26 +1372,18 @@ export function GeneratorTab({
           onPanoramaChange(url);
           setPrompt(newPrompt);
           setSelectedStyle(style);
+          setIsPreviewActive(true);
         }}
       />
 
       {/* 2. Built for VR-Ready Equirectangular Output (Feature Matrix) */}
       <FeatureMatrix />
 
-      {/* 3. Proprietary Seam Healer Interactive Demo */}
-      <SeamShowcase />
-
-      {/* 4. AI Panorama Generation vs 360° Camera Capture (Comparison Table) */}
-      <CameraComparison />
-
       {/* 5. How AI 360° Panorama Generation Works (4-Step Workflow) */}
       <HowItWorksSteps />
 
       {/* 6. Drop Straight into Your Production Stack (Game Engine Badges) */}
       <IntegrationBadges />
-
-      {/* 7. Creator Stories & Global Metrics (Testimonials & Social Proof) */}
-      <TestimonialsSection />
 
       {/* 8. Comprehensive FAQ Accordion */}
       <CommercialFaq />
@@ -1341,18 +1402,6 @@ export function GeneratorTab({
         currentPanoramaUrl={currentPanoramaUrl}
       />
 
-      {/* Commercial Checkout Modal */}
-      <CheckoutModal
-        isOpen={isCheckoutOpen}
-        onClose={() => setIsCheckoutOpen(false)}
-        initialPlan="pro"
-        initialCycle="yearly"
-        onSuccess={(u) => {
-          onUserChange(u);
-          setFeedbackNotice(`Account upgraded successfully! New balance: ${u.creditsBalance} credits.`);
-          setTimeout(() => setFeedbackNotice(null), 4000);
-        }}
-      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import {
   Box,
   Sparkles,
@@ -12,27 +12,15 @@ import {
   Upload,
 } from 'lucide-react';
 import { CubemapTab } from '../CubemapTab';
-import { generateProceduralPanorama } from '../../utils/proceduralPanoramas';
 
 interface CubemapGeneratorPageProps {
   onLaunchStudio: () => void;
+  currentPanoramaUrl: string;
+  onPanoramaChange: (url: string) => void;
 }
 
-export function CubemapGeneratorPage({ onLaunchStudio }: CubemapGeneratorPageProps) {
+export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activePanoUrl, onPanoramaChange: setActivePanoUrl }: CubemapGeneratorPageProps) {
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
-
-  // Generate a high-contrast cyberpunk sample panorama for slicing
-  const defaultSampleUrl = useMemo(() => {
-    const canvas = generateProceduralPanorama(
-      'cyberpunk',
-      'futuristic cyberpunk city at night, neon holograms, 8k equirectangular 360 panorama',
-      2048,
-      1024
-    );
-    return canvas.toDataURL('image/png');
-  }, []);
-
-  const [activePanoUrl, setActivePanoUrl] = useState<string>(defaultSampleUrl);
 
   const handleCustomUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

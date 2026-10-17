@@ -69,16 +69,18 @@ export function convertFlatPhotoToEquirectangular(
   const drawWidth = (viewSpanDeg / 360) * targetWidth;
   const drawHeight = drawWidth / srcRatio;
 
-  const drawX = (targetWidth - drawWidth) / 2;
+  const drawX = -drawWidth / 2;
   const drawY = (targetHeight - drawHeight) / 2;
 
   // Draw clean, sharp subject photo with soft feather border
   ctx.drawImage(sourceImage, drawX, drawY, drawWidth, drawHeight);
+  ctx.drawImage(sourceImage, drawX + targetWidth, drawY, drawWidth, drawHeight);
 
   // Soft border gradient feather
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
   ctx.lineWidth = 2;
   ctx.strokeRect(drawX, drawY, drawWidth, drawHeight);
+  ctx.strokeRect(drawX + targetWidth, drawY, drawWidth, drawHeight);
 
   return canvas;
 }

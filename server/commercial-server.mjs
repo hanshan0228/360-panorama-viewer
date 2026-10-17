@@ -3,8 +3,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { handlePayPalRequest, createJsonPayPalLedger, paypalConfigured, formatAdminBilling } from './paypal.mjs';
+import { buildImageModelRequest, inspectImageResolution } from '../src/utils/imageModelRequest.mjs';
 
 const STORE_FILE = fileURLToPath(new URL('./data/store.json', import.meta.url));
+
+function freeCredits(config) {
+  const value = config?.freeMonthlyCredits;
+  return Number.isSafeInteger(value) && value >= 0 ? value : 4;
+}
 
 export function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
   const hash = crypto.scryptSync(password, salt, 64).toString('hex');
@@ -107,6 +114,29 @@ function sendJson(res, status, data) {
   res.end(JSON.stringify(data));
 }
 
+// Credential material (password_hash) must never leave the server in API payloads.
+export function stripUserSecrets(user) {
+  if (!user || typeof user !== 'object') return user;
+  const safe = { ...user };
+  delete safe.password_hash;
+  return safe;
+}
+
+// Sliding-window counters for abuse-prone endpoints. Single-process best effort.
+function rateLimitExceeded(buckets, key, limit, windowMs) {
+  const now = Date.now();
+  const hits = (buckets.get(key) || []).filter((time) => now - time < windowMs);
+  buckets.set(key, hits);
+  if (buckets.size > 10000) buckets.clear();
+  return hits.length >= limit;
+}
+
+function recordRateHit(buckets, key) {
+  const hits = buckets.get(key) || [];
+  hits.push(Date.now());
+  buckets.set(key, hits);
+}
+
 // Single-process atomic JSON persistence, not a multi-instance transaction database.
 export function createCommercialServer(options = {}) {
   const file = options.storeFile || STORE_FILE;
@@ -116,18 +146,45 @@ export function createCommercialServer(options = {}) {
   const sessions = new Map();
   const userSessions = new Map();
   const failures = new Map();
+  const rateBuckets = new Map();
   return http.createServer(async (req, res) => {
     try {
       const pathname = new URL(req.url, 'http://localhost').pathname;
       const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
       const authenticated = (sessions.get(token) || 0) > Date.now();
       if (pathname === '/api/health' && req.method === 'GET') {
-        return sendJson(res, 200, { status: 'online', paymentsReady: Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET),
-          gateways: { stripeConfigured: Boolean(env.STRIPE_SECRET_KEY), stripeWebhookConfigured: Boolean(env.STRIPE_WEBHOOK_SECRET), paypalConfigured: false } });
+        return sendJson(res, 200, { status: 'online', paymentsReady: paypalConfigured(env) || Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET),
+          gateways: { stripeConfigured: Boolean(env.STRIPE_SECRET_KEY), stripeWebhookConfigured: Boolean(env.STRIPE_WEBHOOK_SECRET),
+            paypalConfigured: paypalConfigured(env), paypalMode: env.PAYPAL_MODE || 'sandbox' } });
+      }
+
+      if (pathname.startsWith('/api/paypal/')) {
+        const headers = new Headers();
+        for (const [name, value] of Object.entries(req.headers)) if (value) headers.set(name, String(value));
+        const request = new Request(new URL(req.url, env.PAYPAL_RETURN_ORIGIN || 'http://localhost:5173'), {
+          method: req.method, headers,
+          ...(['GET', 'HEAD'].includes(req.method) ? {} : { body: (await readRawBody(req)).toString() }),
+        });
+        const response = await handlePayPalRequest({ request, env, fetchImpl: fetchUpstream,
+          ledger: createJsonPayPalLedger(() => readStore(file), store => persist(store, file)),
+          authenticate: async () => {
+            const session = userSessions.get(token);
+            if (!session || session.expires <= Date.now()) return null;
+            return readStore(file).users.find(user => user.id === session.userId) || null;
+          },
+        });
+        return sendJson(res, response.status, await response.json());
       }
 
       // Guest User Session Initialization (Auto-grants 4 trial credits)
       if (pathname === '/api/user/guest' && req.method === 'POST') {
+        const guestIp = req.socket.remoteAddress || 'unknown';
+        if (rateLimitExceeded(rateBuckets, `guest:hour:${guestIp}`, 5, 3600000)
+          || rateLimitExceeded(rateBuckets, `guest:day:${guestIp}`, 20, 86400000)) {
+          return sendJson(res, 429, { success: false, error: 'Too many trial accounts from this address. Sign in or try again later.' });
+        }
+        recordRateHit(rateBuckets, `guest:hour:${guestIp}`);
+        recordRateHit(rateBuckets, `guest:day:${guestIp}`);
         const guestId = 'usr_guest_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
         const guestEmail = `guest_${guestId}@guest.panoramagenerator.ai`;
         const store = readStore(file);
@@ -137,8 +194,8 @@ export function createCommercialServer(options = {}) {
           email: guestEmail,
           name: 'Free Trial Guest',
           plan: 'free',
-          creditsBalance: 4,
-          creditsTotal: 4,
+          creditsBalance: freeCredits(store.billing_config),
+          creditsTotal: freeCredits(store.billing_config),
           apiCallsCount: 0,
           status: 'active',
           createdAt: new Date().toISOString(),
@@ -148,49 +205,72 @@ export function createCommercialServer(options = {}) {
 
         const guestToken = crypto.randomBytes(32).toString('hex');
         userSessions.set(guestToken, { userId: guestId, expires: Date.now() + 7 * 86400000 });
-        return sendJson(res, 200, { success: true, user: guestUser, token: guestToken });
+        return sendJson(res, 200, { success: true, user: stripUserSecrets(guestUser), token: guestToken });
       }
 
       // User Authentication and Identity Management with Password support
       if (pathname === '/api/user/auth' && req.method === 'POST') {
+        const authIp = req.socket.remoteAddress || 'unknown';
+        const authFailKey = `authfail:${authIp}`;
+        if (rateLimitExceeded(rateBuckets, authFailKey, 10, 600000)) {
+          return sendJson(res, 429, { success: false, error: 'Too many failed sign-in attempts. Try again later.' });
+        }
         const body = JSON.parse((await readRawBody(req)).toString());
-        const { email, name, password } = body || {};
+        const { email, name, password, mode } = body || {};
+        if (password !== undefined && typeof password !== 'string') return sendJson(res, 400, { success: false, error: 'Password must be a string' });
+        if (mode !== undefined && mode !== 'login' && mode !== 'register') return sendJson(res, 400, { success: false, error: 'Invalid authentication mode' });
         if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
           return sendJson(res, 400, { success: false, error: 'Valid email address is required' });
         }
         const store = readStore(file);
         store.users = store.users || [];
         let user = store.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+        if (!user && mode === 'login') {
+          recordRateHit(rateBuckets, authFailKey);
+          return sendJson(res, 401, { success: false, error: 'Email or password is incorrect.' });
+        }
+        if (user && mode === 'register') return sendJson(res, 409, { success: false, error: 'An account already exists for this email. Sign in instead.' });
         if (user) {
           if (user.password_hash) {
             if (!password) {
-              return sendJson(res, 401, { success: false, error: '请输入账户密码' });
+              recordRateHit(rateBuckets, authFailKey);
+              return sendJson(res, 401, { success: false, error: 'Enter your account password.' });
             }
             if (!verifyPassword(password, user.password_hash)) {
-              return sendJson(res, 401, { success: false, error: '账户密码错误，请核对凭证' });
+              recordRateHit(rateBuckets, authFailKey);
+              return sendJson(res, 401, { success: false, error: 'Email or password is incorrect.' });
             }
           } else {
-            return sendJson(res, 403, { success: false, error: '该受管账户尚未激活初始密码，请联系管理员获取凭证。' });
+            recordRateHit(rateBuckets, authFailKey);
+            return sendJson(res, 403, { success: false, error: 'This managed account has no password yet. Contact your administrator.' });
           }
         } else {
+          if (rateLimitExceeded(rateBuckets, `register:${authIp}`, 5, 3600000)) {
+            return sendJson(res, 429, { success: false, error: 'Too many new accounts from this address. Try again later.' });
+          }
+          if (typeof password !== 'string' || password.length < 6 || password.length > 1024) {
+            return sendJson(res, 400, { success: false, error: 'New accounts require a password between 6 and 1024 characters.' });
+          }
           user = {
             id: 'usr_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12),
             email: email.toLowerCase(),
             name: typeof name === 'string' && name.trim() ? name.trim() : email.split('@')[0],
             plan: 'free',
-            creditsBalance: 4,
-            creditsTotal: 4,
+            creditsBalance: freeCredits(store.billing_config),
+            creditsTotal: freeCredits(store.billing_config),
             apiCallsCount: 0,
             status: 'active',
-            password_hash: password && password.length >= 6 ? hashPassword(password) : undefined,
+            password_hash: hashPassword(password),
             createdAt: new Date().toISOString(),
           };
           store.users.push(user);
           persist(store, file);
+          recordRateHit(rateBuckets, `register:${authIp}`);
         }
+        rateBuckets.delete(authFailKey);
         const userToken = crypto.randomBytes(32).toString('hex');
         userSessions.set(userToken, { userId: user.id, expires: Date.now() + 7 * 86400000 });
-        return sendJson(res, 200, { success: true, user, token: userToken });
+        return sendJson(res, 200, { success: true, user: stripUserSecrets(user), token: userToken });
       }
 
       if (pathname === '/api/user/me' && req.method === 'GET') {
@@ -198,10 +278,11 @@ export function createCommercialServer(options = {}) {
         if (!session || session.expires < Date.now()) {
           return sendJson(res, 401, { success: false, error: 'Unauthorized or session expired' });
         }
+        await createJsonPayPalLedger(() => readStore(file), store => persist(store, file)).syncAccess(session.userId);
         const store = readStore(file);
         const user = store.users?.find((u) => u.id === session.userId);
         if (!user) return sendJson(res, 404, { success: false, error: 'User not found' });
-        return sendJson(res, 200, { success: true, user });
+        return sendJson(res, 200, { success: true, user: stripUserSecrets(user) });
       }
 
       if (pathname === '/api/user/deduct-credits' && req.method === 'POST') {
@@ -215,7 +296,7 @@ export function createCommercialServer(options = {}) {
         const store = readStore(file);
         const user = store.users?.find((u) => u.id === session.userId);
         if (!user || user.status !== 'active') return sendJson(res, 400, { success: false, error: 'Account inactive' });
-        if (user.creditsBalance < amt) return sendJson(res, 400, { success: false, error: '积分余额不足' });
+        if (user.creditsBalance < amt) return sendJson(res, 400, { success: false, error: 'Insufficient credits.' });
         user.creditsBalance -= amt;
         user.apiCallsCount = (user.apiCallsCount || 0) + 1;
         persist(store, file);
@@ -244,22 +325,22 @@ export function createCommercialServer(options = {}) {
         }
 
         if (!token) {
-          return sendJson(res, 401, { success: false, error: '未授权：请先登录或初始化试用会话' });
+          return sendJson(res, 401, { success: false, error: 'Sign in or initialize a trial session before generating a panorama.' });
         }
 
         const session = userSessions.get(token);
         if (!session || session.expires < Date.now()) {
-          return sendJson(res, 401, { success: false, error: '登录会话已过期，请重新登录账户' });
+          return sendJson(res, 401, { success: false, error: 'Your session has expired. Please sign in again.' });
         }
 
         const store = readStore(file);
         const user = store.users?.find((u) => u.id === session.userId);
         if (!user) {
-          return sendJson(res, 404, { success: false, error: '用户账户不存在' });
+          return sendJson(res, 404, { success: false, error: 'Account not found.' });
         }
 
         if (user.status !== 'active') {
-          return sendJson(res, 403, { success: false, error: '该账户已被管理员封禁挂起，无法使用生图服务' });
+          return sendJson(res, 403, { success: false, error: 'This account is suspended and cannot generate images.' });
         }
 
         const resolution = body.resolution ?? '4K';
@@ -269,10 +350,10 @@ export function createCommercialServer(options = {}) {
         }
         const cost = store.billing_config?.[`creditCostPer${resolution}`] ?? defaultCosts[resolution];
         if (!Number.isSafeInteger(cost) || cost <= 0) {
-          return sendJson(res, 503, { success: false, error: '服务端积分费率配置无效，请联系管理员。' });
+          return sendJson(res, 503, { success: false, error: 'Generation credit rates are unavailable. Contact support.' });
         }
         if (user.creditsBalance < cost) {
-          return sendJson(res, 400, { success: false, error: `账户积分不足！本次生成需要 ${cost} 积分，当前可用余额为 ${user.creditsBalance} 积分。` });
+          return sendJson(res, 400, { success: false, error: `Insufficient credits. This generation costs ${cost} credits; ${user.creditsBalance} are available.` });
         }
 
         const rawModels = store.models_config;
@@ -281,10 +362,10 @@ export function createCommercialServer(options = {}) {
         if (endpointId) {
           targetEp = endpoints.find((ep) => ep.id === endpointId);
           if (!targetEp) {
-            return sendJson(res, 400, { success: false, error: `指定模型端点 [${endpointId}] 不存在` });
+            return sendJson(res, 400, { success: false, error: `Model endpoint [${endpointId}] was not found.` });
           }
           if (!targetEp.isEnabled) {
-            return sendJson(res, 400, { success: false, error: `指定模型端点 [${targetEp.name || endpointId}] 当前已停用` });
+            return sendJson(res, 400, { success: false, error: `Model endpoint [${targetEp.name || endpointId}] is disabled.` });
           }
         } else if (modelId) {
           targetEp = endpoints.find((ep) => (ep.id === modelId || ep.model === modelId) && ep.isEnabled);
@@ -295,71 +376,20 @@ export function createCommercialServer(options = {}) {
         }
 
         if (!targetEp) {
-          return sendJson(res, 503, { success: false, error: '未配置可用的生图模型端点' });
+          return sendJson(res, 503, { success: false, error: 'No image model is configured on this server. Please contact support.' });
         }
 
-        const rawBase = (targetEp.baseUrl || '').replace(/\/+$/, '');
-        const apiKey = (targetEp.apiKey || '').trim();
         const model = targetEp.model || 'gemini-3.1-flash-image';
-        const validRefs = (referenceImages || []).filter(Boolean);
-
-        const isGoogleOfficial = rawBase.includes('googleapis.com') || (targetEp.provider === 'gemini' && rawBase.includes('googleapis'));
-        const isChatMode = model.toLowerCase().includes('gemini') || rawBase.includes('/chat');
-        const isImagen = model.toLowerCase().includes('imagen');
-
-        // Reject reference images on endpoints that do not support them
-        if (validRefs.length > 0 && ((isGoogleOfficial && isImagen) || (!isChatMode && !isGoogleOfficial))) {
-          return sendJson(res, 400, {
-            success: false,
-            error: `所选模型端点 [${targetEp.name || model}] 不支持参考图片条件输入。请切换至支持多模态的模型端点，或移除参考图片后重试。`
-          });
+        let upstreamRequest;
+        try {
+          upstreamRequest = buildImageModelRequest({ ...targetEp, model }, { prompt, referenceImages, resolution });
+        } catch (error) {
+          return sendJson(res, 400, { success: false, error: error instanceof Error ? error.message : 'Invalid model configuration' });
         }
-
-        let targetUrl = '';
-        let headers = { 'Content-Type': 'application/json' };
-        let payload = null;
-
-        if (isGoogleOfficial) {
-          if (!apiKey) {
-            return sendJson(res, 400, { success: false, error: 'Google AI Studio 官方端点需要配置有效 API Key' });
-          }
-          if (isImagen) {
-            targetUrl = `${rawBase}/v1beta/models/${model}:predict?key=${encodeURIComponent(apiKey)}`;
-            payload = {
-              instances: [{ prompt }],
-              parameters: {
-                sampleCount: 1,
-                aspectRatio: '16:9',
-                outputMimeType: 'image/png',
-              },
-            };
-          } else {
-            targetUrl = `${rawBase}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-            const parts = [{ text: prompt }];
-            for (const img of validRefs) {
-              const m = String(img).match(/^data:([^;]+);base64,(.+)$/);
-              if (m) parts.push({ inlineData: { mimeType: m[1], data: m[2] } });
-            }
-            payload = { contents: [{ parts }] };
-          }
-        } else {
-          targetUrl = isChatMode
-            ? (rawBase.endsWith('/v1') ? `${rawBase}/chat/completions` : `${rawBase}/v1/chat/completions`)
-            : (rawBase.endsWith('/v1') ? `${rawBase}/images/generations` : `${rawBase}/v1/images/generations`);
-
-          if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-
-          const messageContent = validRefs.length > 0 && isChatMode
-            ? [
-                { type: 'text', text: prompt },
-                ...validRefs.map((img) => ({ type: 'image_url', image_url: { url: img } })),
-              ]
-            : prompt;
-
-          payload = isChatMode
-            ? { model, messages: [{ role: 'user', content: messageContent }] }
-            : { model, prompt, n: 1, size: '1792x1024', response_format: 'b64_json' };
-        }
+        const { url: targetUrl, headers, payload, mode } = upstreamRequest;
+        const isGoogleOfficial = mode.startsWith('google-');
+        const isImagen = mode === 'google-imagen';
+        const isChatMode = mode === 'chat';
 
         // ponytail: synchronous reservations cover one Node process; use D1 for multiple instances.
         user.creditsBalance -= cost;
@@ -371,26 +401,17 @@ export function createCommercialServer(options = {}) {
         const timer = setTimeout(() => ctrl.abort(), 90000);
 
         try {
-          let upstreamRes = await fetchUpstream(targetUrl, {
+          const upstreamRes = await fetchUpstream(targetUrl, {
             method: 'POST',
             headers,
             body: JSON.stringify(payload),
             signal: ctrl.signal,
           });
 
-          if (!upstreamRes.ok && upstreamRes.status === 400 && validRefs.length > 0 && isChatMode && !isGoogleOfficial) {
-            upstreamRes = await fetchUpstream(targetUrl, {
-              method: 'POST',
-              headers,
-              body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }] }),
-              signal: ctrl.signal,
-            });
-          }
-
           if (!upstreamRes.ok) {
             const errText = await upstreamRes.text();
             responseStatus = 502;
-            throw new Error(`模型端点返回 HTTP ${upstreamRes.status}: ${errText.slice(0, 240)}`);
+            throw new Error(`Model endpoint returned HTTP ${upstreamRes.status}: ${errText.slice(0, 240)}`);
           }
 
           const data = await upstreamRes.json();
@@ -430,12 +451,15 @@ export function createCommercialServer(options = {}) {
 
           if (!imageUrl) {
             responseStatus = 502;
-            throw new Error('未返回有效图片');
+            throw new Error('The model responded without a valid image.');
           }
 
+          const imageResolution = inspectImageResolution(imageUrl, resolution);
+          const creditsRefunded = imageResolution.status === 'below-request' ? cost : 0;
           const latestStore = readStore(file);
           const latestUser = latestStore.users.find(entry => entry.id === user.id);
           if (!latestUser) throw new Error('User no longer exists');
+          latestUser.creditsBalance += creditsRefunded;
           latestUser.apiCallsCount = (latestUser.apiCallsCount || 0) + 1;
           persist(latestStore, file);
           completed = true;
@@ -445,12 +469,14 @@ export function createCommercialServer(options = {}) {
             imageUrl,
             modelUsed: model,
             remainingCredits: latestUser.creditsBalance,
-            creditsDeducted: cost,
+            creditsDeducted: cost - creditsRefunded,
+            creditsRefunded,
+            imageResolution,
           };
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           if (responseStatus === 200) responseStatus = 504;
-          responseData = { success: false, error: responseStatus === 502 ? message : `代理调用异常: ${message}` };
+          responseData = { success: false, error: responseStatus === 502 ? message : `Image model request failed: ${message}` };
         } finally {
           clearTimeout(timer);
           if (!completed) {
@@ -507,7 +533,10 @@ export function createCommercialServer(options = {}) {
         }
         if (pathname === '/api/admin/store' && req.method === 'GET') {
           const store = readStore(file);
-          return sendJson(res, 200, { users: store.users, subscriptions: store.subscriptions, invoices: store.invoices });
+          return sendJson(res, 200, {
+            users: (store.users || []).map(stripUserSecrets),
+            ...formatAdminBilling(store),
+          });
         }
         // Admin Write: Adjust User Credits
         if (pathname === '/api/admin/users/credits' && req.method === 'POST') {
@@ -521,7 +550,7 @@ export function createCommercialServer(options = {}) {
           target.creditsBalance = Math.max(0, target.creditsBalance + delta);
           if (delta > 0) target.creditsTotal = (target.creditsTotal || 0) + delta;
           persist(store, file);
-          return sendJson(res, 200, { success: true, user: target });
+          return sendJson(res, 200, { success: true, user: stripUserSecrets(target) });
         }
         // Admin Write: Update User Account Status
         if (pathname === '/api/admin/users/status' && req.method === 'POST') {
@@ -563,12 +592,15 @@ export function createCommercialServer(options = {}) {
           store.users = store.users || [];
           store.users.unshift(newUsr);
           persist(store, file);
-          return sendJson(res, 200, { success: true, user: newUsr, initialPassword: initialPwd });
+          return sendJson(res, 200, { success: true, user: stripUserSecrets(newUsr), initialPassword: initialPwd });
         }
         // Admin Write: Persist Billing Configuration
         if (pathname === '/api/admin/billing' && req.method === 'POST') {
           const { config } = JSON.parse((await readRawBody(req)).toString());
           if (!config) return sendJson(res, 400, { success: false, error: 'Config required' });
+          if ('freeMonthlyCredits' in Object(config) && (!Number.isSafeInteger(config.freeMonthlyCredits) || config.freeMonthlyCredits < 0)) {
+            return sendJson(res, 400, { success: false, error: 'Free credits must be a non-negative safe integer' });
+          }
           const store = readStore(file);
           store.billing_config = config;
           persist(store, file);
@@ -610,14 +642,15 @@ export function createCommercialServer(options = {}) {
           if (!verifyPassword(currentPassword, store.adminPasswordHash)) {
             return sendJson(res, 401, { success: false, error: '当前旧密码输入错误' });
           }
-          if (typeof newPassword !== 'string' || newPassword.length < 6) {
+          if (typeof newPassword !== 'string' || newPassword.trim().length < 6 || newPassword.trim().length > 1024) {
             return sendJson(res, 400, { success: false, error: '新密码不能少于 6 个字符' });
           }
-          store.adminPasswordHash = hashPassword(newPassword);
+          store.adminPasswordHash = hashPassword(newPassword.trim());
           if (newUsername && typeof newUsername === 'string') {
             store.admin_username = newUsername.trim();
           }
           persist(store, file);
+          sessions.clear();
           return sendJson(res, 200, { success: true });
         }
       }
@@ -627,25 +660,25 @@ export function createCommercialServer(options = {}) {
         if (!env.STRIPE_SECRET_KEY) {
           return sendJson(res, 503, {
             success: false,
-            error: '服务端未配置 STRIPE_SECRET_KEY 私钥，暂不开放真实收款。',
+            error: 'Stripe payments are unavailable on this server.',
           });
         }
         const body = JSON.parse((await readRawBody(req)).toString());
-        const { plan, billingCycle, userId, userEmail, successUrl, cancelUrl } = body || {};
+        // The checkout owner comes from the authenticated session; ids in the body are not trusted.
+        const { plan, billingCycle, successUrl, cancelUrl } = body || {};
         if (!['pro', 'enterprise'].includes(plan) || !['monthly', 'yearly'].includes(billingCycle)) {
           return sendJson(res, 400, { success: false, error: 'Invalid plan or billing cycle' });
         }
         const store = readStore(file);
         store.users = store.users || [];
-        const user = store.users.find(
-          (u) =>
-            (userId && u.id === userId) ||
-            (userEmail && u.email?.toLowerCase() === userEmail.toLowerCase())
-        );
+        const checkoutSession = userSessions.get(token);
+        const user = checkoutSession && checkoutSession.expires > Date.now()
+          ? store.users.find((u) => u.id === checkoutSession.userId)
+          : null;
         if (!user || user.status !== 'active') {
-          return sendJson(res, 400, {
+          return sendJson(res, 401, {
             success: false,
-            error: '必须先绑定有效活跃用户身份才可创建付款会话',
+            error: 'Sign in with an active account before starting checkout.',
           });
         }
 
@@ -654,7 +687,21 @@ export function createCommercialServer(options = {}) {
           enterprise: { monthly: 4900, yearly: 34800, credits: 5000 },
         };
         const orderAmount = PRICING_CENTS[plan][billingCycle];
-        const orderCredits = PRICING_CENTS[plan].credits;
+        // Yearly plans grant twelve monthly allotments, matching the PayPal catalog.
+        const orderCredits = billingCycle === 'yearly'
+          ? PRICING_CENTS[plan].credits * 12
+          : PRICING_CENTS[plan].credits;
+
+        const returnOrigin = env.PAYPAL_RETURN_ORIGIN || 'http://localhost:5173';
+        const safeReturnUrl = (value, fallbackPath) => {
+          try {
+            const candidate = new URL(value);
+            if (candidate.origin === returnOrigin) return candidate.toString();
+          } catch {
+            // fall through to the configured origin
+          }
+          return `${returnOrigin}${fallbackPath}`;
+        };
 
         const params = new URLSearchParams();
         params.append('payment_method_types[0]', 'card');
@@ -665,8 +712,8 @@ export function createCommercialServer(options = {}) {
         params.append('line_items[0][quantity]', '1');
         params.append('client_reference_id', user.id);
         params.append('customer_email', user.email);
-        params.append('success_url', successUrl || 'http://localhost:5173/?checkout_status=success');
-        params.append('cancel_url', cancelUrl || 'http://localhost:5173/?checkout_status=cancelled');
+        params.append('success_url', safeReturnUrl(successUrl, '/?checkout_status=success'));
+        params.append('cancel_url', safeReturnUrl(cancelUrl, '/?checkout_status=cancelled'));
 
         const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
           method: 'POST',
@@ -680,7 +727,7 @@ export function createCommercialServer(options = {}) {
           const errData = await stripeRes.json().catch(() => ({}));
           return sendJson(res, 400, {
             success: false,
-            error: errData.error?.message || 'Stripe API 响应异常，无法创建结账会话',
+            error: errData.error?.message || 'Unable to create a Stripe checkout session.',
           });
         }
         const sessionData = await stripeRes.json();

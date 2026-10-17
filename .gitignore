@@ -14,9 +14,12 @@ dist-ssr
 
 # Local runtime data & environments
 server/data
+output
 .env
 .env.*
 *.env
+.dev.vars*
+!.env.example
 
 # Editor directories and files
 .vscode/*

@@ -15,14 +15,15 @@
  * 4. Pole (Zenith & Nadir) Smoothing:
  *    Smooths the top rows (+90°) and bottom rows (-90°) to prevent pinhole pinching artifacts.
  */
-export function healPanoramaSeam(
-  sourceCanvas: HTMLCanvasElement,
-  blendWidth = 160
-): HTMLCanvasElement {
+export function healPanoramaSeam<Canvas extends HTMLCanvasElement | OffscreenCanvas>(
+  sourceCanvas: Canvas,
+  blendWidth = 160,
+  createCanvas: () => Canvas = () => document.createElement('canvas') as Canvas
+): Canvas {
   const width = sourceCanvas.width;
   const height = sourceCanvas.height;
 
-  const resultCanvas = document.createElement('canvas');
+  const resultCanvas = createCanvas();
   resultCanvas.width = width;
   resultCanvas.height = height;
 
@@ -45,6 +46,12 @@ export function healPanoramaSeam(
 
   // Wide harmonic window for global illumination and exposure alignment (12-16% of width)
   const harmDist = Math.max(safeBlend * 1.5, Math.min(Math.floor(width * 0.14), Math.floor(width / 3)));
+
+  // Tiny images cannot host these wide blending windows; skip healing rather than
+  // walking row indices past the buffer bounds.
+  if (safeBlend > width || harmDist > width) {
+    return sourceCanvas;
+  }
 
   // Precompute Cosine S-curve weights for harmonic gradient
   const wHarm = new Float32Array(harmDist);

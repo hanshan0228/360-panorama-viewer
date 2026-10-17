@@ -121,6 +121,7 @@ export function GlobeViewer({ textureUrl, className = '' }: GlobeViewerProps) {
       atmosMat.dispose();
       texture.dispose();
       renderer.dispose();
+      renderer.forceContextLoss();
     };
   }, [textureUrl, wireframe]);
 

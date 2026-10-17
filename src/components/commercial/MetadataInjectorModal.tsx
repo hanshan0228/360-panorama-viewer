@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   X,
   UploadCloud,
@@ -10,7 +10,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { exportVrReadyJpegBlob } from '../../utils/xmpInjector';
+import { exportPhotoSphereFile } from '../../utils/xmpInjector';
 
 interface MetadataInjectorModalProps {
   isOpen: boolean;
@@ -25,6 +25,43 @@ export function MetadataInjectorModal({ isOpen, onClose }: MetadataInjectorModal
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const operations = useRef({ version: 0 });
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!imagePreviewUrl) return;
+    const lifecycle = operations.current;
+    const operation = lifecycle.version;
+    const image = new Image();
+    image.onload = () => {
+      if (operation === lifecycle.version) {
+        setImageDimensions({ width: image.naturalWidth, height: image.naturalHeight });
+      }
+    };
+    image.onerror = () => {
+      if (operation === lifecycle.version) {
+        setError('Unable to decode this image. Choose a valid JPEG, PNG or WebP.');
+        setIsProcessing(false);
+      }
+    };
+    image.src = imagePreviewUrl;
+    return () => {
+      lifecycle.version++;
+      image.onload = image.onerror = null;
+      URL.revokeObjectURL(imagePreviewUrl);
+    };
+  }, [imagePreviewUrl, operations]);
+
+  useEffect(() => {
+    const lifecycle = operations.current;
+    return () => { lifecycle.version++; };
+  }, [isOpen, operations]);
+
+  const [previousIsOpen, setPreviousIsOpen] = useState(isOpen);
+  if (previousIsOpen !== isOpen) {
+    setPreviousIsOpen(isOpen);
+    if (!isOpen) setIsProcessing(false);
+  }
 
   if (!isOpen) return null;
 
@@ -33,17 +70,15 @@ export function MetadataInjectorModal({ isOpen, onClose }: MetadataInjectorModal
     const file = files[0];
     if (!file.type.startsWith('image/')) return;
 
+    operations.current.version++;
     setSelectedFile(file);
     setIsSuccess(false);
+    setIsProcessing(false);
+    setImageDimensions(null);
+    setError(null);
 
     const url = URL.createObjectURL(file);
     setImagePreviewUrl(url);
-
-    const img = new Image();
-    img.onload = () => {
-      setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight });
-    };
-    img.src = url;
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -66,49 +101,35 @@ export function MetadataInjectorModal({ isOpen, onClose }: MetadataInjectorModal
   };
 
   const handleInjectAndDownload = async () => {
-    if (!imagePreviewUrl || !imageDimensions) return;
+    if (!selectedFile || !imagePreviewUrl || isProcessing) return;
+    const operation = operations.current.version;
     setIsProcessing(true);
-
+    setIsSuccess(false);
+    setError(null);
     try {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = async () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          setIsProcessing(false);
-          return;
-        }
-
-        ctx.drawImage(img, 0, 0);
-        const vrBlob = await exportVrReadyJpegBlob(canvas, 0.95);
-        const url = URL.createObjectURL(vrBlob);
-
-        const a = document.createElement('a');
-        a.href = url;
-        const baseName = selectedFile ? selectedFile.name.replace(/\.[^/.]+$/, '') : 'panorama';
-        a.download = `${baseName}-photosphere-360.jpg`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+      const blob = await exportPhotoSphereFile(selectedFile, imagePreviewUrl);
+      if (operation !== operations.current.version) return;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      try {
+        anchor.href = url;
+        anchor.download = `${selectedFile.name.replace(/\.[^/.]+$/, '')}-photosphere-360.jpg`;
+        document.body.appendChild(anchor);
+        anchor.click();
+      } finally {
+        anchor.remove();
         URL.revokeObjectURL(url);
-
-        setIsProcessing(false);
-        setIsSuccess(true);
-        confetti({
-          particleCount: 50,
-          spread: 60,
-          origin: { y: 0.6 },
-        });
-      };
-      img.src = imagePreviewUrl;
+      }
+      setIsSuccess(true);
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
     } catch {
-      setIsProcessing(false);
+      if (operation === operations.current.version) {
+        setError('Failed to inject metadata. Choose a valid JPEG, PNG or WebP and try again.');
+      }
+    } finally {
+      if (operation === operations.current.version) setIsProcessing(false);
     }
   };
-
   const isAspectRatio2to1 =
     imageDimensions &&
     Math.abs(imageDimensions.width / imageDimensions.height - 2.0) < 0.05;
@@ -191,6 +212,9 @@ export function MetadataInjectorModal({ isOpen, onClose }: MetadataInjectorModal
               <button
                 type="button"
                 onClick={() => {
+                  operations.current.version++;
+                  setIsProcessing(false);
+                  setError(null);
                   setImagePreviewUrl(null);
                   setSelectedFile(null);
                   setImageDimensions(null);
@@ -261,6 +285,8 @@ export function MetadataInjectorModal({ isOpen, onClose }: MetadataInjectorModal
             </button>
           </div>
         )}
+
+        {error && <p role="alert" className="text-sm text-red-300 mt-3">{error}</p>}
 
         {/* Feature Badges */}
         <div className="mt-6 pt-5 border-t border-cyan-500/15 flex flex-wrap items-center justify-between gap-3 text-[11px] text-cyan-300/70">

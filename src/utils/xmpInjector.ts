@@ -72,34 +72,78 @@ export function injectPhotoSphereXmp(jpegBuffer: ArrayBuffer, width: number, hei
     insertIndex = 4 + app0Length;
   }
 
-  // Combine into single output array
-  const outputLength = bytes.length + app1Segment.length;
-  const output = new Uint8Array(outputLength);
-
-  output.set(bytes.subarray(0, insertIndex), 0);
-  output.set(app1Segment, insertIndex);
-  output.set(bytes.subarray(insertIndex), insertIndex + app1Segment.length);
-
-  return new Blob([output], { type: 'image/jpeg' });
+  const parts: BlobPart[] = [bytes.subarray(0, insertIndex), app1Segment];
+  let preservedStart = insertIndex;
+  let cursor = insertIndex;
+  while (cursor + 1 < bytes.length && bytes[cursor] === 0xff) {
+    let markerIndex = cursor + 1;
+    while (bytes[markerIndex] === 0xff) markerIndex++;
+    const marker = bytes[markerIndex];
+    if (marker === 0xda || marker === 0xd9) break;
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      cursor = markerIndex + 1;
+      continue;
+    }
+    const length = (bytes[markerIndex + 1] << 8) | bytes[markerIndex + 2];
+    const end = markerIndex + 1 + length;
+    if (length < 2 || end > bytes.length) throw new Error('Invalid JPEG segment');
+    const payloadStart = markerIndex + 3;
+    if (marker === 0xe1 && end - payloadStart >= xmpHeaderBytes.length
+      && xmpHeaderBytes.every((value, index) => bytes[payloadStart + index] === value)) {
+      parts.push(bytes.subarray(preservedStart, cursor));
+      preservedStart = end;
+    }
+    cursor = end;
+  }
+  parts.push(bytes.subarray(preservedStart));
+  return new Blob(parts, { type: 'image/jpeg' });
 }
 
 /**
  * Converts a 2:1 canvas to a VR-ready JPEG Blob with embedded Google PhotoSphere XMP metadata
  */
 export async function exportVrReadyJpegBlob(canvas: HTMLCanvasElement, quality = 0.95): Promise<Blob> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     canvas.toBlob(
       async (blob) => {
-        if (!blob) {
-          resolve(new Blob([], { type: 'image/jpeg' }));
-          return;
+        try {
+          if (!blob) throw new Error('JPEG encoding failed');
+          const buffer = await blob.arrayBuffer();
+          resolve(injectPhotoSphereXmp(buffer, canvas.width, canvas.height));
+        } catch (error) {
+          reject(error);
         }
-        const buffer = await blob.arrayBuffer();
-        const vrBlob = injectPhotoSphereXmp(buffer, canvas.width, canvas.height);
-        resolve(vrBlob);
       },
       'image/jpeg',
       quality
     );
   });
+}
+
+export async function exportPhotoSphereFile(file: File, previewUrl: string): Promise<Blob> {
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      image.onload = image.onerror = null;
+      resolve(image);
+    };
+    image.onerror = () => {
+      image.onload = image.onerror = null;
+      reject(new Error('Image decoding failed'));
+    };
+    image.src = previewUrl;
+  });
+  if (file.type === 'image/jpeg' || (!file.type && /\.jpe?g$/i.test(file.name))) {
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    if (bytes[0] !== 0xff || bytes[1] !== 0xd8) throw new Error('Invalid JPEG');
+    return injectPhotoSphereXmp(buffer, image.naturalWidth, image.naturalHeight);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Canvas unavailable');
+  context.drawImage(image, 0, 0);
+  return exportVrReadyJpegBlob(canvas);
 }

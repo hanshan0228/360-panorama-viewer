@@ -72,35 +72,35 @@ export function FeatureMatrix() {
     {
       icon: <Scissors className="w-5 h-5 text-amber-400" />,
       title: 'Seam-Aware Post-Processing',
-      badge: 'Zero Cutline',
+      badge: 'Optional',
       description:
-        'We execute wide harmonic Poisson gradient alignment across 160px with symmetric S-curve blending, rendering the 360° horizontal wrap-around completely seamless.',
+        'Inspect the left and right edges in the viewer before applying optional seam blending. Blending can soften a boundary, but cannot reconstruct mismatched scene geometry.',
       bulletPoints: [
-        '160px wide harmonic Poisson seam healer',
-        'Eliminates vertical split boundary lines',
-        'Bit-for-bit matched boundary loop',
+        'Off by default to preserve detail',
+        'May introduce ghosting at the edges',
+        'Keep the original before blending',
       ],
     },
     {
       icon: <Layers className="w-5 h-5 text-blue-400" />,
-      title: 'Polar Distortion & Nadir Fix',
-      badge: 'Smooth Poles',
+      title: 'Inspect Every Direction',
+      badge: 'Quality Check',
       description:
-        'Equirectangular projection compresses the poles heavily. Our spatial post-filter prevents the zenith and nadir pinch points from warping.',
+        'Look up, down, and around your result to check the horizon, poles, and seam. A 2:1 image alone does not guarantee a geometrically correct panorama.',
       bulletPoints: [
-        'Zenith (sky) smoothing clamp',
-        'Nadir (floor) distortion mitigation',
-        'Smooth looking straight up or down',
+        'Check the sky and ground',
+        'Look for warping and repeated objects',
+        'Regenerate when geometry is inconsistent',
       ],
     },
     {
       icon: <Box className="w-5 h-5 text-emerald-400" />,
-      title: '4K Ultra HD & Radiance HDR',
+      title: 'Resolution Choices & HDR Export',
       badge: 'Game Ready',
       description:
-        'Generate at 1K, 2K, or crisp 4K (3840×1920). Export as PNG or .hdr container that drops right into Blender, Unreal Engine, and Unity.',
+        'Request 1K, 2K, or 4K and see the actual returned dimensions. A requested tier is not a guarantee of model detail. Export your result as PNG or a Radiance .hdr container.',
       bulletPoints: [
-        'Crisp 4K 2:1 equirectangular output',
+        'Actual model dimensions displayed',
         'Radiance .hdr format for 3D IBL',
         'Commercial usage on paid plans',
       ],

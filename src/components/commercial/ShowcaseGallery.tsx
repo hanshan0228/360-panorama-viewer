@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, Heart, Compass, Check, Copy } from 'lucide-react';
+import { Eye, Compass, Check, Copy } from 'lucide-react';
 import type { StylePresetId } from '../../types/panorama';
 import { generateProceduralPanorama } from '../../utils/proceduralPanoramas';
 
@@ -9,10 +9,6 @@ interface ShowcaseItemData {
   category: string;
   prompt: string;
   style: StylePresetId;
-  author: string;
-  views: string;
-  likes: number;
-  badge: string;
   colorGrad: string;
 }
 
@@ -23,10 +19,6 @@ const SHOWCASE_ITEMS: ShowcaseItemData[] = [
     category: 'Sci-Fi & Urban',
     prompt: 'futuristic cyberpunk city at night, neon holograms, rain reflections, volumetric fog, flying vehicles, 8k equirectangular 360 panorama',
     style: 'cyberpunk',
-    author: 'Elena Rostova · Senior 3D Artist',
-    views: '14.2k',
-    likes: 842,
-    badge: 'Trending 4K',
     colorGrad: 'from-pink-500 via-purple-600 to-cyan-500',
   },
   {
@@ -35,10 +27,6 @@ const SHOWCASE_ITEMS: ShowcaseItemData[] = [
     category: 'Nature & Landscape',
     prompt: 'majestic snow-capped alpine mountains at sunrise, crystal clear turquoise lake reflection, morning mist, golden sunbeams, 8k equirectangular 360',
     style: 'nature',
-    author: 'Marcus Lind · Unreal Engine Environment Dev',
-    views: '11.8k',
-    likes: 673,
-    badge: 'Popular',
     colorGrad: 'from-amber-400 via-orange-500 to-rose-600',
   },
   {
@@ -47,10 +35,6 @@ const SHOWCASE_ITEMS: ShowcaseItemData[] = [
     category: 'Sci-Fi & Space',
     prompt: 'deep space nebula, purple and teal cosmic dust, glowing galaxies, ringed planet, stellar skybox, volumetric stars, 8k 360 equirectangular',
     style: 'space',
-    author: 'Kaelen Vance · Game Art Director',
-    views: '19.5k',
-    likes: 1205,
-    badge: 'Editor Pick',
     colorGrad: 'from-cyan-400 via-blue-600 to-indigo-900',
   },
   {
@@ -59,10 +43,6 @@ const SHOWCASE_ITEMS: ShowcaseItemData[] = [
     category: 'Architecture & Interior',
     prompt: 'luxury modern penthouse interior, floor-to-ceiling glass windows, evening city view, warm architectural lighting, oak wood flooring, 8k 360',
     style: 'interior',
-    author: 'Sophia Chen · ArchViz Lead',
-    views: '9.4k',
-    likes: 512,
-    badge: 'ArchViz Ready',
     colorGrad: 'from-teal-400 via-emerald-600 to-slate-900',
   },
   {
@@ -71,10 +51,6 @@ const SHOWCASE_ITEMS: ShowcaseItemData[] = [
     category: 'Fantasy & Magic',
     prompt: 'ancient fantasy temple ruins, floating celestial stones, glowing magical runes, aurora sky, ethereal mist, 8k equirectangular 360 panorama',
     style: 'fantasy',
-    author: 'Dmitri Voron · Concept Artist',
-    views: '16.3k',
-    likes: 934,
-    badge: 'VR Staff Pick',
     colorGrad: 'from-emerald-400 via-teal-500 to-blue-700',
   },
   {
@@ -83,10 +59,6 @@ const SHOWCASE_ITEMS: ShowcaseItemData[] = [
     category: 'Anime & Stylized',
     prompt: 'Japanese anime hand-drawn watercolor aesthetic, gentle coastal breeze, lush green summer grass, fluffy white clouds, warm natural sunlight, nostalgic peaceful anime scenery',
     style: 'anime',
-    author: 'Yuki Takahashi · Animation Studio',
-    views: '12.1k',
-    likes: 780,
-    badge: 'Stylized 4K',
     colorGrad: 'from-sky-400 via-teal-300 to-indigo-500',
   },
 ];
@@ -98,9 +70,6 @@ interface ShowcaseGalleryProps {
 export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [likesMap, setLikesMap] = useState<Record<string, number>>(() =>
-    SHOWCASE_ITEMS.reduce((acc, item) => ({ ...acc, [item.id]: item.likes }), {})
-  );
 
   const categories = ['All', 'Sci-Fi & Urban', 'Nature & Landscape', 'Architecture & Interior', 'Fantasy & Magic', 'Anime & Stylized'];
 
@@ -114,9 +83,6 @@ export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleLike = (id: string) => {
-    setLikesMap((prev) => ({ ...prev, [id]: prev[id] + 1 }));
-  };
 
   const handleLoadItem = (item: ShowcaseItemData) => {
     const canvas = generateProceduralPanorama(item.style, item.prompt, 2048, 1024);
@@ -130,13 +96,13 @@ export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-semibold mb-3">
             <Compass className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Community Inspiration &amp; Library</span>
+            <span>The prompt library</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Explore Featured 360° VR Panoramas
+            A starting point for your next world.
           </h2>
           <p className="text-sm text-cyan-200/70 mt-1 max-w-2xl">
-            Click any panorama to immediately inspect and explore in full 360° spherical WebGL immersion, or copy the exact prompt recipe.
+            Explore prompt ideas and procedural 360° demos. These are not AI-generated results; copy a prompt to create your own version.
           </p>
         </div>
 
@@ -146,6 +112,7 @@ export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
             <button
               key={cat}
               type="button"
+              aria-pressed={selectedCategory === cat}
               onClick={() => setSelectedCategory(cat)}
               className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 selectedCategory === cat
@@ -172,7 +139,7 @@ export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
               
               <div className="flex items-center justify-between relative z-10">
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/50 text-white backdrop-blur-md border border-white/20">
-                  {item.badge}
+                  Prompt idea
                 </span>
                 <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-black/40 text-cyan-200 backdrop-blur-md">
                   2:1 Equirectangular
@@ -192,23 +159,6 @@ export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
                   &ldquo;{item.prompt}&rdquo;
                 </p>
 
-                <div className="flex items-center justify-between text-[11px] text-cyan-300/70 mt-3 pt-3 border-t border-cyan-500/15">
-                  <span className="truncate">{item.author}</span>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="flex items-center gap-1">
-                      <Eye className="w-3 h-3 text-cyan-400" />
-                      {item.views}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleLike(item.id)}
-                      className="flex items-center gap-1 hover:text-pink-400 transition-colors cursor-pointer"
-                    >
-                      <Heart className="w-3 h-3 text-pink-400 fill-pink-400/40" />
-                      {likesMap[item.id]}
-                    </button>
-                  </div>
-                </div>
               </div>
 
               {/* Action Buttons */}
@@ -219,7 +169,7 @@ export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
                   className="px-3 py-2 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-cyan-500/25 cursor-pointer transition-transform hover:scale-[1.02]"
                 >
                   <Eye className="w-3.5 h-3.5 fill-current" />
-                  <span>Preview in 360°</span>
+                  <span>Open demo</span>
                 </button>
 
                 <button

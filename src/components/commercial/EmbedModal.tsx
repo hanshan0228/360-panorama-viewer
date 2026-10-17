@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   X,
   Code2,
@@ -23,24 +23,25 @@ export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalPr
   const [includeAttribution, setIncludeAttribution] = useState(true);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '4:3' | '100%'>('16:9');
   const [isCopied, setIsCopied] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
-  // ESC key listener for accessibility
   useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+    const dialog = dialogRef.current;
+    if (!isOpen || !dialog) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    dialog.showModal();
+    return () => {
+      dialog.close();
+      previousFocus?.focus();
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   const isRemoteUrl = Boolean(
     currentPanoramaUrl &&
     (currentPanoramaUrl.startsWith('http://') || currentPanoramaUrl.startsWith('https://'))
   );
 
-  // Compute embed URL & HTML iframe code
-  const embedCode = useMemo(() => {
+  const iframeSrc = useMemo(() => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://panoramagenerator.ai';
     const params = new URLSearchParams();
     params.set('embed', 'true');
@@ -49,7 +50,10 @@ export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalPr
       params.set('pano', currentPanoramaUrl);
     }
 
-    const iframeSrc = `${origin}/?${params.toString()}#embed`;
+    return `${origin}/?${params.toString()}#embed`;
+  }, [autoRotate, isRemoteUrl, currentPanoramaUrl]);
+
+  const embedCode = useMemo(() => {
     const heightStyle = aspectRatio === '16:9' ? '500px' : aspectRatio === '4:3' ? '600px' : '450px';
 
     const attributionHtml = includeAttribution
@@ -73,23 +77,28 @@ export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalPr
       `  ></iframe>\n` +
       `</div>${attributionHtml}`
     );
-  }, [autoRotate, includeAttribution, aspectRatio, isRemoteUrl, currentPanoramaUrl]);
+  }, [iframeSrc, includeAttribution, aspectRatio]);
 
   if (!isOpen) return null;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(embedCode);
+    const writePromise = navigator.clipboard?.writeText?.(embedCode);
+    if (writePromise && typeof writePromise.catch === 'function') {
+      // Clipboard can reject (permissions, insecure context); the copy state below is still useful.
+      writePromise.catch(() => {});
+    }
     setIsCopied(true);
     confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
     setTimeout(() => setIsCopied(false), 2500);
   };
 
   return (
-    <div
-      role="dialog"
+    <dialog
+      ref={dialogRef}
+      onCancel={(event) => { event.preventDefault(); onClose(); }}
       aria-modal="true"
       aria-labelledby="embed-modal-title"
-      className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 py-6 sm:py-8 animate-in fade-in duration-200 overflow-y-auto"
+      className="fixed inset-0 z-50 m-0 w-screen h-dvh max-w-none max-h-none border-0 flex items-start sm:items-center justify-center text-sky-100 bg-transparent backdrop:bg-black/85 backdrop:backdrop-blur-md p-3 sm:p-4 py-6 sm:py-8 animate-in fade-in duration-200 overflow-y-auto"
     >
       <div className="glass-panel border border-cyan-400/40 rounded-3xl max-w-2xl w-full p-5 sm:p-7 shadow-[0_25px_70px_rgba(0,0,0,0.9)] space-y-4 sm:space-y-6 relative max-h-[90vh] overflow-y-auto my-auto">
         {/* Glow ambient background */}
@@ -127,7 +136,7 @@ export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalPr
           <div className="p-3 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 flex items-start gap-2.5 text-xs text-cyan-200">
             <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
             <p className="text-[11px] leading-relaxed">
-              <strong>场景提示：</strong>当前全景图为本地内存临时渲染。若需要在外部网站公开嵌入，建议将全景图片托管至公开 CDN，并在 URL 中使用 <code className="text-cyan-300">?pano=https://...</code> 即可跨站无缝展现。
+              <strong>Embedding note:</strong>This panorama is a temporary local image. To embed it on another website, host the image at a public HTTPS URL and use <code className="text-cyan-300">?pano=https://...</code> in the viewer URL.
             </p>
           </div>
         )}
@@ -210,7 +219,7 @@ export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalPr
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <a
-              href="/?embed=true"
+              href={iframeSrc}
               target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-3 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 text-cyan-200 hover:text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -239,6 +248,6 @@ export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalPr
           </div>
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }

@@ -14,6 +14,36 @@ export interface BackendHealthStatus {
   paypalMode?: string;
 }
 
+export interface PayPalSubscription {
+  id: string;
+  paypalId: string | null;
+  plan: 'pro' | 'enterprise';
+  billingCycle: 'monthly' | 'yearly';
+  status: string;
+  paidThrough: string;
+  approvalUrl: string;
+}
+
+export interface PayPalConfig {
+  enabled: boolean;
+  mode: string;
+  plans: Record<'pro' | 'enterprise', Record<'monthly' | 'yearly', { amountCents: number; credits: number }>>;
+}
+
+export async function paypalRequest<Result>(route: string, body?: unknown, sessionToken?: string | null): Promise<Result> {
+  const currentToken = localStorage.getItem('panorama_server_user_token');
+  if (sessionToken !== undefined && currentToken !== sessionToken) throw new Error('Account changed. Close and reopen checkout.');
+  const token = sessionToken === undefined ? currentToken : sessionToken;
+  const response = await fetch(`/api/paypal/${route}`, {
+    method: body === undefined ? 'GET' : 'POST', signal: AbortSignal.timeout(45000),
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'PayPal request failed');
+  return data as Result;
+}
+
 let cachedHealth: BackendHealthStatus | null = null;
 let lastProbeTime = 0;
 
@@ -104,18 +134,21 @@ export async function createServerStripeCheckout(params: {
 export async function authServerUser(
   email: string,
   name?: string,
-  password?: string
+  password?: string,
+  options: { mode?: 'login' | 'register'; signal?: AbortSignal } = {}
 ): Promise<{ success: boolean; user?: any; token?: string; error?: string }> {
   try {
     const res = await fetch('/api/user/auth', {
       method: 'POST',
+      signal: options.signal,
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, name, password }),
+      body: JSON.stringify({ email, name, password, mode: options.mode }),
     });
 
     const data = await res.json();
+    options.signal?.throwIfAborted();
     if (res.ok && data.success) {
       if (data.token && typeof localStorage !== 'undefined') {
         localStorage.setItem('panorama_server_user_token', data.token);
@@ -277,7 +310,7 @@ export async function adminSaveBillingConfigServer(config: any): Promise<boolean
   }
 }
 
-export async function adminUpdateCredentialsServer(currentPassword: string, newUsername?: string, newPassword?: string): Promise<{ success: boolean; error?: string }> {
+export async function adminUpdateCredentialsServer(currentPassword: string, newUsername?: string, newPassword?: string): Promise<{ success: boolean; error?: string; requiresLogin?: boolean }> {
   try {
     const res = await fetch('/api/admin/credentials', {
       method: 'POST',
@@ -285,7 +318,7 @@ export async function adminUpdateCredentialsServer(currentPassword: string, newU
       body: JSON.stringify({ currentPassword, newUsername, newPassword }),
     });
     const data = await res.json();
-    return { success: res.ok && data.success, error: data.error };
+    return { success: res.ok && data.success === true, error: data.error, requiresLogin: res.status === 401 };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Network error' };
   }

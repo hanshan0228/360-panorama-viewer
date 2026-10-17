@@ -9,9 +9,10 @@ import {
 
 interface EmbedViewerProps {
   textureUrl: string;
+  autoRotate?: boolean;
 }
 
-export function EmbedViewer({ textureUrl }: EmbedViewerProps) {
+export function EmbedViewer({ textureUrl, autoRotate = false }: EmbedViewerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const toggleFullscreen = () => {
@@ -27,6 +28,7 @@ export function EmbedViewer({ textureUrl }: EmbedViewerProps) {
       {/* 360 Sphere WebGL Viewport */}
       <SphereViewer
         textureUrl={textureUrl}
+        initialAutoRotate={autoRotate}
         className="w-full h-full"
       />
 

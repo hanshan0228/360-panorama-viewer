@@ -26,8 +26,8 @@ export const DEFAULT_ADMIN_USERNAME = 'admin';
 export const DEFAULT_MODEL_ENDPOINTS: ModelEndpointConfig[] = [
   {
     id: 'gemini-imagen3',
-    name: 'Gemini Imagen 3.0 (Local Proxy / Official)',
-    provider: 'gemini',
+    name: 'GPT Image 2.5 (OpenAI-Compatible)',
+    provider: 'openai',
     baseUrl: 'http://localhost:8317',
     apiKey: '',
     model: 'gpt-image-2.5',
@@ -38,14 +38,14 @@ export const DEFAULT_MODEL_ENDPOINTS: ModelEndpointConfig[] = [
   },
   {
     id: 'gemini-flash-img',
-    name: 'Gemini 2.5 Flash Image (Fast & Lightweight)',
+    name: 'Gemini 3.1 Flash Image',
     provider: 'gemini',
     baseUrl: 'http://localhost:8317',
     apiKey: '',
-    model: 'gpt-image-2',
+    model: 'gemini-3.1-flash-image',
     isEnabled: true,
     priority: 2,
-    maxResolution: '2K',
+    maxResolution: '4K',
     isDefault: false,
   },
   {
@@ -340,7 +340,7 @@ export const DEFAULT_GUEST_USER: ManagedUser = {
   creditsTotal: 4,
   status: 'active',
   joinedAt: '2026-10-11',
-  lastActiveAt: '刚刚访问',
+  lastActiveAt: 'Just now',
   apiCallsCount: 0,
 };
 
@@ -406,7 +406,7 @@ export function deductCurrentUserCredits(amount: number): { success: boolean; re
       ...current,
       creditsBalance: current.creditsBalance - amount,
       apiCallsCount: (current.apiCallsCount || 0) + 1,
-      lastActiveAt: '刚刚调用',
+      lastActiveAt: 'Just now',
     };
     try {
       localStorage.setItem('panorama_guest_user_data', JSON.stringify(updatedGuest));
@@ -432,7 +432,7 @@ export function deductCurrentUserCredits(amount: number): { success: boolean; re
 
   targetUser.creditsBalance -= amount;
   targetUser.apiCallsCount += 1;
-  targetUser.lastActiveAt = '刚刚调用';
+  targetUser.lastActiveAt = 'Just now';
   saveStoredManagedUsers(users);
   return { success: true, remaining: targetUser.creditsBalance };
 }
@@ -582,7 +582,7 @@ export function saveStoredRoutingConfig(config: ModelRoutingConfig): void {
 /**
  * Resolves the candidate execution endpoints pipeline based on admin routing policy:
  * - 'single': strictly try the designated primary model only. If disabled or missing, returns empty pipeline without fallback.
- * - 'failover': try primary model first; if quota exhausted or fails, switch only to explicitly configured secondary/tertiary endpoints. Never silently append unselected endpoints.
+ * - 'failover': try primary model first; if quota exhausted or fails — or it returns a below-request resolution whose cost was fully refunded — switch only to explicitly configured secondary/tertiary endpoints. Never silently append unselected endpoints.
  * - 'round-robin': rotate strictly across enabled models sequentially. Returns empty if all models disabled.
  */
 export function getModelExecutionPipeline(): {
@@ -748,6 +748,11 @@ export function getStoredAdminPassword(): string {
     // fallback
   }
   return DEFAULT_ADMIN_PASSWORD;
+}
+
+export function markAdminServerMode(): void {
+  localStorage.removeItem(ADMIN_PASSWORD_STORAGE_KEY);
+  sessionStorage.setItem('panorama_admin_server_mode', 'true');
 }
 
 export function setStoredAdminPassword(password: string): void {

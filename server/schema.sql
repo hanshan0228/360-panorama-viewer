@@ -1,5 +1,24 @@
 -- PanoramaAI Studio Cloudflare D1 Database Schema
 
+CREATE TABLE IF NOT EXISTS paypal_subscriptions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  paypal_id TEXT UNIQUE,
+  plan_id TEXT NOT NULL,
+  plan TEXT NOT NULL,
+  billing_cycle TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  credits INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  approval_url TEXT NOT NULL DEFAULT '',
+  paid_through TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  status_time TEXT NOT NULL DEFAULT ''
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS paypal_one_open_subscription ON paypal_subscriptions(user_id)
+  WHERE status NOT IN ('CANCELLED', 'EXPIRED');
+
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,

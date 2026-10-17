@@ -28,6 +28,7 @@ interface SphereViewerProps {
   textureUrl: string;
   projectionMode?: ViewerProjectionMode;
   initialFov?: number;
+  initialAutoRotate?: boolean;
   className?: string;
   showControlsBar?: boolean;
   hotspots?: PanoramaHotspot[];
@@ -39,6 +40,7 @@ export const SphereViewer = memo(function SphereViewer({
   textureUrl,
   projectionMode = 'sphere',
   initialFov = 75,
+  initialAutoRotate = false,
   className = '',
   showControlsBar = true,
   hotspots = [],
@@ -46,6 +48,7 @@ export const SphereViewer = memo(function SphereViewer({
   onRemoveHotspot,
 }: SphereViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const isPointerOverRef = useRef(false);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -53,7 +56,7 @@ export const SphereViewer = memo(function SphereViewer({
   const animFrameIdRef = useRef<number | null>(null);
 
   // Interaction & visual state
-  const [isAutoRotating, setIsAutoRotating] = useState(false);
+  const [isAutoRotating, setIsAutoRotating] = useState(initialAutoRotate);
   const isAutoRotatingRef = useRef(isAutoRotating);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeMode, setActiveMode] = useState<ViewerProjectionMode>(projectionMode);
@@ -254,7 +257,7 @@ export const SphereViewer = memo(function SphereViewer({
     let material: THREE.Material;
 
     if (activeMode === 'curved') {
-      geometry = new THREE.CylinderGeometry(450, 450, 360, 64, 1, true, -Math.PI / 2, Math.PI);
+      geometry = new THREE.CylinderGeometry(450, 450, 360, 64, 1, true, Math.PI, Math.PI);
       geometry.scale(-1, 1, 1);
       material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
 
@@ -496,38 +499,49 @@ export const SphereViewer = memo(function SphereViewer({
       material.dispose();
       texture.dispose();
       renderer.dispose();
+      renderer.forceContextLoss();
     };
   }, [textureUrl, activeMode, isGyroActive]);
 
   // Keyboard navigation listeners
   useEffect(() => {
-    const isEditingInput = (e: KeyboardEvent) => {
+    const isInteractiveTarget = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       return (
         target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable)
+        (target.isContentEditable || target.closest('input, textarea, select, button, a, [role="button"], [role="dialog"], dialog'))
       );
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isEditingInput(e)) return;
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || isInteractiveTarget(e)) return;
+      if (!['Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) return;
+      // Only hijack keys while the viewer is the interaction context: the pointer is over it,
+      // the event target sits inside it, or it is the fullscreen element. The rest of the
+      // page keeps its native keyboard behavior.
+      const container = containerRef.current;
+      const insideViewer = !!container && !!e.target && typeof container.contains === 'function'
+        && container.contains(e.target as Node);
+      const inFullscreen = typeof document !== 'undefined' && !!container && document.fullscreenElement === container;
+      if (!insideViewer && !isPointerOverRef.current && !inFullscreen) return;
+      e.preventDefault();
       keysPressedRef.current[e.code] = true;
-      if (e.code === 'Space') {
+      if (e.code === 'Space' && !e.repeat) {
         setIsAutoRotating((p) => !p);
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (isEditingInput(e)) return;
       keysPressedRef.current[e.code] = false;
     };
+    const handleBlur = () => { keysPressedRef.current = {}; };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
     };
   }, []);
 
@@ -708,7 +722,8 @@ export const SphereViewer = memo(function SphereViewer({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
+      onPointerEnter={() => { isPointerOverRef.current = true; }}
+      onPointerLeave={() => { isPointerOverRef.current = false; handlePointerUp(); }}
       onWheel={handleWheel}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}

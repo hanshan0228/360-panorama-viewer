@@ -120,7 +120,7 @@ test('user auth registers new users, issues session tokens, and returns user pro
   assert.equal((await post('/api/user/auth', { email: 'bad-email' })).status, 400);
 
   // 2. Register valid user
-  const authRes = await post('/api/user/auth', { email: 'creator@studio360.io', name: 'Alex' });
+  const authRes = await post('/api/user/auth', { email: 'creator@studio360.io', name: 'Alex', password });
   assert.equal(authRes.status, 200);
   const { user, token } = await authRes.json();
   assert.equal(user.email, 'creator@studio360.io');
@@ -138,6 +138,16 @@ test('user auth registers new users, issues session tokens, and returns user pro
 
   // 4. Unauthorized fetch without token returns 401
   assert.equal((await fetch(base + '/api/user/me')).status, 401);
+});
+
+test('registration rejects missing, short, non-string and oversized passwords without creating an account', async t => {
+  const { post, file } = await withServer(t);
+  for (const invalid of [undefined, '', '12345', 123456, 'x'.repeat(1025)]) {
+    assert.equal((await post('/api/user/auth', { email: 'valid@example.com', password: invalid })).status, 400);
+    assert.equal(readStore(file).users.length, 1);
+  }
+  assert.equal((await post('/api/user/auth', { email: 'valid@example.com', password: '123456' })).status, 200);
+  assert.equal((await post('/api/user/auth', { email: 'valid@example.com', password: '123456' })).status, 200);
 });
 
 test('admin endpoints persist credit adjustments, status, user creation, billing, and credentials', async (t) => {
@@ -273,7 +283,7 @@ test('generate proxy strictly verifies authentication, accounts, credits, endpoi
     referenceImages: ['data:image/png;base64,mockImageBase64']
   }, guestHeaders);
   assert.equal(refRejectRes.status, 400);
-  assert.ok((await refRejectRes.json()).error.includes('不支持参考图片'));
+  assert.ok((await refRejectRes.json()).error.includes('does not support reference images'));
 
   // 6. Reject generation when credits are insufficient
   const depletedStore = readStore(file);
@@ -281,7 +291,7 @@ test('generate proxy strictly verifies authentication, accounts, credits, endpoi
   writeStore(depletedStore, file);
   const overdraftRes = await post('/api/generate', { prompt: 'skyline', resolution: '4K' }, guestHeaders);
   assert.equal(overdraftRes.status, 400);
-  assert.ok((await overdraftRes.json()).error.includes('积分不足'));
+  assert.ok((await overdraftRes.json()).error.includes('Insufficient credits'));
 
   // 7. Reject generation for suspended account
   const bannedStore = readStore(file);
@@ -301,4 +311,89 @@ test('legacy migration preserves backup and removes stored secrets', async (t) =
   assert.equal(verifyPassword(password, readStore(file).adminPasswordHash), true);
   assert.equal(readStore(file).paymentConfig, undefined);
   assert.equal(fs.readdirSync(dir).filter((v) => v.includes('.backup-')).length, 1);
+});
+
+test('user and admin payloads never expose password hashes', async (t) => {
+  const { base, post } = await withServer(t);
+  const registered = await (await post('/api/user/auth', {
+    email: 'hash-check@example.test', password: 'synthetic-password', mode: 'register',
+  })).json();
+  assert.equal('password_hash' in registered.user, false, 'registration must not echo the stored hash');
+
+  const loggedIn = await (await post('/api/user/auth', {
+    email: 'hash-check@example.test', password: 'synthetic-password', mode: 'login',
+  })).json();
+  assert.equal('password_hash' in loggedIn.user, false, 'login must not echo the stored hash');
+
+  const me = await (await fetch(base + '/api/user/me', {
+    headers: { Authorization: `Bearer ${loggedIn.token}` },
+  })).json();
+  assert.equal('password_hash' in me.user, false, 'profile must not echo the stored hash');
+
+  const admin = await (await post('/api/admin/login', { username: 'admin', password })).json();
+  const adminHeaders = { Authorization: `Bearer ${admin.token}` };
+  const store = await (await fetch(base + '/api/admin/store', { headers: adminHeaders })).json();
+  assert.ok(store.users.length > 0);
+  for (const account of store.users) {
+    assert.equal('password_hash' in account, false, 'store listing must not expose stored hashes');
+  }
+
+  const credit = await (await post('/api/admin/users/credits', { userId: me.user.id, delta: 5 }, adminHeaders)).json();
+  assert.equal('password_hash' in credit.user, false, 'credit updates must not echo the stored hash');
+});
+
+test('guest trial minting is rate limited per client address', async (t) => {
+  const { post } = await withServer(t);
+  for (let mint = 0; mint < 5; mint += 1) {
+    assert.equal((await post('/api/user/guest', {})).status, 200);
+  }
+  assert.equal((await post('/api/user/guest', {})).status, 429);
+});
+
+test('repeated failed sign-ins trip the user auth limiter', async (t) => {
+  const { post } = await withServer(t);
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const answer = await post('/api/user/auth', { email: 'nobody@example.test', password: 'synthetic-password', mode: 'login' });
+    assert.equal(answer.status, 401);
+  }
+  assert.equal((await post('/api/user/auth', { email: 'nobody@example.test', password: 'synthetic-password', mode: 'login' })).status, 429);
+});
+
+test('stripe checkout binds orders to the authenticated session and charges yearly credits', async (testContext) => {
+  const realFetch = globalThis.fetch;
+  const upstreamCalls = [];
+  testContext.mock.method(globalThis, 'fetch', async (url, init) => {
+    if (String(url).startsWith('https://api.stripe.com/')) {
+      upstreamCalls.push(String(init?.body ?? ''));
+      return Response.json({ id: 'cs_mock_new', url: 'https://checkout.stripe.example/session' });
+    }
+    return realFetch(url, init);
+  });
+  const { file, post } = await withServer(testContext, { env: { STRIPE_SECRET_KEY: 'sk_test_mock' } });
+
+  assert.equal((await post('/api/stripe/create-checkout-session', { plan: 'pro', billingCycle: 'monthly' })).status, 401);
+
+  const registered = await (await post('/api/user/auth', {
+    email: 'checkout-buyer@example.test', password: 'synthetic-password', mode: 'register',
+  })).json();
+  const authorized = await post('/api/stripe/create-checkout-session', {
+    plan: 'pro',
+    billingCycle: 'yearly',
+    userId: 'u1',
+    userEmail: 'someone-else@example.test',
+    successUrl: 'https://evil.example/collect',
+    cancelUrl: 'https://evil.example/collect',
+  }, { Authorization: `Bearer ${registered.token}` });
+  assert.equal(authorized.status, 200);
+
+  const order = readStore(file).orders.find((entry) => entry.checkoutSessionId === 'cs_mock_new');
+  assert.ok(order, 'the paid session must be recorded before credits could ever be granted');
+  assert.equal(order.userId, registered.user.id, 'orders must belong to the session user, not the request body');
+  assert.equal(order.amountCents, 11880);
+  assert.equal(order.credits, 12000, 'yearly plans grant twelve monthly allotments');
+
+  assert.equal(upstreamCalls.length, 1);
+  const decoded = decodeURIComponent(upstreamCalls[0]);
+  assert.ok(!decoded.includes('evil.example'), 'return urls must be restricted to the configured origin');
+  assert.ok(decoded.includes('http://localhost:5173/'));
 });

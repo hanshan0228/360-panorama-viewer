@@ -1,6 +1,6 @@
-import { healPanoramaSeam } from './seamHealer';
 import { getActiveModelEndpoint } from './adminStorage';
 import type { ResolutionTier } from '../types/panorama';
+import { buildImageModelRequest, inspectImageResolution, type ImageResolution } from './imageModelRequest.mjs';
 
 export interface GeminiConfig {
   endpointId?: string;
@@ -169,7 +169,7 @@ export async function testProxyConnection(config: GeminiConfig): Promise<{
     const isPublic = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
     let hint = `Cannot connect to ${normalizedBase}. Please ensure proxy server is running. (${err instanceof Error ? err.message : String(err)})`;
     if (isPublic && isLocal) {
-      hint += ` [公网部署注意：当前网页运行于公网环境，访问者的浏览器无法连接访问者本机端口。请配置公网反代接口或 Google 官方直连端点]`;
+      hint += ` [Public deployment: configure a publicly accessible proxy or the Google API; a localhost address cannot reach your computer from the server.]`;
     }
     return {
       success: false,
@@ -238,12 +238,11 @@ export async function generateWithGemini(
   prompt: string,
   config: GeminiConfig,
   referenceImages?: string[]
-): Promise<{ imageUrl: string; remainingCredits?: number; creditsDeducted?: number }> {
+): Promise<{ imageUrl: string; remainingCredits?: number; creditsDeducted?: number; creditsRefunded?: number; imageResolution?: ImageResolution }> {
   const normalizedBase = (config.baseUrl || 'http://127.0.0.1:8317').replace(/\/+$/, '');
   const apiKey = (config.apiKey || '').trim();
   const model = config.model.trim() || 'gpt-image-2.5';
 
-  const isGoogleDirect = normalizedBase.includes('googleapis.com');
   let rawImageUrl: string | null = null;
 
   // Route through secure backend proxy when on public domain or no client apiKey is provided
@@ -272,7 +271,7 @@ export async function generateWithGemini(
       if (!isPublicWeb && apiKey) {
         // Only allow falling back to direct local connection if user is local developer with own key
       } else {
-        throw new Error(`连接云端生图服务异常: ${netErr instanceof Error ? netErr.message : String(netErr)}`);
+        throw new Error(`Unable to reach the image generation service: ${netErr instanceof Error ? netErr.message : String(netErr)}`);
       }
     }
 
@@ -280,48 +279,35 @@ export async function generateWithGemini(
       if (proxyRes.ok) {
         const proxyData = await proxyRes.json();
         if (proxyData.success && proxyData.imageUrl) {
-          return { imageUrl: proxyData.imageUrl, remainingCredits: proxyData.remainingCredits, creditsDeducted: proxyData.creditsDeducted };
+          return {
+            imageUrl: proxyData.imageUrl, remainingCredits: proxyData.remainingCredits,
+            creditsDeducted: proxyData.creditsDeducted, creditsRefunded: proxyData.creditsRefunded,
+            imageResolution: proxyData.imageResolution ?? inspectImageResolution(proxyData.imageUrl, config.resolution || '4K'),
+          };
         }
       } else {
         // Server returned an explicit error (400 Insufficient credits, 403 Suspended, etc.): NEVER silently bypass!
         const errJson = await proxyRes.json().catch(() => ({}));
-        throw new Error(errJson.error || `生图代理服务返回错误 [HTTP ${proxyRes.status}]`);
+        throw new Error(errJson.error || `Image generation proxy error [HTTP ${proxyRes.status}]`);
       }
     }
   }
 
+  const directRequest = buildImageModelRequest({ baseUrl: normalizedBase, apiKey, model }, {
+    prompt, referenceImages, resolution: config.resolution || '4K',
+  });
+  const isGoogleDirect = directRequest.mode.startsWith('google-');
   if (!isGoogleDirect) {
-    const isGeminiChatImage = model.toLowerCase().includes('gemini');
+    const isGeminiChatImage = directRequest.mode === 'chat';
 
     if (isGeminiChatImage) {
       // 8317 CLIProxyAPI serves gemini-3.1-flash-image via /v1/chat/completions
       // and returns images in choices[0].message.images[0].image_url.url
-      const chatEndpoint = normalizedBase.endsWith('/v1')
-        ? `${normalizedBase}/chat/completions`
-        : `${normalizedBase}/v1/chat/completions`;
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (apiKey) {
-        headers['Authorization'] = `Bearer ${apiKey}`;
-      }
+      const chatEndpoint = directRequest.url;
+      const headers = directRequest.headers;
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 90000);
-
-      // Support multimodal reference images if provided
-      const validRefs = (referenceImages || []).filter(Boolean);
-      const messageContent =
-        validRefs.length > 0
-          ? [
-              { type: 'text', text: prompt },
-              ...validRefs.map((img) => ({
-                type: 'image_url',
-                image_url: { url: img },
-              })),
-            ]
-          : prompt;
 
       let res: Response;
       try {
@@ -329,15 +315,7 @@ export async function generateWithGemini(
           method: 'POST',
           headers,
           signal: controller.signal,
-          body: JSON.stringify({
-            model,
-            messages: [
-              {
-                role: 'user',
-                content: messageContent,
-              },
-            ],
-          }),
+          body: JSON.stringify(directRequest.payload),
         });
       } catch (err: unknown) {
         clearTimeout(timeoutId);
@@ -346,7 +324,7 @@ export async function generateWithGemini(
         const isPublic = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
         let detail = `Unable to connect to proxy endpoint [${chatEndpoint}]: ${err instanceof Error ? err.message : String(err)}`;
         if (isPublic && isLocal) {
-          detail += ' (公网部署提示：当前网页运行在公网，无法连接至访问者本机的 8317 代理端口。请在后台管理配置公网可访问端点或 Google 官方 API)';
+          detail += ' (Public deployment: use a publicly accessible proxy or Google API, not localhost:8317.)';
         }
         throw new Error(
           isAbort
@@ -355,30 +333,6 @@ export async function generateWithGemini(
         );
       } finally {
         clearTimeout(timeoutId);
-      }
-
-      // If multimodal array failed with 400 Bad Request, retry once with pure text prompt
-      if (!res.ok && res.status === 400 && validRefs.length > 0) {
-        try {
-          const fallbackRes = await fetch(chatEndpoint, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              model,
-              messages: [
-                {
-                  role: 'user',
-                  content: prompt,
-                },
-              ],
-            }),
-          });
-          if (fallbackRes.ok) {
-            res = fallbackRes;
-          }
-        } catch {
-          // keep original res
-        }
       }
 
       if (!res.ok) {
@@ -414,16 +368,8 @@ export async function generateWithGemini(
       }
     } else {
       // 1. Standard OpenAI-compatible /v1/images/generations (used by 8317 cli-proxy-api, One-API, etc.)
-      const endpoint = normalizedBase.endsWith('/v1')
-        ? `${normalizedBase}/images/generations`
-        : `${normalizedBase}/v1/images/generations`;
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (apiKey) {
-        headers['Authorization'] = `Bearer ${apiKey}`;
-      }
+      const endpoint = directRequest.url;
+      const headers = directRequest.headers;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s timeout for image diffusion
@@ -434,33 +380,8 @@ export async function generateWithGemini(
         method: 'POST',
         headers,
         signal: controller.signal,
-        body: JSON.stringify({
-          model,
-          prompt,
-          n: 1,
-          size: '1792x1024',
-          response_format: 'b64_json',
-        }),
+        body: JSON.stringify(directRequest.payload),
       });
-
-      // If the model rejects 1792x1024 due to size constraints, automatically retry with 1024x1024
-      if (!res.ok && res.status === 400) {
-        const errPeek = await res.clone().text();
-        if (errPeek.toLowerCase().includes('size')) {
-          res = await fetch(endpoint, {
-            method: 'POST',
-            headers,
-            signal: controller.signal,
-            body: JSON.stringify({
-              model,
-              prompt,
-              n: 1,
-              size: '1024x1024',
-              response_format: 'b64_json',
-            }),
-          });
-        }
-      }
     } catch (err: unknown) {
       clearTimeout(timeoutId);
       const isAbort = err instanceof Error && err.name === 'AbortError';
@@ -468,7 +389,7 @@ export async function generateWithGemini(
       const isPublic = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
       let detail = `Failed to connect to proxy endpoint [${endpoint}]. Please check if proxy is active. (${err instanceof Error ? err.message : String(err)})`;
       if (isPublic && isLocal) {
-        detail += ' (公网部署提示：当前网页运行在公网，无法连接至访问者本机的 8317 代理端口。请在后台管理配置公网可访问端点或 Google 官方 API)';
+        detail += ' (Public deployment: use a publicly accessible proxy or Google API, not localhost:8317.)';
       }
       throw new Error(
         isAbort
@@ -533,24 +454,13 @@ export async function generateWithGemini(
     }
   }
 } else {
-  // 2. Google Native Imagen API format:
-    // POST https://generativelanguage.googleapis.com/v1beta/models/{model}:predict?key={apiKey}
-    const keyParam = apiKey ? `?key=${encodeURIComponent(apiKey)}` : '';
-    const googleEndpoint = `${normalizedBase}/v1beta/models/${model}:predict${keyParam}`;
+    const googleEndpoint = directRequest.url;
 
     const res = await fetch(googleEndpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        instances: [{ prompt }],
-        parameters: {
-          sampleCount: 1,
-          aspectRatio: '16:9',
-          outputMimeType: 'image/png',
-        },
-      }),
+      headers: directRequest.headers,
+      body: JSON.stringify(directRequest.payload),
+      signal: AbortSignal.timeout(90000),
     });
 
     if (!res.ok) {
@@ -570,62 +480,19 @@ export async function generateWithGemini(
           );
         }
       }
-      throw new Error(`Google Imagen 3 API request failed [HTTP ${res.status}]: ${readableMsg}`);
+      throw new Error(`Google image API request failed [HTTP ${res.status}]: ${readableMsg}`);
     }
 
     const data = await res.json();
-    const prediction = data.predictions?.[0];
-    const b64 = prediction?.bytesBase64Encoded;
+    const part = data.candidates?.[0]?.content?.parts?.find((part: { inlineData?: { data?: string } }) => part.inlineData?.data);
+    const b64 = directRequest.mode === 'google-imagen' ? data.predictions?.[0]?.bytesBase64Encoded : part?.inlineData?.data;
 
     if (!b64) {
       throw new Error('No image bytes received. Please check model name and API response.');
     }
 
-    rawImageUrl = `data:image/png;base64,${b64}`;
+    rawImageUrl = `data:${part?.inlineData?.mimeType || 'image/png'};base64,${b64}`;
   }
 
-  // 3. Post-processing: Render full-bleed 2:1 equirectangular sphere (360° coverage, NO empty background borders!)
-  if (rawImageUrl.startsWith('http')) {
-    try {
-      const imgRes = await fetch(rawImageUrl);
-      const imgBlob = await imgRes.blob();
-      rawImageUrl = await new Promise<string>((resolveData) => {
-        const reader = new FileReader();
-        reader.onload = () => resolveData(reader.result as string);
-        reader.readAsDataURL(imgBlob);
-      });
-    } catch {
-      // ignore
-    }
-  }
-
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      try {
-        const targetW = 2048;
-        const targetH = 1024;
-        const canvas = document.createElement('canvas');
-        canvas.width = targetW;
-        canvas.height = targetH;
-        const ctx = canvas.getContext('2d');
-
-        if (ctx) {
-          // Fill 100% full-frame 360 degree sphere without any empty background borders!
-          ctx.drawImage(img, 0, 0, targetW, targetH);
-          // Heal the 360° horizontal wrap boundary so left and right seam connects seamlessly
-          const healedCanvas = healPanoramaSeam(canvas, 160);
-          resolve({ imageUrl: healedCanvas.toDataURL('image/png') });
-        } else {
-          resolve({ imageUrl: rawImageUrl as string });
-        }
-      } catch (err) {
-        console.warn('Canvas seam healing error:', err);
-        resolve({ imageUrl: rawImageUrl as string });
-      }
-    };
-    img.onerror = () => reject(new Error('Failed to load image texture into 360 viewer'));
-    img.src = rawImageUrl as string;
-  });
+  return { imageUrl: rawImageUrl, imageResolution: inspectImageResolution(rawImageUrl, config.resolution || '4K') };
 }

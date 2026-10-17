@@ -18,9 +18,9 @@ export function HowItWorksSteps() {
     },
     {
       number: '03',
-      title: 'Generate with Seam & Pole Correction',
+      title: 'Generate & Inspect Your Panorama',
       description:
-        'Our pipeline coordinates prompt synthesis, equirectangular generation, 80px cross-fade seam healing, and polar distortion smoothing automatically.',
+        'Generate with your chosen resolution tier, then inspect the horizon, poles, and wrap-around seam. Optional blending can soften edges but may introduce ghosting.',
       icon: <Cpu className="w-5 h-5 text-amber-400" />,
     },
     {

@@ -10,7 +10,7 @@ const FAQS: FaqItem[] = [
   {
     question: 'How do I generate a 360° panorama?',
     answer:
-      'Type a scene description in natural English (or attach up to 3 reference photos to steer style and lighting), select a resolution tier (1K, 2K, or 4K), and click Generate. The pipeline automatically constructs the cylindrical wrap, executes symmetric seam healing, and renders the result directly in the built-in 360° WebGL sphere viewer.',
+      'Describe your scene (or attach up to 3 reference photos), choose a style and resolution tier, and click Generate. Inspect the result in the 360° viewer, including the horizon, poles, and wrap-around seam. Seam blending is optional and off by default; it can introduce ghosting and cannot reconstruct inconsistent geometry.',
   },
   {
     question: 'How long does each panorama take to generate?',
@@ -35,7 +35,7 @@ const FAQS: FaqItem[] = [
   {
     question: 'How does the credit-based pricing system work?',
     answer:
-      'Every new account receives 4 free trial credits to test the generator (1 free 4K Ultra HD panorama or 2 2K HD panoramas). Pro subscriptions start at $9.9/month (annual billing) or $19/month for 1,000 monthly credits.',
+      'New accounts receive starter credits. Each successful generation uses credits based on its resolution. Open Plans & credits for current prices, allowances, and the total charge for monthly or annual billing.',
   },
   {
     question: "What's the difference between text-to-panorama and image-to-panorama?",

@@ -67,6 +67,7 @@ import {
   verifyAdminPassword,
   verifyAdminCredentials,
   setStoredAdminPassword,
+  markAdminServerMode,
   getStoredAdminUsername,
   setStoredAdminUsername,
   DEFAULT_ADMIN_PASSWORD,
@@ -133,8 +134,8 @@ export function AdminTab() {
   });
 
   // 3. Subscriptions & Invoices State
-  const [subscriptions, setSubscriptions] = useState<SubscriptionRecord[]>(() => getStoredSubscriptions());
-  const [invoices] = useState<InvoiceRecord[]>(() => getStoredInvoices());
+  const [subscriptions, setSubscriptions] = useState<SubscriptionRecord[]>(() => sessionStorage.getItem('panorama_admin_server_token') ? [] : getStoredSubscriptions());
+  const [invoices, setInvoices] = useState<InvoiceRecord[]>(() => sessionStorage.getItem('panorama_admin_server_token') ? [] : getStoredInvoices());
 
   // 4. Payment Gateways State (PayPal & Stripe)
   const [paymentConfig, setPaymentConfig] = useState<PaymentGatewayConfig>(() => getStoredPaymentConfig());
@@ -150,23 +151,33 @@ export function AdminTab() {
 
   // Probe server on mount and sync store if authenticated
   useEffect(() => {
+    if (sessionStorage.getItem('panorama_admin_server_token')) markAdminServerMode();
     fetchPublicBillingConfig().then((cfg) => {
       if (cfg) setBillingConfig(cfg);
     });
     probeBackendHealth().then((status) => {
       setBackendStatus(status);
       if (status.isOnline) {
+        markAdminServerMode();
         const token = sessionStorage.getItem('panorama_admin_server_token');
+        if (!token) {
+          setAdminSession(false);
+          setIsAuthenticated(false);
+        }
         if (token) {
           setIsServerMode(true);
           fetch('/api/admin/store', {
             headers: { Authorization: `Bearer ${token}` },
           })
-            .then((res) => (res.ok ? res.json() : null))
+            .then((res) => {
+              if (res.status === 401) handleAdminLogout();
+              return res.ok ? res.json() : null;
+            })
             .then((data) => {
               if (data) {
-                if (Array.isArray(data.users) && data.users.length > 0) setUsers(data.users);
+                if (Array.isArray(data.users)) setUsers(data.users);
                 if (Array.isArray(data.subscriptions)) setSubscriptions(data.subscriptions);
+                if (Array.isArray(data.invoices)) setInvoices(data.invoices);
               }
             })
             .catch(() => {});
@@ -201,6 +212,7 @@ export function AdminTab() {
     // 1. 如果后端服务在线，优先走服务端的账号密码校验与 Session Token 颁发
     const health = await probeBackendHealth();
     if (health.isOnline) {
+      markAdminServerMode();
       try {
         const res = await fetch('/api/admin/login', {
           method: 'POST',
@@ -217,6 +229,9 @@ export function AdminTab() {
           setIsAuthenticated(true);
           setIsServerMode(true);
           setLoginPasswordInput('');
+          setUsers([]);
+          setSubscriptions([]);
+          setInvoices([]);
 
           // 登录成功立即拉取真实服务端账本
           const storeRes = await fetch('/api/admin/store', {
@@ -224,8 +239,9 @@ export function AdminTab() {
           });
           if (storeRes.ok) {
             const storeData = await storeRes.json();
-            if (Array.isArray(storeData.users) && storeData.users.length > 0) setUsers(storeData.users);
+            if (Array.isArray(storeData.users)) setUsers(storeData.users);
             if (Array.isArray(storeData.subscriptions)) setSubscriptions(storeData.subscriptions);
+            if (Array.isArray(storeData.invoices)) setInvoices(storeData.invoices);
           }
           return;
         } else {
@@ -233,8 +249,14 @@ export function AdminTab() {
           return;
         }
       } catch {
-        // 网络异常时降级至本地模式
+        setLoginErrorMsg('服务器登录失败，请检查网络后重试。');
+        return;
       }
+    }
+
+    if (sessionStorage.getItem('panorama_admin_server_mode')) {
+      setLoginErrorMsg('服务器不可用，请恢复连接后重新登录。');
+      return;
     }
 
     // 2. 服务端离线或单机模式：本地凭证校验 (账号 + 密码)
@@ -248,7 +270,7 @@ export function AdminTab() {
     }
   };
 
-  const handleAdminLogout = () => {
+  function handleAdminLogout() {
     const adminToken = sessionStorage.getItem('panorama_admin_server_token');
     if (adminToken) {
       fetch('/api/admin/logout', {
@@ -262,14 +284,15 @@ export function AdminTab() {
     setIsServerMode(false);
     setLoginPasswordInput('');
     setLoginErrorMsg(null);
-  };
+  }
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPwdErrorMsg(null);
 
-    if (newPwdInput.length < 6) {
-      setPwdErrorMsg('新密码长度不能少于 6 个字符。');
+    const newPassword = newPwdInput.trim();
+    if (newPassword.length < 6 || newPassword.length > 1024) {
+      setPwdErrorMsg('新密码去除首尾空格后须为 6 至 1024 个字符。');
       return;
     }
 
@@ -279,11 +302,14 @@ export function AdminTab() {
     }
 
     if (isServerMode) {
-      const res = await adminUpdateCredentialsServer(currentPwdInput, adminUsernameEdit.trim(), newPwdInput);
+      const res = await adminUpdateCredentialsServer(currentPwdInput, adminUsernameEdit.trim(), newPassword);
       if (!res.success) {
+        if (res.requiresLogin) handleAdminLogout();
         setPwdErrorMsg(res.error || '云端更新管理员凭据失败，请核对旧密码。');
         return;
       }
+      markAdminServerMode();
+      handleAdminLogout();
     } else {
       if (!verifyAdminPassword(currentPwdInput)) {
         setPwdErrorMsg('当前旧密码输入错误。');
@@ -295,11 +321,11 @@ export function AdminTab() {
       setStoredAdminUsername(adminUsernameEdit.trim());
       setLoginUsernameInput(adminUsernameEdit.trim());
     }
-    setStoredAdminPassword(newPwdInput);
+    if (!isServerMode) setStoredAdminPassword(newPassword);
     setCurrentPwdInput('');
     setNewPwdInput('');
     setConfirmNewPwdInput('');
-    showToast('管理员凭据（账号与主密码）已成功保存！');
+    showToast(isServerMode ? '管理员凭据已更新，请重新登录。' : '管理员凭据（账号与主密码）已成功保存！');
   };
 
   const handleResetDefaultPassword = async () => {
@@ -309,11 +335,14 @@ export function AdminTab() {
         if (!inputOld) return;
         const res = await adminUpdateCredentialsServer(inputOld, DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD);
         if (!res.success) {
+          if (res.requiresLogin) handleAdminLogout();
           alert('云端重置凭据失败：' + (res.error || '旧密码验证不通过'));
           return;
         }
+        markAdminServerMode();
+        handleAdminLogout();
       }
-      setStoredAdminPassword(DEFAULT_ADMIN_PASSWORD);
+      if (!isServerMode) setStoredAdminPassword(DEFAULT_ADMIN_PASSWORD);
       setStoredAdminUsername(DEFAULT_ADMIN_USERNAME);
       setAdminUsernameEdit(DEFAULT_ADMIN_USERNAME);
       setLoginUsernameInput(DEFAULT_ADMIN_USERNAME);
@@ -526,6 +555,7 @@ export function AdminTab() {
 
   // Subscription Operations
   const handleToggleSubscriptionCancel = (subId: string) => {
+    if (isServerMode) return;
     const next = subscriptions.map((s) => {
       if (s.id === subId) {
         return {
@@ -550,6 +580,10 @@ export function AdminTab() {
   // Billing Config Operations
   const handleSaveBilling = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!Number.isSafeInteger(billingConfig.freeMonthlyCredits) || billingConfig.freeMonthlyCredits < 0) {
+      showToast('免费积分必须为非负安全整数。');
+      return;
+    }
     if (isServerMode) {
       const ok = await adminSaveBillingConfigServer(billingConfig);
       if (!ok) {
@@ -1011,12 +1045,11 @@ export function AdminTab() {
                 </label>
                 <select
                   value={routingConfig.primaryEndpointId}
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const id = e.target.value;
-                    setRoutingConfig({ ...routingConfig, primaryEndpointId: id });
+                    const nextRouting: ModelRoutingConfig = { ...routingConfig, primaryEndpointId: id };
                     const next = endpoints.map((ep) => ({ ...ep, isDefault: ep.id === id }));
-                    setEndpoints(next);
-                    saveStoredModelEndpoints(next);
+                    await saveModelConfiguration(next, nextRouting);
                   }}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono text-xs focus:border-cyan-400 focus:outline-none cursor-pointer"
                 >
@@ -1770,7 +1803,7 @@ export function AdminTab() {
                         ${sub.amount} {sub.currency}
                       </td>
                       <td className="px-4 py-3 text-slate-400 font-mono text-[11px]">
-                        {sub.currentPeriodEnd}
+                        {sub.currentPeriodEnd || '待首次到账'}
                       </td>
                       <td className="px-4 py-3">
                         <span
@@ -1785,9 +1818,11 @@ export function AdminTab() {
                         <button
                           type="button"
                           onClick={() => handleToggleSubscriptionCancel(sub.id)}
+                          disabled={isServerMode}
+                          title={isServerMode ? '真实订阅请由账户持有人在 PayPal 结账窗口管理' : undefined}
                           className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[11px] font-bold cursor-pointer"
                         >
-                          {sub.cancelAtPeriodEnd ? '恢复续费' : '取消续费'}
+                          {isServerMode ? '由账户持有人管理' : sub.cancelAtPeriodEnd ? '恢复续费' : '取消续费'}
                         </button>
                       </td>
                     </tr>
@@ -1891,18 +1926,18 @@ export function AdminTab() {
                 )}
               </div>
               <p className="text-amber-200/90">
-                当前项目属于客户端单页应用，敏感密钥暂保存在浏览器端本地缓存中。
+                正式 PayPal 订阅已改由 Cloudflare Pages Functions / Node 服务端管理。
                 <strong>请切勿在开放公开网络部署的前端页面中输入真实生产环境私钥（如 Stripe Secret Key、PayPal Client Secret）。</strong>
               </p>
               <p className="text-amber-300/80">
-                正式商用环境需部署安全服务端（如 Cloudflare Workers / Node.js BFF）托管机密，并通过官方 Webhook 签名验签以保障资金安全。
+                请在服务端配置 PAYPAL_* Secrets，并配置本项目的独立 Webhook。下方浏览器配置仅为旧版演示，不影响正式 PayPal 收款。
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* PayPal Subscriptions Configuration Card */}
-            <div className="p-5 bg-slate-950/80 border border-blue-500/30 rounded-2xl space-y-4">
+            <fieldset disabled className="p-5 bg-slate-950/80 border border-blue-500/30 rounded-2xl space-y-4 opacity-70">
               <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
                 <div className="flex items-center gap-2">
                   <span className="p-1.5 bg-blue-500/20 text-blue-400 rounded-lg font-black italic text-sm">
@@ -2044,7 +2079,7 @@ export function AdminTab() {
                   <li>复制以 <code className="text-cyan-300">P-</code> 开头的 Plan ID 填入上方对应周期即可。</li>
                 </ol>
               </div>
-            </div>
+            </fieldset>
 
             {/* Stripe Subscriptions Configuration Card */}
             <div className="p-5 bg-slate-950/80 border border-cyan-500/30 rounded-2xl space-y-4">

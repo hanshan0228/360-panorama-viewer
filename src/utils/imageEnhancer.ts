@@ -1,40 +1,46 @@
-/**
- * Client-Side Super-Resolution & Clarity Enhancement Engine.
- * Enhances low-resolution or blurry 360 panorama photos:
- * 1. Upscales image by 2x or 4x using edge-preserving interpolation.
- * 2. Applies an Unsharp Masking (USM) convolution to extract high-frequency textures.
- * 3. Applies Micro-Contrast Equalization (Dehazing) to eliminate compression cloudiness.
- */
-
 export interface EnhanceOptions {
+  resolution?: '1K' | '2K' | '4K';
+  preserveNative?: boolean;
   scaleFactor?: 1 | 2 | 4;
   sharpness?: number; // 0.0 to 1.0
   contrastBoost?: number; // 1.0 to 1.3
 }
 
-export function enhanceAndUpscalePanorama(
-  sourceImage: HTMLImageElement,
-  options: EnhanceOptions = {}
-): HTMLCanvasElement {
-  const { scaleFactor = 2, sharpness = 0.65, contrastBoost = 1.08 } = options;
+export function enhanceAndUpscalePanorama<Canvas extends HTMLCanvasElement | OffscreenCanvas = HTMLCanvasElement>(
+  sourceImage: HTMLImageElement | ImageBitmap,
+  options: EnhanceOptions = {},
+  createCanvas: () => Canvas = () => document.createElement('canvas') as Canvas
+): Canvas {
+  const { resolution, preserveNative = false, scaleFactor = 2, sharpness = 0.65, contrastBoost = 1.08 } = options;
 
-  const origW = sourceImage.naturalWidth || sourceImage.width;
-  const origH = sourceImage.naturalHeight || sourceImage.height;
+  const origW = 'naturalWidth' in sourceImage ? sourceImage.naturalWidth || sourceImage.width : sourceImage.width;
+  const origH = 'naturalHeight' in sourceImage ? sourceImage.naturalHeight || sourceImage.height : sourceImage.height;
+  if (!Number.isFinite(origW) || !Number.isFinite(origH) || origW < 2 || origH < 1) {
+    throw new Error('Invalid image dimensions');
+  }
 
-  const targetW = scaleFactor === 1 ? origW : Math.min(4096, origW * scaleFactor);
-  const targetH = scaleFactor === 1 ? origH : Math.min(2048, origH * scaleFactor);
+  const outputWidth = resolution === '1K' ? 1024 : resolution === '2K' ? 2048 : resolution === '4K' ? 3840 : undefined;
+  const cropWidth = Math.floor(Math.min(origW, origH * 2) / 2) * 2;
+  const targetW = preserveNative ? cropWidth : outputWidth ?? (scaleFactor === 1 ? origW : Math.min(4096, origW * scaleFactor));
+  const targetH = preserveNative ? cropWidth / 2 : outputWidth ? outputWidth / 2 : (scaleFactor === 1 ? origH : Math.min(2048, origH * scaleFactor));
 
-  const canvas = document.createElement('canvas');
+  const canvas = createCanvas();
   canvas.width = targetW;
   canvas.height = targetH;
 
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) return canvas;
+  if (!ctx) throw new Error('Canvas unavailable');
 
   // 1. High-quality smooth upscaled draw
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(sourceImage, 0, 0, targetW, targetH);
+  if (preserveNative) {
+    // ponytail: center cropping preserves pixel density, not missing 360 geometry; AI outpainting would require another model call.
+    ctx.drawImage(sourceImage, Math.floor((origW - targetW) / 2), Math.floor((origH - targetH) / 2), targetW, targetH, 0, 0, targetW, targetH);
+  } else {
+    ctx.drawImage(sourceImage, 0, 0, targetW, targetH);
+  }
+  if (sharpness === 0 && contrastBoost === 1) return canvas;
 
   // 2. Extract pixel data for sharpening & micro-contrast
   const imgData = ctx.getImageData(0, 0, targetW, targetH);

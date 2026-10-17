@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Film,
   Video,
@@ -15,34 +15,33 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { renderPanoramaToVideoBlob, type VideoRecordOptions } from '../../utils/videoRecorder';
-import { generateProceduralPanorama } from '../../utils/proceduralPanoramas';
 
 interface PhotoToVideoPageProps {
   onLaunchStudio: () => void;
+  currentPanoramaUrl: string;
+  onPanoramaChange: (url: string) => void;
 }
 
-export function PhotoToVideoPage({ onLaunchStudio }: PhotoToVideoPageProps) {
+export function PhotoToVideoPage({ onLaunchStudio, currentPanoramaUrl: activePanoUrl, onPanoramaChange: setActivePanoUrl }: PhotoToVideoPageProps) {
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1'>('16:9');
   const [duration, setDuration] = useState<number>(8);
   const [tilt, setTilt] = useState<boolean>(true);
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
-  const [videoDownloadUrl, setVideoDownloadUrl] = useState<string | null>(null);
-  const [videoBlobType, setVideoBlobType] = useState<string>('');
+  const [videoResult, setVideoResult] = useState<{ source: string; aspectRatio: string; duration: number; tilt: boolean; url: string; type: string } | null>(null);
+  const videoDownloadUrl = videoResult?.source === activePanoUrl && videoResult.aspectRatio === aspectRatio &&
+    videoResult.duration === duration && videoResult.tilt === tilt ? videoResult.url : null;
+  const mountedRef = useRef(false);
 
-  // Default sample panorama
-  const defaultSampleUrl = useMemo(() => {
-    const canvas = generateProceduralPanorama(
-      'cyberpunk',
-      'futuristic cyberpunk neon metropolis, 8k equirectangular 360 panorama',
-      2048,
-      1024
-    );
-    return canvas.toDataURL('image/png');
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
   }, []);
 
-  const [activePanoUrl, setActivePanoUrl] = useState<string>(defaultSampleUrl);
+  useEffect(() => {
+    return () => { if (videoResult) URL.revokeObjectURL(videoResult.url); };
+  }, [videoResult]);
 
   const handleCustomUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -51,16 +50,17 @@ export function PhotoToVideoPage({ onLaunchStudio }: PhotoToVideoPageProps) {
     reader.onload = (event) => {
       if (typeof event.target?.result === 'string') {
         setActivePanoUrl(event.target.result);
-        setVideoDownloadUrl(null);
+        setVideoResult(null);
       }
     };
     reader.readAsDataURL(file);
   };
 
   const handleStartRender = async () => {
+    if (isRecording) return;
     setIsRecording(true);
     setProgress(0);
-    setVideoDownloadUrl(null);
+    setVideoResult(null);
 
     let width = 1920;
     let height = 1080;
@@ -85,9 +85,9 @@ export function PhotoToVideoPage({ onLaunchStudio }: PhotoToVideoPageProps) {
       };
 
       const blob = await renderPanoramaToVideoBlob(activePanoUrl, options);
+      if (!mountedRef.current) return;
       const url = URL.createObjectURL(blob);
-      setVideoDownloadUrl(url);
-      setVideoBlobType(blob.type || '');
+      setVideoResult({ source: activePanoUrl, aspectRatio, duration, tilt, url, type: blob.type || '' });
 
       confetti({
         particleCount: 50,
@@ -102,11 +102,11 @@ export function PhotoToVideoPage({ onLaunchStudio }: PhotoToVideoPageProps) {
   };
 
   const handleDownload = () => {
-    if (!videoDownloadUrl) return;
+    if (!videoDownloadUrl || !videoResult) return;
     const a = document.createElement('a');
     a.href = videoDownloadUrl;
-    const ext = (videoBlobType.includes('mp4') || videoBlobType.includes('h264') || videoBlobType.includes('avc')) ? 'mp4' : 'webm';
-    a.download = `panorama-360-video-${aspectRatio.replace(':', 'x')}.${ext}`;
+    const ext = (videoResult.type.includes('mp4') || videoResult.type.includes('h264') || videoResult.type.includes('avc')) ? 'mp4' : 'webm';
+    a.download = `panorama-360-video-${videoResult.aspectRatio.replace(':', 'x')}.${ext}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -213,7 +213,7 @@ export function PhotoToVideoPage({ onLaunchStudio }: PhotoToVideoPageProps) {
               <div className="grid grid-cols-3 gap-3">
                 <button
                   type="button"
-                  onClick={() => { setAspectRatio('16:9'); setVideoDownloadUrl(null); }}
+                  onClick={() => setAspectRatio('16:9')}
                   className={`p-4 rounded-2xl border text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer ${
                     aspectRatio === '16:9'
                       ? 'border-cyan-400 bg-cyan-500/20 text-white shadow-lg shadow-cyan-500/20'
@@ -227,7 +227,7 @@ export function PhotoToVideoPage({ onLaunchStudio }: PhotoToVideoPageProps) {
 
                 <button
                   type="button"
-                  onClick={() => { setAspectRatio('9:16'); setVideoDownloadUrl(null); }}
+                  onClick={() => setAspectRatio('9:16')}
                   className={`p-4 rounded-2xl border text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer ${
                     aspectRatio === '9:16'
                       ? 'border-cyan-400 bg-cyan-500/20 text-white shadow-lg shadow-cyan-500/20'
@@ -241,7 +241,7 @@ export function PhotoToVideoPage({ onLaunchStudio }: PhotoToVideoPageProps) {
 
                 <button
                   type="button"
-                  onClick={() => { setAspectRatio('1:1'); setVideoDownloadUrl(null); }}
+                  onClick={() => setAspectRatio('1:1')}
                   className={`p-4 rounded-2xl border text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer ${
                     aspectRatio === '1:1'
                       ? 'border-cyan-400 bg-cyan-500/20 text-white shadow-lg shadow-cyan-500/20'
@@ -267,7 +267,7 @@ export function PhotoToVideoPage({ onLaunchStudio }: PhotoToVideoPageProps) {
                     <button
                       key={sec}
                       type="button"
-                      onClick={() => { setDuration(sec); setVideoDownloadUrl(null); }}
+                      onClick={() => setDuration(sec)}
                       className={`py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
                         duration === sec
                           ? 'border-cyan-400 bg-cyan-500/20 text-white font-bold'
@@ -284,7 +284,7 @@ export function PhotoToVideoPage({ onLaunchStudio }: PhotoToVideoPageProps) {
                 <input
                   type="checkbox"
                   checked={tilt}
-                  onChange={(e) => { setTilt(e.target.checked); setVideoDownloadUrl(null); }}
+                  onChange={(e) => setTilt(e.target.checked)}
                   className="w-4 h-4 rounded border-cyan-500/40 bg-cyan-950 text-cyan-400 focus:ring-0 cursor-pointer"
                 />
                 <span>Add Dynamic Elevation Wave (Cinematic Drone Look)</span>

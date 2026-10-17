@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   ShieldCheck,
   UploadCloud,
@@ -13,7 +13,7 @@ import {
   Share2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { exportVrReadyJpegBlob } from '../../utils/xmpInjector';
+import { exportPhotoSphereFile } from '../../utils/xmpInjector';
 
 interface MetadataInjectorPageProps {
   onLaunchStudio: () => void;
@@ -28,23 +28,47 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const operations = useRef({ version: 0 });
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!imagePreviewUrl) return;
+    const lifecycle = operations.current;
+    const operation = lifecycle.version;
+    const image = new Image();
+    image.onload = () => {
+      if (operation === lifecycle.version) {
+        setImageDimensions({ width: image.naturalWidth, height: image.naturalHeight });
+      }
+    };
+    image.onerror = () => {
+      if (operation === lifecycle.version) {
+        setError('Unable to decode this image. Choose a valid JPEG, PNG or WebP.');
+        setIsProcessing(false);
+      }
+    };
+    image.src = imagePreviewUrl;
+    return () => {
+      lifecycle.version++;
+      image.onload = image.onerror = null;
+      URL.revokeObjectURL(imagePreviewUrl);
+    };
+  }, [imagePreviewUrl, operations]);
 
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const file = files[0];
     if (!file.type.startsWith('image/')) return;
 
+    operations.current.version++;
     setSelectedFile(file);
     setIsSuccess(false);
+    setIsProcessing(false);
+    setImageDimensions(null);
+    setError(null);
 
     const url = URL.createObjectURL(file);
     setImagePreviewUrl(url);
-
-    const img = new Image();
-    img.onload = () => {
-      setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight });
-    };
-    img.src = url;
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -67,46 +91,33 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
   };
 
   const handleInjectAndDownload = async () => {
-    if (!selectedFile || !imagePreviewUrl) return;
+    if (!selectedFile || !imagePreviewUrl || isProcessing) return;
+    const operation = operations.current.version;
     setIsProcessing(true);
-
+    setIsSuccess(false);
+    setError(null);
     try {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = async () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          setIsProcessing(false);
-          return;
-        }
-
-        ctx.drawImage(img, 0, 0);
-        const blob = await exportVrReadyJpegBlob(canvas, 0.95);
-        const downloadUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        const originalName = selectedFile ? selectedFile.name.replace(/\.[^/.]+$/, '') : 'panorama';
-        a.download = `${originalName}-photosphere-360.jpg`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(downloadUrl);
-
-        setIsSuccess(true);
-        setIsProcessing(false);
-        confetti({
-          particleCount: 50,
-          spread: 60,
-          origin: { y: 0.7 },
-        });
-      };
-      img.src = imagePreviewUrl;
+      const blob = await exportPhotoSphereFile(selectedFile, imagePreviewUrl);
+      if (operation !== operations.current.version) return;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      try {
+        anchor.href = url;
+        anchor.download = `${selectedFile.name.replace(/\.[^/.]+$/, '')}-photosphere-360.jpg`;
+        document.body.appendChild(anchor);
+        anchor.click();
+      } finally {
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      }
+      setIsSuccess(true);
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
     } catch {
-      alert('Failed to inject XMP metadata. Please ensure the file is a valid JPEG/PNG.');
-      setIsProcessing(false);
+      if (operation === operations.current.version) {
+        setError('Failed to inject metadata. Choose a valid JPEG, PNG or WebP and try again.');
+      }
+    } finally {
+      if (operation === operations.current.version) setIsProcessing(false);
     }
   };
 
@@ -117,7 +128,7 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
     },
     {
       q: 'Does injecting metadata decrease image quality or compress pixels?',
-      a: 'No. PanoramaAI directly injects an Adobe XMP packet into the APP1 header segment of the file without re-encoding or compressing the underlying image data. Your photo maintains 100% of its original pixel clarity and color fidelity.',
+      a: 'JPEG files retain their original encoded pixels and existing metadata: only a PhotoSphere XMP packet is added. PNG and WebP files are converted to JPEG at 0.95 quality before tagging, so that conversion can change pixels.',
     },
     {
       q: 'Is this tool safe and private?',
@@ -175,7 +186,7 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
             </span>
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-teal-400" />
-              <span>Zero Quality Degradation</span>
+              <span>Lossless JPEG Metadata Injection</span>
             </span>
           </div>
         </div>
@@ -286,6 +297,10 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
                     <button
                       type="button"
                       onClick={() => {
+                        operations.current.version++;
+                        setIsProcessing(false);
+                        setError(null);
+                        setImageDimensions(null);
                         setSelectedFile(null);
                         setImagePreviewUrl(null);
                         setIsSuccess(false);
@@ -310,6 +325,8 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
           )}
         </div>
       </section>
+
+      {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
 
       {/* Platform Compatibility Matrix */}
       <section className="space-y-6">
