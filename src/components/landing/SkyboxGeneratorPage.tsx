@@ -35,11 +35,11 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
   const faqs = [
     {
       q: 'What is an AI Skybox Generator and what formats does it produce?',
-      a: 'An AI Skybox Generator generates immersive 360° spherical or cubic virtual backgrounds for games, VR simulations, and 3D scenes from text prompts. PanoramaAI outputs both standard 2:1 equirectangular spherical textures and 6 rectilinear cube faces (+X, -X, +Y, -Y, +Z, -Z) ready for immediate engine import.',
+      a: 'An AI Skybox Generator generates immersive 360° spherical or cubic virtual backgrounds for games, VR simulations, and 3D scenes from text prompts. 360 Panorama Viewer outputs both standard 2:1 equirectangular spherical textures and 6 rectilinear cube faces (+X, -X, +Y, -Y, +Z, -Z) ready for immediate engine import.',
     },
     {
-      q: 'Is PanoramaAI a direct alternative to Blockade Labs Skybox AI?',
-      a: 'Yes. PanoramaAI Studio provides comparable and enhanced capabilities: seamless 360° wrapping with Poisson seam blending, interactive WebGL preview, client-side 4K resolution upscaling, instant 6-sided cubemap ZIP slicing, and PhotoSphere XMP metadata injection without requiring monthly lock-in.',
+      q: 'Is 360 Panorama Viewer a direct alternative to Blockade Labs Skybox AI?',
+      a: 'Yes. 360 Panorama Viewer provides comparable and enhanced capabilities: seamless 360° wrapping with Poisson seam blending, interactive WebGL preview, client-side 4K resolution upscaling, instant 6-sided cubemap ZIP slicing, and PhotoSphere XMP metadata injection without requiring monthly lock-in.',
     },
     {
       q: 'How do I use the generated skybox in Unity?',
@@ -55,7 +55,7 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
     },
     {
       q: 'How does seam healing work for skyboxes?',
-      a: 'Skyboxes require a perfect 360° seamless loop to avoid breaking visual immersion. PanoramaAI applies automated harmonic seam healing along the 0°/360° seam, equalizing vertical color transitions so no line is visible when panning in game engines or VR headsets.',
+      a: 'Skyboxes require a perfect 360° seamless loop to avoid breaking visual immersion. 360 Panorama Viewer applies automated harmonic seam healing along the 0°/360° seam, equalizing vertical color transitions so no line is visible when panning in game engines or VR headsets.',
     },
   ];
 
@@ -217,7 +217,7 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
             Competitive Comparison
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            PanoramaAI vs Blockade Labs Skybox AI
+            360 Panorama Viewer vs Blockade Labs Skybox AI
           </h2>
         </div>
 
@@ -226,7 +226,7 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
             <thead className="bg-[#051733] text-cyan-200 border-b border-cyan-500/30 font-semibold uppercase tracking-wider">
               <tr>
                 <th className="py-4 px-5">Feature</th>
-                <th className="py-4 px-5 text-cyan-400">PanoramaAI Studio</th>
+                <th className="py-4 px-5 text-cyan-400">360 Panorama Viewer</th>
                 <th className="py-4 px-5 text-slate-400">Blockade Labs</th>
                 <th className="py-4 px-5 text-slate-400">Manual Matte Painting</th>
               </tr>
@@ -275,7 +275,7 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
             <h3 className="text-sm font-bold text-white">Unity Skybox Setup</h3>
           </div>
           <ol className="text-xs text-cyan-200/80 space-y-2 list-decimal list-inside leading-relaxed">
-            <li>Download the 6-sided cubemap ZIP from PanoramaAI.</li>
+            <li>Download the 6-sided cubemap ZIP from 360 Panorama Viewer.</li>
             <li>In Unity, create a new Material named `Skybox_Custom`.</li>
             <li>Set shader to `Skybox / 6 Sided`.</li>
             <li>Assign Right (+X), Left (-X), Up (+Y), Down (-Y), Front (+Z), Back (-Z).</li>

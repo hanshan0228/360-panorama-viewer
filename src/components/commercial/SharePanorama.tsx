@@ -272,13 +272,13 @@ export function SharedPanorama({ id }: { id: string }) {
       if (!imageResponse.ok) throw new Error((await imageResponse.json().catch(() => ({}))).error || "The panorama image is unavailable.");
       localUrl = URL.createObjectURL(await imageResponse.blob());
       if (abort.signal.aborted) { URL.revokeObjectURL(localUrl); return; }
-      setShare(data.share); setImageUrl(localUrl); document.title = `${data.share.title} — PanoramaAI`;
+      setShare(data.share); setImageUrl(localUrl); document.title = `${data.share.title} — 360 Panorama Viewer`;
     };
     void load().catch(err => { if (!abort.signal.aborted) setError(err.message); });
     return () => { abort.abort(); if (localUrl) URL.revokeObjectURL(localUrl); };
   }, [id, attempt]);
   return <main className="flex min-h-screen flex-col bg-[#040c1a] text-slate-100">
-    <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700 px-5 py-4"><div><a href={homeHref} className="text-xs font-semibold tracking-widest text-teal-300">PANORAMAAI STUDIO</a><h1 className="mt-1 text-xl font-semibold">{share?.title || "Shared panorama"}</h1></div><div className="flex flex-wrap gap-2">{share?.allowDownload && <a href={`/api/shares/${id}/download`} className={button}>Download shared panorama</a>}<a href={homeHref} className={button}>Create my own panorama</a></div></header>
+    <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700 px-5 py-4"><div><a href={homeHref} className="text-xs font-semibold tracking-widest text-teal-300">360 PANORAMA VIEWER</a><h1 className="mt-1 text-xl font-semibold">{share?.title || "Shared panorama"}</h1></div><div className="flex flex-wrap gap-2">{share?.allowDownload && <a href={`/api/shares/${id}/download`} className={button}>Download shared panorama</a>}<a href={homeHref} className={button}>Create my own panorama</a></div></header>
     {error ? <div className="m-auto max-w-lg p-8 text-center"><p role="alert">{error}</p><button type="button" className={`${button} mt-4`} onClick={() => setAttempt(value => value + 1)}>Try again</button></div> : imageUrl ? <><p className="px-5 py-3 text-sm text-slate-300">Drag to look around · Scroll or pinch to zoom · Use the viewer controls for fullscreen</p><SharedViewerBoundary key={imageUrl} imageUrl={imageUrl}><SphereViewer textureUrl={imageUrl} initialAutoRotate={false} className="min-h-[65vh] flex-1" /></SharedViewerBoundary><p className="px-5 py-3 text-xs text-slate-400">{share?.width} × {share?.height} · Full 2:1 panorama</p></> : <p role="status" className="m-auto p-8">Loading the full panorama…</p>}
   </main>;
 }

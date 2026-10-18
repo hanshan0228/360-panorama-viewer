@@ -198,7 +198,7 @@ export function GlobeTab({ currentPanoramaUrl, onNavigateTab }: GlobeTabProps) {
               <ChevronDown className="w-4 h-4 text-emerald-400 group-open:rotate-180 transition-transform shrink-0" />
             </summary>
             <p className="mt-2 text-slate-400 leading-relaxed text-[11px]">
-              Yes. PanoramaAI Studio’s Map to Globe maker is a modern, high-performance WebGL replacement for MapToGlobe. It is 100% free, requires no login or installation, and renders instantly in your web browser.
+              Yes. 360 Panorama Viewer’s Map to Globe maker is a modern, high-performance WebGL replacement for MapToGlobe. It is 100% free, requires no login or installation, and renders instantly in your web browser.
             </p>
           </details>
 

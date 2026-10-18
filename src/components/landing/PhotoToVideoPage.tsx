@@ -115,7 +115,7 @@ export function PhotoToVideoPage({ onLaunchStudio, currentPanoramaUrl: activePan
   const faqs = [
     {
       q: 'How does 360 Photo to Video generation work?',
-      a: 'PanoramaAI maps your 2:1 equirectangular panorama onto a virtual 360° sphere and animates a cinematic camera rotating smoothly along the horizon. It captures the WebGL viewport in real-time using the browser MediaRecorder API, producing a ready-to-post MP4 or WebM video file without requiring any video editing software.',
+      a: '360 Panorama Viewer maps your 2:1 equirectangular panorama onto a virtual 360° sphere and animates a cinematic camera rotating smoothly along the horizon. It captures the WebGL viewport in real-time using the browser MediaRecorder API, producing a ready-to-post MP4 or WebM video file without requiring any video editing software.',
     },
     {
       q: 'Which platforms can I post the generated 360 rotation videos on?',

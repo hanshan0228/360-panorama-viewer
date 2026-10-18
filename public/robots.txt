@@ -1,9 +1,9 @@
-# robots.txt for PanoramaAI Studio (https://panoramagenerator.ai)
+# robots.txt for 360 Panorama Viewer (https://360panoramaviewer.com)
 User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /api/
 
 # Sitemap declaration
-Sitemap: https://panoramagenerator.ai/sitemap.xml
-Host: https://panoramagenerator.ai
+Sitemap: https://360panoramaviewer.com/sitemap.xml
+Host: https://360panoramaviewer.com

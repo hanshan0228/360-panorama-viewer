@@ -333,7 +333,7 @@ export function saveStoredInvoices(invs: InvoiceRecord[]): void {
 
 export const DEFAULT_GUEST_USER: ManagedUser = {
   id: 'usr_guest',
-  email: 'guest@panoramagenerator.ai',
+  email: 'guest@360panoramaviewer.com',
   name: 'Free Trial Guest',
   plan: 'free',
   creditsBalance: 4,

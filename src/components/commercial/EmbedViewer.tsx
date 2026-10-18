@@ -47,7 +47,7 @@ export function EmbedViewer({ textureUrl, autoRotate = false }: EmbedViewerProps
       {/* Discreet Branding & Viral Backlink Badge (Bottom Right) */}
       <div className="absolute bottom-3 right-3 z-30">
         <a
-          href="https://panoramagenerator.ai/"
+          href="https://360panoramaviewer.com/"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 px-3 py-1.5 bg-[#040e22]/85 hover:bg-[#040e22] text-white rounded-xl backdrop-blur-xl border border-cyan-400/30 shadow-[0_4px_20px_rgba(0,242,254,0.25)] text-xs font-semibold group transition-all"
@@ -56,7 +56,7 @@ export function EmbedViewer({ textureUrl, autoRotate = false }: EmbedViewerProps
             <Compass className="w-3 h-3" />
           </div>
           <span className="bg-gradient-to-r from-white to-cyan-200 bg-clip-text text-transparent text-[11px] font-bold">
-            PanoramaAI Studio
+            360 Panorama Viewer
           </span>
           <ExternalLink className="w-3 h-3 text-cyan-400 opacity-60 group-hover:opacity-100 transition-opacity" />
         </a>

@@ -445,7 +445,7 @@ test('guest tokens keep login/register visible, while real accounts retain profi
   for (const userId of ['usr_guest', 'usr_guest_1234567890']) {
     const markup = render(userId);
     assert.ok(markup.includes('<form'));
-    assert.ok(markup.includes('Sign in to PanoramaAI'));
+    assert.ok(markup.includes('Sign in to 360 Panorama Viewer'));
     assert.ok(markup.includes('Create account'));
     assert.ok(!markup.includes('Sign out'));
   }

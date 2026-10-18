@@ -1,4 +1,4 @@
--- PanoramaAI Studio Cloudflare D1 Database Schema
+-- 360 Panorama Viewer Cloudflare D1 Database Schema
 
 CREATE TABLE IF NOT EXISTS paypal_subscriptions (
   id TEXT PRIMARY KEY,

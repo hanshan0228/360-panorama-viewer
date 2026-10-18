@@ -19,7 +19,7 @@ const TESTIMONIALS: TestimonialItem[] = [
     avatarText: 'AM',
     avatarGrad: 'from-blue-500 to-indigo-600',
     quote:
-      'PanoramaAI completely transformed our skybox prototyping workflow. We generate custom skyboxes in seconds, export the .hdr container, and drop it straight into Unreal Engine 5 for real-time Lumen global illumination. The time saved is measured in weeks.',
+      '360 Panorama Viewer completely transformed our skybox prototyping workflow. We generate custom skyboxes in seconds, export the .hdr container, and drop it straight into Unreal Engine 5 for real-time Lumen global illumination. The time saved is measured in weeks.',
     projectTag: 'AAA Game Prototyping',
     rating: 5,
   },
@@ -41,7 +41,7 @@ const TESTIMONIALS: TestimonialItem[] = [
     avatarText: 'KS',
     avatarGrad: 'from-purple-500 to-pink-600',
     quote:
-      'Most AI generators output severe vertical seam artifacts and pinched poles. PanoramaAI’s symmetric 80px seam healing algorithm is genuinely seamless in Apple Vision Pro and WebXR. The built-in PhotoSphere XMP injection is also a huge time saver.',
+      'Most AI generators output severe vertical seam artifacts and pinched poles. 360 Panorama Viewer’s symmetric 80px seam healing algorithm is genuinely seamless in Apple Vision Pro and WebXR. The built-in PhotoSphere XMP injection is also a huge time saver.',
     projectTag: 'Spatial Computing & WebXR',
     rating: 5,
   },
@@ -83,7 +83,7 @@ export function TestimonialsSection() {
           Loved by 3D Artists, Architects &amp; VR Studios
         </h2>
         <p className="text-sm text-cyan-200/70 mt-2">
-          Here is how professional creators are using PanoramaAI to ship video games, VR experiences, and architectural presentations faster.
+          Here is how professional creators are using 360 Panorama Viewer to ship video games, VR experiences, and architectural presentations faster.
         </p>
       </div>
 

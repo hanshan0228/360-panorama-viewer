@@ -776,7 +776,7 @@ export function GeneratorTab({
         <img className="studio-hero-image" src={coastalCover} alt="" width={2560} height={1280} fetchPriority="high" />
         <HeroPanorama textureUrl={coastalCover} />
         <div className="studio-hero-content">
-          <span className="studio-coordinate">AI 360° PANORAMA GENERATOR</span>
+          <span className="studio-coordinate">FREE 360° PANORAMA VIEWER · AI GENERATOR</span>
           <h1 id="studio-hero-title">Create a world.<br /><em>Not just an image.</em></h1>
           <p>From a few words to a new perspective. Create panoramic environments for your next game, virtual space, or creative escape.</p>
           <div className="studio-hero-actions">

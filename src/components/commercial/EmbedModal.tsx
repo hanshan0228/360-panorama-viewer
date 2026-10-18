@@ -42,7 +42,7 @@ export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalPr
   );
 
   const iframeSrc = useMemo(() => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://panoramagenerator.ai';
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://360panoramaviewer.com';
     const params = new URLSearchParams();
     params.set('embed', 'true');
     if (autoRotate) params.set('autorotate', '1');
@@ -59,8 +59,8 @@ export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalPr
     const attributionHtml = includeAttribution
       ? `\n<p style="font-size:12px;color:#718096;text-align:center;margin-top:6px;font-family:sans-serif;">` +
         `Interactive 360° Scene powered by ` +
-        `<a href="https://panoramagenerator.ai/" target="_blank" rel="noopener noreferrer" style="color:#00F2FE;text-decoration:none;font-weight:600;">` +
-        `PanoramaAI Studio</a></p>`
+        `<a href="https://360panoramaviewer.com/" target="_blank" rel="noopener noreferrer" style="color:#00F2FE;text-decoration:none;font-weight:600;">` +
+        `360 Panorama Viewer</a></p>`
       : '';
 
     return (

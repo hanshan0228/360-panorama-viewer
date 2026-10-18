@@ -916,7 +916,7 @@ export function ViewerTab({
               <ChevronDown className="w-4 h-4 text-cyan-400 group-open:rotate-180 transition-transform shrink-0" />
             </summary>
             <p className="mt-2 text-slate-400 leading-relaxed text-[11px]">
-              No. PanoramaAI Studio’s 360° Panorama Viewer operates 100% locally in your browser using Three.js and WebGL. Your photos are decoded directly on your local GPU and are never transmitted to any external server or cloud storage.
+              No. Our 360° panorama viewer operates 100% locally in your browser using Three.js and WebGL. Your photos are decoded directly on your local GPU and are never transmitted to any external server or cloud storage.
             </p>
           </details>
 

@@ -9,8 +9,8 @@ export function buildPhotoSphereXmpXml(width: number, height: number): string {
   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
     <rdf:Description xmlns:GPano="http://ns.google.com/photos/1.0/panorama/" rdf:about="">
       <GPano:UsePanoramaViewer>True</GPano:UsePanoramaViewer>
-      <GPano:CaptureSoftware>PanoramaAI Studio</GPano:CaptureSoftware>
-      <GPano:StitchingSoftware>PanoramaAI 360 VR Pipeline</GPano:StitchingSoftware>
+      <GPano:CaptureSoftware>360 Panorama Viewer</GPano:CaptureSoftware>
+      <GPano:StitchingSoftware>360 Panorama Viewer 360 VR Pipeline</GPano:StitchingSoftware>
       <GPano:ProjectionType>equirectangular</GPano:ProjectionType>
       <GPano:PoseHeadingDegrees>0.0</GPano:PoseHeadingDegrees>
       <GPano:PosePitchDegrees>0.0</GPano:PosePitchDegrees>

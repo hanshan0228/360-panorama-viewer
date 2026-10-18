@@ -65,32 +65,32 @@
     <circle cx="24" cy="24" r="3" fill="#ffffff" />
     
     <text x="62" y="32" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="28" fill="#ffffff" letter-spacing="-0.5">
-      PanoramaAI
+      360 Panorama
     </text>
-    <rect x="230" y="14" width="76" height="24" rx="6" fill="#0284c7" fill-opacity="0.3" stroke="#38bdf8" stroke-width="1" />
-    <text x="246" y="30" font-family="'Courier New', Courier, monospace" font-weight="700" font-size="12" fill="#38bdf8" letter-spacing="1.5">
-      STUDIO
+    <rect x="296" y="14" width="84" height="24" rx="6" fill="#0284c7" fill-opacity="0.3" stroke="#38bdf8" stroke-width="1" />
+    <text x="310" y="30" font-family="'Courier New', Courier, monospace" font-weight="700" font-size="12" fill="#38bdf8" letter-spacing="1.5">
+      VIEWER
     </text>
   </g>
 
   <!-- Social Proof Tag (Top Right) -->
-  <g transform="translate(870, 74)">
-    <rect width="250" height="38" rx="19" fill="#071b38" stroke="#00F2FE" stroke-opacity="0.3" stroke-width="1" />
+  <g transform="translate(820, 74)">
+    <rect width="300" height="38" rx="19" fill="#071b38" stroke="#00F2FE" stroke-opacity="0.3" stroke-width="1" />
     <text x="25" y="24" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-weight="700" font-size="13" fill="#fbbf24">
-      ★ 4.9/5
+      ✓ 100% Browser-Based
     </text>
-    <text x="80" y="24" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-weight="500" font-size="13" fill="#93c5fd">
-      • 38k+ 3D &amp; VR Creators
+    <text x="190" y="24" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-weight="500" font-size="13" fill="#93c5fd">
+      • No Upload Required
     </text>
   </g>
 
   <!-- Central Hero Typography -->
   <text x="80" y="220" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="62" fill="url(#text-grad)" letter-spacing="-1.5">
-    AI 360° Panorama Generator
+    360° Panorama Viewer
   </text>
   
   <text x="80" y="280" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="400" font-size="24" fill="#bae6fd" opacity="0.9">
-    Transform text prompts &amp; photos into seamless 2:1 VR equirectangular skyboxes.
+    View any 360° photo — or generate seamless 2:1 VR equirectangular panoramas with AI.
   </text>
 
   <!-- Feature Grid Cards -->
@@ -100,28 +100,28 @@
     <circle cx="40" cy="40" r="18" fill="#00F2FE" fill-opacity="0.15" />
     <text x="32" y="46" font-size="18">✨</text>
     <text x="24" y="85" font-family="-apple-system, sans-serif" font-weight="700" font-size="17" fill="#ffffff">Text to 360 &amp; Image</text>
-    <text x="24" y="112" font-family="-apple-system, sans-serif" font-size="13" fill="#7dd3fc">Steer with reference photos &amp; instant procedural wrap</text>
+    <text x="24" y="112" font-family="-apple-system, sans-serif" font-size="13" fill="#7dd3fc">Reference photos &amp; procedural wrap</text>
 
     <!-- Card 2 -->
     <rect x="260" y="0" width="240" height="150" rx="20" fill="#061938" fill-opacity="0.75" stroke="#00F2FE" stroke-opacity="0.35" stroke-width="1.2" />
     <circle cx="300" cy="40" r="18" fill="#14b8a6" fill-opacity="0.15" />
     <text x="292" y="46" font-size="18">🌐</text>
     <text x="284" y="85" font-family="-apple-system, sans-serif" font-weight="700" font-size="17" fill="#ffffff">360° WebGL Viewer</text>
-    <text x="284" y="112" font-family="-apple-system, sans-serif" font-size="13" fill="#7dd3fc">Interactive sphere orbit, radar minimap &amp; Cardboard VR</text>
+    <text x="284" y="112" font-family="-apple-system, sans-serif" font-size="13" fill="#7dd3fc">Sphere orbit, radar minimap, VR</text>
 
     <!-- Card 3 -->
     <rect x="520" y="0" width="240" height="150" rx="20" fill="#061938" fill-opacity="0.75" stroke="#00F2FE" stroke-opacity="0.35" stroke-width="1.2" />
     <circle cx="560" cy="40" r="18" fill="#38bdf8" fill-opacity="0.15" />
     <text x="552" y="46" font-size="18">📦</text>
     <text x="544" y="85" font-family="-apple-system, sans-serif" font-weight="700" font-size="17" fill="#ffffff">Cubemap 6-Sided</text>
-    <text x="544" y="112" font-family="-apple-system, sans-serif" font-size="13" fill="#7dd3fc">Slice to cube faces for Unity, Unreal &amp; Three.js</text>
+    <text x="544" y="112" font-family="-apple-system, sans-serif" font-size="13" fill="#7dd3fc">Cube faces for Unity &amp; Unreal</text>
 
     <!-- Card 4 -->
     <rect x="780" y="0" width="260" height="150" rx="20" fill="#061938" fill-opacity="0.75" stroke="#00F2FE" stroke-opacity="0.35" stroke-width="1.2" />
     <circle cx="820" cy="40" r="18" fill="#818cf8" fill-opacity="0.15" />
     <text x="812" y="46" font-size="18">🛡️</text>
     <text x="804" y="85" font-family="-apple-system, sans-serif" font-weight="700" font-size="17" fill="#ffffff">Poisson Seam Healing</text>
-    <text x="804" y="112" font-family="-apple-system, sans-serif" font-size="13" fill="#7dd3fc">Wide harmonic gradient blend + PhotoSphere XMP tags</text>
+    <text x="804" y="112" font-family="-apple-system, sans-serif" font-size="13" fill="#7dd3fc">Gradient blend + PhotoSphere XMP</text>
   </g>
 
   <!-- Bottom Badges / Tech Stack -->
@@ -134,7 +134,7 @@
     </text>
     
     <text x="910" y="24" font-family="'Courier New', Courier, monospace" font-weight="700" font-size="13" fill="#00F2FE">
-      panoramagenerator.ai
+      360panoramaviewer.com
     </text>
   </g>
 </svg>

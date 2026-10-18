@@ -41,7 +41,7 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
     },
     {
       q: 'Are files uploaded to a remote server during cubemap slicing?',
-      a: 'No. PanoramaAI operates 100% client-side using WebGL and HTML5 Canvas ray-sphere projection algorithms. Your images never leave your computer, guaranteeing maximum privacy and instant conversion speed.',
+      a: 'No. 360 Panorama Viewer operates 100% client-side using WebGL and HTML5 Canvas ray-sphere projection algorithms. Your images never leave your computer, guaranteeing maximum privacy and instant conversion speed.',
     },
     {
       q: 'What face resolutions are supported for ZIP download?',
@@ -155,7 +155,7 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
             Mathematical Precision
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Why Use PanoramaAI Cubemap Slicer
+            Why Use Our Free Cubemap Slicer
           </h2>
         </div>
 

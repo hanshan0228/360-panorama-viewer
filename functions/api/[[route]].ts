@@ -372,7 +372,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       const credits = await claimTrial(env.DB, source, await freeCredits(env.DB), env.FREE_TRIAL_ENABLED !== 'false');
       const guestId = 'usr_guest_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
       const now = new Date().toISOString();
-      const guestEmail = `guest_${guestId}@guest.panoramagenerator.ai`;
+      const guestEmail = `guest_${guestId}@guest.360panoramaviewer.com`;
 
       await env.DB.prepare(`
         INSERT INTO users (id, email, name, plan, credits_balance, credits_total, api_calls_count, status, created_at)

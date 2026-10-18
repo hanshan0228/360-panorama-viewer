@@ -188,7 +188,7 @@ export function createCommercialServer(options = {}) {
         recordRateHit(rateBuckets, `guest:hour:${guestIp}`);
         recordRateHit(rateBuckets, `guest:day:${guestIp}`);
         const guestId = 'usr_guest_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
-        const guestEmail = `guest_${guestId}@guest.panoramagenerator.ai`;
+        const guestEmail = `guest_${guestId}@guest.360panoramaviewer.com`;
         const store = readStore(file);
         store.users = store.users || [];
         const source = crypto.createHash('sha256').update(guestIp).digest('hex');
@@ -741,7 +741,7 @@ export function createCommercialServer(options = {}) {
         params.append('mode', 'payment');
         params.append('line_items[0][price_data][currency]', 'usd');
         params.append('line_items[0][price_data][unit_amount]', String(orderAmount));
-        params.append('line_items[0][price_data][product_data][name]', `PanoramaAI Studio ${plan.toUpperCase()} (${billingCycle})`);
+        params.append('line_items[0][price_data][product_data][name]', `360 Panorama Viewer ${plan.toUpperCase()} (${billingCycle})`);
         params.append('line_items[0][quantity]', '1');
         params.append('client_reference_id', user.id);
         params.append('customer_email', user.email);

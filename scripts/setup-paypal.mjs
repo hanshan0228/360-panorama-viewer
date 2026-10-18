@@ -45,7 +45,7 @@ try {
     const billing = (await response.json()).config;
     if (!billing) throw new Error('Missing server billing configuration');
     if (!env.PAYPAL_PRODUCT_ID) {
-      const product = await api('/v1/catalogs/products', { name: 'PanoramaAI Studio', description: 'AI panorama generation credits',
+      const product = await api('/v1/catalogs/products', { name: '360 Panorama Viewer', description: 'AI panorama generation credits',
         type: 'SERVICE', category: 'SOFTWARE', home_url: origin }, requestId('product'));
       if (!product.id) throw new Error('PayPal product ID missing');
       env.PAYPAL_PRODUCT_ID = product.id;
@@ -57,7 +57,7 @@ try {
         const key = `PAYPAL_${plan.toUpperCase()}_${cycle.toUpperCase()}_PLAN_ID`;
         if (!env[key]) {
           const created = await api('/v1/billing/plans', { product_id: env.PAYPAL_PRODUCT_ID,
-            name: `PanoramaAI ${plan} ${cycle}`, status: 'ACTIVE',
+            name: `360 Panorama Viewer ${plan} ${cycle}`, status: 'ACTIVE',
             billing_cycles: [{ frequency: { interval_unit: cycle === 'yearly' ? 'YEAR' : 'MONTH', interval_count: 1 },
               tenure_type: 'REGULAR', sequence: 1, total_cycles: 0,
               pricing_scheme: { fixed_price: { value: (offer.amountCents / 100).toFixed(2), currency_code: 'USD' } } }],

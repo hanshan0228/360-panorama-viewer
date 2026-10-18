@@ -229,7 +229,7 @@ export async function handlePayPalRequest({ request, env, ledger, authenticate, 
     const origin = env.PAYPAL_RETURN_ORIGIN || url.origin;
     try {
       const remote = await api('/v1/billing/subscriptions', { plan_id: local.planId, custom_id: local.id,
-        application_context: { brand_name: 'PanoramaAI Studio', shipping_preference: 'NO_SHIPPING', user_action: 'SUBSCRIBE_NOW',
+        application_context: { brand_name: '360 Panorama Viewer', shipping_preference: 'NO_SHIPPING', user_action: 'SUBSCRIBE_NOW',
           return_url: `${origin}/?paypal=return`, cancel_url: `${origin}/?paypal=cancelled` } }, local.id);
       const approvalUrl = remote.links?.find(link => link.rel === 'approve')?.href;
       const approvedUrl = approvalUrl ? new URL(approvalUrl) : null;

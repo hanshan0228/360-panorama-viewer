@@ -130,7 +130,7 @@ export function FeatureMatrix() {
           Built for VR-Ready Equirectangular Output
         </h2>
         <p className="text-sm text-cyan-200/70 mt-2">
-          Standard AI models produce flat images that pinch and tear when wrapped onto a sphere. PanoramaAI adds the panorama-specific engineering pipeline so your output drops straight into any 360° viewer or VR headset.
+          Standard AI models produce flat images that pinch and tear when wrapped onto a sphere. 360 Panorama Viewer adds the panorama-specific engineering pipeline so your output drops straight into any 360° viewer or VR headset.
         </p>
       </div>
 

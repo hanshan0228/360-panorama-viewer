@@ -78,7 +78,7 @@ export const TRANSLATIONS: Record<SupportedLang, TranslationDictionary> = {
     embedSubtitle: 'Add this interactive 360° sphere directly to your WordPress, Webflow, Shopify, or portfolio site with responsive iframe embedding.',
     copyCode: 'Copy Embed Code',
     codeCopied: 'Embed Code Copied!',
-    includeBacklink: 'Include "Powered by PanoramaAI" Badge',
+    includeBacklink: 'Include "Powered by 360 Panorama Viewer" Badge',
     autoRotate: 'Enable Smooth Auto-Rotation',
   },
 };

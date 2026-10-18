@@ -34,7 +34,7 @@ export function PhotoTo360Page({ onLaunchImageToPano, onOpenViewer }: PhotoTo360
   const faqs = [
     {
       q: 'How does Photo to 360 AI conversion work?',
-      a: 'PanoramaAI utilizes an advanced spatial outpainting and multi-reference diffusion pipeline. When you provide reference photos (such as room photos, landscape shots, or concept art), the AI analyzes perspective lines, lighting vectors, and material textures, extrapolating them into a complete 360° horizontal by 180° vertical equirectangular sphere.',
+      a: '360 Panorama Viewer utilizes an advanced spatial outpainting and multi-reference diffusion pipeline. When you provide reference photos (such as room photos, landscape shots, or concept art), the AI analyzes perspective lines, lighting vectors, and material textures, extrapolating them into a complete 360° horizontal by 180° vertical equirectangular sphere.',
     },
     {
       q: 'Can I upload multiple photos to steer the environment?',
@@ -42,11 +42,11 @@ export function PhotoTo360Page({ onLaunchImageToPano, onOpenViewer }: PhotoTo360
     },
     {
       q: 'Is this suitable for real estate virtual staging and architectural visualization?',
-      a: 'Yes! Real estate photographers and architects frequently use PanoramaAI to convert 2D architectural renderings or wide-angle room photos into full 360° virtual tours for clients, compatible with Matterport-style WebGL viewers and VR headsets.',
+      a: 'Yes! Real estate photographers and architects frequently use 360 Panorama Viewer to convert 2D architectural renderings or wide-angle room photos into full 360° virtual tours for clients, compatible with Matterport-style WebGL viewers and VR headsets.',
     },
     {
       q: 'Does the converted 360 photo have visible stitching lines?',
-      a: 'No. Traditional multi-shot panorama stitching with software like PTGui often produces double-exposures, ghosting, or visible seam cuts. PanoramaAI applies automated harmonic Poisson seam healing at the 0°/360° juncture, ensuring an imperceptible, continuous 360-degree loop.',
+      a: 'No. Traditional multi-shot panorama stitching with software like PTGui often produces double-exposures, ghosting, or visible seam cuts. 360 Panorama Viewer applies automated harmonic Poisson seam healing at the 0°/360° juncture, ensuring an imperceptible, continuous 360-degree loop.',
     },
     {
       q: 'What resolution is the converted 360 panorama?',
@@ -263,7 +263,7 @@ export function PhotoTo360Page({ onLaunchImageToPano, onOpenViewer }: PhotoTo360
             <thead className="bg-[#051733] text-cyan-200 border-b border-cyan-500/30 font-semibold uppercase tracking-wider">
               <tr>
                 <th className="py-4 px-5">Method</th>
-                <th className="py-4 px-5 text-teal-400">PanoramaAI Photo-to-360</th>
+                <th className="py-4 px-5 text-teal-400">Our Photo-to-360 AI</th>
                 <th className="py-4 px-5 text-slate-400">PTGui Photo Stitching</th>
                 <th className="py-4 px-5 text-slate-400">360 Hardware Cameras</th>
               </tr>

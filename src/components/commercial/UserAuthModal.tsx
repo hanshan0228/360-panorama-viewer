@@ -71,7 +71,7 @@ export function UserAuthModal({ isOpen, onClose, currentUser, onAuthSuccess, ini
   const handleLogout = () => {
     if (typeof localStorage !== 'undefined') localStorage.removeItem('panorama_server_user_token');
     const guestUser: ManagedUser = {
-      id: 'usr_guest', email: 'guest@panoramagenerator.ai', name: 'Free Trial Guest', plan: 'free',
+      id: 'usr_guest', email: 'guest@360panoramaviewer.com', name: 'Free Trial Guest', plan: 'free',
       creditsBalance: 0, creditsTotal: 0, status: 'active', joinedAt: new Date().toISOString().split('T')[0],
       lastActiveAt: 'Just now', apiCallsCount: 0,
     };
@@ -108,7 +108,7 @@ export function UserAuthModal({ isOpen, onClose, currentUser, onAuthSuccess, ini
     className="m-auto p-0 w-[calc(100%-2rem)] max-w-md max-h-[90vh] overflow-y-auto bg-[#030d1d] border border-cyan-500/30 rounded-3xl text-sky-100 backdrop:bg-slate-950/80 backdrop:backdrop-blur-md">
     <div className="p-6 space-y-5">
       <div className="flex justify-between items-start gap-3">
-        <div><User className="w-6 h-6 text-cyan-300 mb-3" /><h2 id="auth-title" className="font-bold text-xl">{isLoggedIn ? 'Your account' : isRegisterMode ? 'Create your account' : 'Sign in to PanoramaAI'}</h2>
+        <div><User className="w-6 h-6 text-cyan-300 mb-3" /><h2 id="auth-title" className="font-bold text-xl">{isLoggedIn ? 'Your account' : isRegisterMode ? 'Create your account' : 'Sign in to 360 Panorama Viewer'}</h2>
           <p id="auth-description" className="text-sm text-cyan-200/75 mt-2">{isLoggedIn ? 'Your account, plan access and available credits.' : continueToCheckout ? 'Continue with the plan below. No payment is taken when you create an account or sign in.' : isRegisterMode ? 'Start creating panoramas with a free account. No subscription required.' : 'Welcome back. Sign in to use your account credits.'}</p></div>
         <button type="button" aria-label="Close account dialog" onClick={closeDialog} className="p-2 rounded-xl hover:bg-cyan-500/15"><X className="w-5 h-5" /></button>
       </div>

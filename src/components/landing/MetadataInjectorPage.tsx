@@ -136,11 +136,11 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
     },
     {
       q: 'Can I inject metadata into PNG or WebP files?',
-      a: 'The official PhotoSphere XMP specification requires a JPEG container. When you upload a PNG or WebP image, PanoramaAI automatically packages it into a high-quality (0.95 quality factor) JPEG container with injected XMP tags ready for instant upload.',
+      a: 'The official PhotoSphere XMP specification requires a JPEG container. When you upload a PNG or WebP image, 360 Panorama Viewer automatically packages it into a high-quality (0.95 quality factor) JPEG container with injected XMP tags ready for instant upload.',
     },
     {
       q: 'What specific XMP tags are added to the file?',
-      a: 'PanoramaAI injects the full Google PhotoSphere GPano specification: ProjectionType=equirectangular, UsePanoramaViewer=True, FullPanoWidthPixels, FullPanoHeightPixels, CroppedAreaImageWidthPixels, CroppedAreaImageHeightPixels, and PoseHeadingDegrees=0.0.',
+      a: '360 Panorama Viewer injects the full Google PhotoSphere GPano specification: ProjectionType=equirectangular, UsePanoramaViewer=True, FullPanoWidthPixels, FullPanoHeightPixels, CroppedAreaImageWidthPixels, CroppedAreaImageHeightPixels, and PoseHeadingDegrees=0.0.',
     },
   ];
 

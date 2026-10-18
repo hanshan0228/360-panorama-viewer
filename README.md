@@ -1,4 +1,4 @@
-# PanoramaAI Studio — AI 360° Panorama Generator & VR Skybox Engine
+# 360 Panorama Viewer — AI 360° Panorama Generator & VR Skybox Engine
 
 > **在线演示 (Live Demo)**：[https://hanshan0228.github.io/panorama-generator/](https://hanshan0228.github.io/panorama-generator/)  
 > **对标站点**：[panoramagenerator.com](https://panoramagenerator.com/)  

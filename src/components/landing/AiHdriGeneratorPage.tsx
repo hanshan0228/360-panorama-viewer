@@ -39,11 +39,11 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
     },
     {
       q: 'Can I export in Radiance .HDR or EXR format for Blender and Unreal Engine?',
-      a: 'Yes. PanoramaAI Studio allows downloading the full 2:1 equirectangular map in high-resolution PNG as well as generating 32-bit floating point Radiance .HDR files and 6-sided cubemap slices formatted specifically for Blender World Shaders, Unreal Engine 5 Skylights, and Unity Skyboxes.',
+      a: 'Yes. 360 Panorama Viewer allows downloading the full 2:1 equirectangular map in high-resolution PNG as well as generating 32-bit floating point Radiance .HDR files and 6-sided cubemap slices formatted specifically for Blender World Shaders, Unreal Engine 5 Skylights, and Unity Skyboxes.',
     },
     {
-      q: 'How does PanoramaAI solve the 360° boundary seam problem?',
-      a: 'Standard 2D AI models produce a jarring vertical line where the left and right edges meet (x=0 and x=W). PanoramaAI integrates a proprietary Poisson harmonic seam blending engine that calculates gradient continuity across the boundary, guaranteeing 100% seamless 360° rotation with zero seam artifacts.',
+      q: 'How does 360 Panorama Viewer solve the 360° boundary seam problem?',
+      a: 'Standard 2D AI models produce a jarring vertical line where the left and right edges meet (x=0 and x=W). 360 Panorama Viewer integrates a proprietary Poisson harmonic seam blending engine that calculates gradient continuity across the boundary, guaranteeing 100% seamless 360° rotation with zero seam artifacts.',
     },
     {
       q: 'Is this suitable for realistic lighting and reflection probes in 3D scenes?',
@@ -182,7 +182,7 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
             Engineered For 3D Pipelines
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Why 3D Artists Choose PanoramaAI HDRI
+            Why 3D Artists Choose Our HDRI Engine
           </h2>
         </div>
 
@@ -293,7 +293,7 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
             <thead className="bg-[#051733] text-cyan-200 border-b border-cyan-500/30 font-semibold uppercase tracking-wider">
               <tr>
                 <th className="py-4 px-5">Workflow Metric</th>
-                <th className="py-4 px-5 text-cyan-400">PanoramaAI HDRI</th>
+                <th className="py-4 px-5 text-cyan-400">360 Panorama Viewer</th>
                 <th className="py-4 px-5 text-slate-400">Physical Mirror Ball Rig</th>
                 <th className="py-4 px-5 text-slate-400">Stock 3D Libraries</th>
               </tr>
@@ -349,7 +349,7 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
         <pre className="p-4 rounded-xl bg-[#010813] border border-cyan-500/20 text-cyan-300 font-mono text-xs overflow-x-auto leading-relaxed">
 {`# 1. Open Shader Editor -> Switch from 'Object' to 'World'
 # 2. Add Environment Texture (Shift + A -> Texture -> Environment Texture)
-# 3. Load your downloaded PanoramaAI .png or .hdr file
+# 3. Load your downloaded 360 Panorama Viewer .png or .hdr file
 # 4. Connect Environment Texture [Color] -> Background [Color]
 # 5. Connect Background [Background] -> World Output [Surface]
 # Tip: Set Strength to 1.0 - 1.5 for realistic global illumination.`}

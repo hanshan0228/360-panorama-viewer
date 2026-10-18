@@ -22,7 +22,7 @@ export function SeamShowcase() {
       <div className="max-w-4xl mx-auto glass-panel border border-cyan-500/30 rounded-3xl overflow-hidden p-6 sm:p-8 shadow-2xl">
         {/* Interactive Before/After Split Viewer */}
         <div className="relative h-64 sm:h-80 w-full rounded-2xl overflow-hidden select-none border border-cyan-500/30 shadow-inner bg-black">
-          {/* "After" Layer: Seamless PanoramaAI Output */}
+          {/* "After" Layer: Seamless 360 Panorama Viewer Output */}
           <div className="absolute inset-0 bg-gradient-to-r from-[#061838] via-[#113a70] to-[#061838] flex items-center justify-center">
             {/* Visual simulation of continuous horizon */}
             <div className="w-full h-full relative overflow-hidden flex flex-col justify-end">
@@ -32,7 +32,7 @@ export function SeamShowcase() {
               </div>
               <div className="absolute top-4 right-4 bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 backdrop-blur-md">
                 <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span>After: PanoramaAI Seam Healed (0 Visible Seam)</span>
+                <span>After: 360 Panorama Viewer Seam Healed (0 Visible Seam)</span>
               </div>
             </div>
           </div>

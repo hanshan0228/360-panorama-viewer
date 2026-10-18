@@ -246,8 +246,8 @@ export function App() {
   useEffect(() => {
     const tabSeoMap: Record<ActiveTab, { title: string; desc: string }> = {
       generator: {
-        title: 'AI 360 Panorama Generator — Free Online VR Skybox & Cubemap Studio',
-        desc: 'Generate seamless 360° equirectangular panoramas, VR skyboxes, and cubemaps from text or photos in seconds. Free 360 WebGL viewer, harmonic seam healing, and 4K HDR export. No upload required.',
+        title: '360 Panorama Viewer — Free Online Viewer & AI 360° Generator',
+        desc: 'Free online 360 panorama viewer: inspect equirectangular photos and VR skyboxes in WebGL with no upload, or generate seamless 360° panoramas from text and photos with AI.',
       },
       viewer: {
         title: 'Free 360° Viewer Online — Panorama Viewer, No Upload Needed',
@@ -262,16 +262,16 @@ export function App() {
         desc: 'Convert any 2D map, flat world image, or 360° panorama into an interactive rotating 3D globe. Free online MapToGlobe alternative with real-time WebGL atmosphere glow, wireframe toggle, and rotation speed controls. Zero upload required.',
       },
       pricing: {
-        title: 'Pricing & Credit Plans | PanoramaAI Studio Pro',
+        title: 'Pricing & Credit Plans | 360 Panorama Viewer Pro',
         desc: 'Transparent credit-based pricing for AI 360 panorama generation. Free explorer tier with 4 trial credits, Pro subscriptions with full commercial license.',
       },
       showcase: {
         title: 'Community 360° Panorama Showcase | AI VR Skybox Inspiration',
-        desc: 'Explore high-resolution 360 equirectangular panoramas created by 3D artists, game developers, and architects using PanoramaAI Studio.',
+        desc: 'Explore high-resolution 360 equirectangular panoramas created by 3D artists, game developers, and architects using 360 Panorama Viewer.',
       },
       admin: {
-        title: 'Admin Console | PanoramaAI Studio',
-        desc: 'Model endpoint routing, usage quotas, and system administration console for PanoramaAI Studio.',
+        title: 'Admin Console | 360 Panorama Viewer',
+        desc: 'Model endpoint routing, usage quotas, and system administration console for 360 Panorama Viewer.',
       },
       'landing-hdri': {
         title: 'AI HDRI Generator | Free 360° HDR for Blender & Unreal (No Upload)',
@@ -331,7 +331,7 @@ export function App() {
       if (isImageMakerPath) {
         slug = '360-image-maker/';
       }
-      canonicalLink.setAttribute('href', `https://panoramagenerator.ai/${slug}`);
+      canonicalLink.setAttribute('href', `https://360panoramaviewer.com/${slug}`);
     }
   }, [activeTab]);
 
@@ -514,15 +514,15 @@ export function App() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-black text-base tracking-tight bg-gradient-to-r from-white via-cyan-100 to-cyan-400 bg-clip-text text-transparent">
-                  PanoramaAI
+                  360 Panorama
                 </span>
                 <span className="text-[10px] font-mono px-2 py-0.5 bg-cyan-400/15 border border-cyan-400/40 text-cyan-300 rounded-md font-bold tracking-wider shadow-sm">
-                  STUDIO
+                  VIEWER
                 </span>
               </div>
               <div className="text-[10px] text-cyan-300/70 hidden sm:flex items-center gap-1.5 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#00F2FE]" />
-                <span>AI 360° Panorama &amp; VR Skybox Engine</span>
+                <span>Free 360° Viewer, AI Generator &amp; VR Skybox</span>
               </div>
             </div>
           </div>
@@ -989,10 +989,10 @@ export function App() {
                 <div className="p-2 bg-gradient-to-tr from-cyan-400 to-blue-600 rounded-xl text-slate-950 font-bold shadow-md shadow-cyan-500/25">
                   <Compass className="w-4 h-4" />
                 </div>
-                <span className="text-white font-extrabold text-base tracking-tight">PanoramaAI Studio</span>
+                <span className="text-white font-extrabold text-base tracking-tight">360 Panorama Viewer</span>
               </div>
               <p className="text-xs text-cyan-200/70 leading-relaxed">
-                Next-generation artificial intelligence platform for 360° spherical equirectangular panorama synthesis, real-time WebGL inspection, cubemap slicing, and 3D environment pipelines.
+                Free 360° panorama viewer and AI studio: inspect equirectangular photos in real-time WebGL, or generate seamless 2:1 panoramas, cubemap slices, and 4K HDR environments.
               </p>
               <div className="flex items-center gap-2 pt-1 text-[11px] text-cyan-400">
                 <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
@@ -1179,7 +1179,7 @@ export function App() {
           {/* Bottom Bar */}
           <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-cyan-400/60">
             <div>
-              &copy; 2026 PanoramaAI Studio. All rights reserved. 2:1 Equirectangular Standard.
+              &copy; 2026 360 Panorama Viewer. All rights reserved. 2:1 Equirectangular Standard.
             </div>
 
             <div className="flex items-center gap-4">

@@ -112,10 +112,10 @@ export function CameraComparison() {
           <span>Industry Benchmark &amp; Competitor Comparison</span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-          How PanoramaAI Compares
+          How 360 Panorama Viewer Compares
         </h2>
         <p className="text-sm text-cyan-200/70 mt-2">
-          Compare PanoramaAI Studio against physical 360° hardware rigs and generic 2D AI image generators.
+          Compare 360 Panorama Viewer against physical 360° hardware rigs and generic 2D AI image generators.
         </p>
 
         {/* Dual Tab Switcher */}
@@ -154,7 +154,7 @@ export function CameraComparison() {
           </div>
           <div className="col-span-4 sm:col-span-4 text-cyan-400 flex items-center gap-1.5 font-bold">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>PanoramaAI Studio</span>
+            <span>360 Panorama Viewer</span>
           </div>
           <div className="col-span-4 sm:col-span-3 text-slate-400 flex items-center gap-1.5">
             {activeBenchmark === 'camera' ? (
@@ -216,8 +216,8 @@ export function CameraComparison() {
           <p className="text-cyan-200/80">
             <strong className="text-white">Verdict:</strong>{' '}
             {activeBenchmark === 'camera'
-              ? 'Physical cameras win on real-world surveyor accuracy. PanoramaAI wins completely on speed, fictional world building, zero hardware cost, and instant game-engine export.'
-              : 'Generic 2D image models produce flat images that tear and warp when projected onto a sphere. PanoramaAI is purpose-built for true 2:1 equirectangular spherical VR environments.'}
+              ? 'Physical cameras win on real-world surveyor accuracy. 360 Panorama Viewer wins completely on speed, fictional world building, zero hardware cost, and instant game-engine export.'
+              : 'Generic 2D image models produce flat images that tear and warp when projected onto a sphere. 360 Panorama Viewer is purpose-built for true 2:1 equirectangular spherical VR environments.'}
           </p>
           <span className="shrink-0 font-bold text-cyan-400 flex items-center gap-1">
             <span>Production Ready</span>
