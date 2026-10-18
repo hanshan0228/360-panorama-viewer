@@ -2202,6 +2202,31 @@ test('share manager discards another account’s late list and aborts requests w
   assert.equal(pending[1].init.signal.aborted, true);
 });
 
+test('share modal initializes title with current prompt and distinguishes new share from old list', async t => {
+  let token = 'account-token';
+  setGlobal(t, 'window', { location: { origin: 'https://studio.example', pathname: '/panorama-generator/' } });
+  setGlobal(t, 'localStorage', { getItem: () => token });
+  setGlobal(t, 'document', { activeElement: { focus() {} } });
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.includes('/api/shares')) {
+      return Response.json({ shares: [{ id: '1'.repeat(32), title: 'Old Sunset Pano', width: 2048, height: 1024, allowDownload: true, createdAt: Date.now() - 3600000 }] });
+    }
+    return Response.error();
+  });
+  const harness = componentHarness('../src/components/commercial/SharePanorama.tsx', 'SharePanoramaModal', { '../SphereViewer': { SphereViewer() {} }, '../../utils/imageOptimizer': {} });
+  const attach = tree => { const node = elementsIn(tree).find(e => e.type === 'dialog'); if (node) node.props.ref.current = { showModal() {}, close() {} }; };
+  const props = { isOpen: true, accountId: 'acc-1', imageUrl: 'data:image/png;base64,AA==', prompt: 'Cyberpunk Neon Alley at Dusk', onClose() {} };
+  const tree = harness.render(props, attach);
+  await flushPromises();
+  const rendered = harness.render(props, attach);
+  const text = elementText(rendered);
+  assert.ok(text.includes('Old Sunset Pano'));
+  const titleInput = elementsIn(rendered).find(e => e.type === 'input' && e.props.placeholder === 'My panorama');
+  assert.ok(titleInput);
+  assert.equal(titleInput.props.value, 'Cyberpunk Neon Alley at Dusk');
+  harness.unmount();
+});
+
 test('public shared panorama loads without login and releases its image on unmount', async t => {
   const calls = [], revoked = [];
   setGlobal(t, 'document', { title: '' });

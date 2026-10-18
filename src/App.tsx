@@ -226,12 +226,19 @@ export function App() {
     synchronizeSession();
     window.addEventListener('panorama-session-changed', handleSessionChange);
     window.addEventListener('focus', refreshUser);
+    const handleOpenAuth = () => {
+      setAuthMode('login');
+      setAuthNotice('');
+      setIsAuthModalOpen(true);
+    };
+    window.addEventListener('panorama-open-auth', handleOpenAuth);
     return () => {
       active = false;
       window.removeEventListener('panorama-payment-updated', refreshPaymentUser);
       window.removeEventListener('panorama-user-refresh', refreshPaymentUser);
       window.removeEventListener('panorama-session-changed', handleSessionChange);
       window.removeEventListener('focus', refreshUser);
+      window.removeEventListener('panorama-open-auth', handleOpenAuth);
     };
   }, [activeTab]);
 

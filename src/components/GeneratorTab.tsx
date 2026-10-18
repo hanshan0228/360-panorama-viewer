@@ -1421,7 +1421,7 @@ export function GeneratorTab({
         setOriginalRawUrl(original); setEnhanced4kUrl(null); onPanoramaChange(processed); setIsPreviewActive(true);
         if (share) setIsShareOpen(true);
       }} />
-      <SharePanoramaModal isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} imageUrl={currentPanoramaUrl} accountId={currentUser.id} />
+      <SharePanoramaModal isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} imageUrl={currentPanoramaUrl} prompt={prompt} accountId={currentUser.id} />
 
       {/* Embed 360 Viewer Modal */}
       <EmbedModal

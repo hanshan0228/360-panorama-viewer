@@ -4,7 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import { SharedPanorama } from './components/commercial/SharePanorama'
 
-const sharedId = window.location.pathname.match(/^\/s\/([a-f0-9]{32})\/?$/)?.[1];
+const sharedId = window.location.pathname.match(/(?:^|\/)s\/([a-f0-9]{32})\/?$/)?.[1];
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
