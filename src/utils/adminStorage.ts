@@ -751,8 +751,8 @@ export function getStoredAdminPassword(): string {
 }
 
 export function markAdminServerMode(): void {
-  localStorage.removeItem(ADMIN_PASSWORD_STORAGE_KEY);
-  sessionStorage.setItem('panorama_admin_server_mode', 'true');
+  if (typeof localStorage !== 'undefined') localStorage.removeItem(ADMIN_PASSWORD_STORAGE_KEY);
+  if (typeof sessionStorage !== 'undefined') sessionStorage.setItem('panorama_admin_server_mode', 'true');
 }
 
 export function setStoredAdminPassword(password: string): void {

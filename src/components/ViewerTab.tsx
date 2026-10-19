@@ -329,13 +329,13 @@ export function ViewerTab({
       <div className="text-center max-w-2xl mx-auto space-y-2.5">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono font-medium mb-1">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span>ZERO-LATENCY WEBGL ENGINE</span>
+          <span>FREE · LOCAL FILES · NO ACCOUNT</span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
           Panorama Viewer — Interactive 360° Photo Viewer
         </h1>
         <p className="text-sm text-slate-400">
-          Free online panorama viewer — open 360° equirectangular photos, Photo Spheres, and VR panoramas straight in your browser, with no upload and no account. Instant client-side WebGL rendering with smooth damped inertia, 16x anisotropic filtering, and ACES cinematic tone mapping.
+          Open a 360° photo or Photo Sphere directly in your browser. Your file stays on your device. No upload, signup or installation.
         </p>
       </div>
 
@@ -405,7 +405,12 @@ export function ViewerTab({
           </div>
 
           {/* Quick upload & optimization triggers */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="shimmer-btn px-4 py-1.5 bg-cyan-400 hover:bg-cyan-300 text-slate-950 rounded-xl cursor-pointer flex items-center gap-1.5 font-extrabold transition-all shadow-md shadow-cyan-400/30 active:scale-95 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-cyan-300">
+              <Upload className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Open Local Panorama</span>
+              <input type="file" accept="image/*" onChange={handleFileUpload} className="sr-only" aria-label="Open local panorama" />
+            </label>
             {originalUploadedUrl && originalUploadedUrl !== currentPanoramaUrl && (
               <button
                 type="button"
@@ -499,11 +504,6 @@ export function ViewerTab({
               <span>Embed</span>
             </button>
 
-            <label className="shimmer-btn px-4 py-1.5 bg-cyan-400 hover:bg-cyan-300 text-slate-950 rounded-xl cursor-pointer flex items-center gap-1.5 font-extrabold transition-all shadow-md shadow-cyan-400/30 active:scale-95">
-              <Upload className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Open Local Panorama</span>
-              <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-            </label>
           </div>
         </div>
 

@@ -49,6 +49,8 @@ import {
   getCurrentUser,
   deductCurrentUserCredits,
   getModelExecutionPipeline,
+  DEFAULT_GUEST_USER,
+  DEFAULT_BILLING_CONFIG,
 } from '../utils/adminStorage';
 
 const PROMPT_BUILDER_CATEGORIES = [
@@ -95,12 +97,14 @@ const PROMPT_BUILDER_CATEGORIES = [
 ];
 
 interface GeneratorTabProps {
-  currentUser: ManagedUser;
-  billingConfig: SystemBillingConfig;
-  onUserChange: (user: ManagedUser) => void;
+  isViewerHomepage?: boolean;
+  trialNotice?: string;
+  currentUser?: ManagedUser;
+  billingConfig?: SystemBillingConfig;
+  onUserChange?: (user: ManagedUser) => void;
   currentPanoramaUrl: string;
   onPanoramaChange: (url: string) => void;
-  onNavigateTab: (tab: ActiveTab) => void;
+  onNavigateTab?: (tab: ActiveTab) => void;
   externalInputMode?: 'text' | 'image';
   onInputModeChange?: (mode: 'text' | 'image') => void;
   externalPrompt?: string;
@@ -196,12 +200,14 @@ const SAMPLE_REFERENCE_PRESETS = [
 ];
 
 export function GeneratorTab({
-  currentUser,
-  billingConfig,
-  onUserChange,
+  isViewerHomepage = false,
+  trialNotice,
+  currentUser = DEFAULT_GUEST_USER,
+  billingConfig = DEFAULT_BILLING_CONFIG,
+  onUserChange = () => {},
   currentPanoramaUrl,
   onPanoramaChange,
-  onNavigateTab,
+  onNavigateTab = () => {},
   externalInputMode,
   onInputModeChange,
   externalPrompt,
@@ -774,32 +780,39 @@ export function GeneratorTab({
       ========================================================================= */}
       <section className="studio-hero" aria-labelledby="studio-hero-title">
         <img className="studio-hero-image" src={coastalCover} alt="" width={2560} height={1280} fetchPriority="high" />
-        <HeroPanorama textureUrl={coastalCover} />
+        {!isViewerHomepage && <HeroPanorama textureUrl={coastalCover} />}
         <div className="studio-hero-content">
           <span className="studio-coordinate">FREE 360° PANORAMA VIEWER · AI GENERATOR</span>
-          <h1 id="studio-hero-title">Create a world.<br /><em>Not just an image.</em></h1>
-          <p>From a few words to a new perspective. Create panoramic environments for your next game, virtual space, or creative escape.</p>
+          <h1 id="studio-hero-title">{isViewerHomepage ? <>360° Panorama<br /><em>Viewer.</em></> : <>AI 360° Panorama<br /><em>Generator.</em></>}</h1>
+          <p>{isViewerHomepage ? 'Open and explore a 360° photo in your browser. No upload or account needed. Create a new environment with AI when you need one.' : 'Create panoramic environments from text or reference photos, then preview and export them for your next game, virtual space, or creative project.'}</p>
           <div className="studio-hero-actions">
-            <button type="button" className="studio-primary-action" onClick={() => {
+            {isViewerHomepage && <a href="/360-panorama-viewer/" className="studio-primary-action" onClick={(event) => {
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+              event.preventDefault();
+              onNavigateTab('viewer');
+            }}>Open the free 360° viewer <ArrowUpRight aria-hidden="true" size={17} /></a>}
+            <button type="button" className={isViewerHomepage ? 'studio-secondary-action' : 'studio-primary-action'} onClick={() => {
               const input = document.getElementById('prompt-input');
               input?.focus({ preventScroll: true });
               input?.scrollIntoView({ block: 'center' });
-            }}>Start creating <ArrowUpRight aria-hidden="true" size={17} /></button>
-            <button type="button" className="studio-secondary-action" onClick={() => {
+            }}>{isViewerHomepage ? 'Create with AI' : 'Start creating'} <ArrowUpRight aria-hidden="true" size={17} /></button>
+            {!isViewerHomepage && <button type="button" className="studio-secondary-action" onClick={() => {
               setIsPreviewActive(true);
               document.getElementById('studio-preview')?.scrollIntoView({ block: 'center' });
               document.getElementById('studio-preview')?.focus({ preventScroll: true });
-            }}><Play aria-hidden="true" size={15} /> Try the 360° demo</button>
+            }}><Play aria-hidden="true" size={15} /> Try the 360° demo</button>}
           </div>
-          <span className="studio-hero-note">Free starter credits · No card required</span>
+          <span className="studio-hero-note">{isViewerHomepage ? 'Viewing is free · AI generation uses credits' : 'AI generation uses account credits · Preview and local tools are free'}</span>
         </div>
-        <div className="studio-hero-caption"><span>COASTAL STUDY <span>/ REAL 4K PANORAMA</span></span><span aria-hidden="true">↗ A DIFFERENT PERSPECTIVE</span></div>
+        <div className="studio-hero-caption"><span>COASTAL STUDY <span>/ 360° PANORAMA</span></span><span aria-hidden="true">↗ A DIFFERENT PERSPECTIVE</span></div>
       </section>
 
       <div className="studio-workbench-heading">
         <div><span className="studio-coordinate">THE WORKSPACE</span><h2>Make room for your next idea.</h2></div>
         <p>Your scene, your style. Start with a description.</p>
       </div>
+
+      {trialNotice && <p role="status" className="text-sm text-amber-200 mb-4">{trialNotice}</p>}
 
       {/* =========================================================================
           STUDIO INTERACTIVE WORKBENCH (2 Columns: Controls & 360 Viewport)
@@ -1249,7 +1262,7 @@ export function GeneratorTab({
                   <div className="studio-preview-orbit" aria-hidden="true"><Globe2 size={66} strokeWidth={0.7} /></div>
                   <span className="studio-coordinate">A SPACE FOR POSSIBILITY</span>
                   <h3>Your world goes here.</h3>
-                  <p>Generate a panorama to explore it here.<br />Or open the built-in procedural demo — no credits used.</p>
+                  <p>Generate a panorama to explore it here.<br />Or explore the bundled 360° sample — no credits used.</p>
                   <button type="button" className="studio-secondary-action" onClick={() => setIsPreviewActive(true)}><Play size={15} aria-hidden="true" /> Open 360° demo</button>
                 </div>
               )}

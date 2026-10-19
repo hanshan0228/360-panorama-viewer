@@ -49,9 +49,9 @@
   border-radius: 999px;
   box-shadow: none;
 }
-.studio-shell > header nav button[class*="bg-gradient"] { background: #b2e5d4; color: #102924; box-shadow: none; }
-.studio-shell > header nav button[class*="bg-gradient"] svg { color: #234e48; }
-.studio-shell > header > div > div:first-child > div:first-child { background: #b2e5d4; box-shadow: none; }
+.studio-shell > header nav :is(button, a)[class*="bg-gradient"] { background: #b2e5d4; color: #102924; box-shadow: none; }
+.studio-shell > header nav :is(button, a)[class*="bg-gradient"] svg { color: #234e48; }
+.studio-shell > header > div > :is(div, a):first-child > div:first-child { background: #b2e5d4; box-shadow: none; }
 .studio-shell #studio-tools-menu > div {
   background: #111c22;
   border-color: rgba(158, 230, 211, .24);
@@ -107,6 +107,7 @@
   object-fit: cover;
   object-position: center 58%;
   z-index: -2;
+  pointer-events: none;
 }
 .studio-hero::before {
   content: '';
@@ -157,7 +158,7 @@
 .studio-hero-panorama-hint { position: absolute; top: 1.1rem; right: 1.1rem; padding: .34rem .72rem; border: 1px solid rgba(180, 218, 205, .28); border-radius: 999px; background: rgba(6, 18, 25, .55); color: #d4e5e4; font-family: Consolas, monospace; font-size: .55rem; letter-spacing: .14em; pointer-events: none; backdrop-filter: blur(6px); opacity: 0; transition: opacity .6s ease; }
 /* Let panorama drags pass through the informational layers; keep actions clickable */
 .studio-hero-content, .studio-hero-caption { pointer-events: none; }
-.studio-hero-content button { pointer-events: auto; }
+.studio-hero-content :is(button, a) { pointer-events: auto; }
 .studio-workbench-heading { display: flex; justify-content: space-between; align-items: end; gap: 1rem; margin-bottom: 1.5rem; }
 .studio-workbench-heading .studio-coordinate { color: #8db3a9; }
 .studio-workbench-heading h2 { font-family: Georgia, serif; font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 400; margin-top: .5rem; letter-spacing: -.03em; }

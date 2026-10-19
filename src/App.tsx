@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { lazy, Suspense, useState, useRef, useEffect, type MouseEvent as ReactMouseEvent } from 'react';
 import './studio.css';
 import {
   Compass,
@@ -25,7 +25,6 @@ import { GeneratorTab } from './components/GeneratorTab';
 import { ViewerTab } from './components/ViewerTab';
 import { CubemapTab } from './components/CubemapTab';
 import { PricingTab } from './components/PricingTab';
-import { AdminTab } from './components/AdminTab';
 import { MetadataInjectorModal } from './components/commercial/MetadataInjectorModal';
 import { CheckoutModal } from './components/commercial/CheckoutModal';
 import { UserAuthModal } from './components/commercial/UserAuthModal';
@@ -40,7 +39,7 @@ import {
   saveStoredBillingConfig,
   DEFAULT_BILLING_CONFIG,
 } from './utils/adminStorage';
-import { generateProceduralPanorama } from './utils/proceduralPanoramas';
+import samplePanoramaUrl from './assets/coastal-cover.png';
 import { fetchServerUser, fetchPublicModelsConfig, fetchPublicBillingConfig, initServerGuestUser } from './utils/commercialApi';
 import { AiHdriGeneratorPage } from './components/landing/AiHdriGeneratorPage';
 import { HdriViewerPage } from './components/landing/HdriViewerPage';
@@ -55,6 +54,8 @@ import { CubemapToEquirectPage } from './components/landing/CubemapToEquirectPag
 import { TextToPanoramaPage } from './components/landing/TextToPanoramaPage';
 import { DevelopersPage } from './components/landing/DevelopersPage';
 import { EmbedViewer } from './components/commercial/EmbedViewer';
+
+const AdminTab = lazy(() => import('./components/AdminTab').then(module => ({ default: module.AdminTab })));
 
 function getInitialTabFromLocation(): ActiveTab {
   if (typeof window === 'undefined') return 'generator';
@@ -83,6 +84,7 @@ function getInitialTabFromLocation(): ActiveTab {
 
 export function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>(getInitialTabFromLocation);
+  const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
   const [isToolsDropdownOpen, setIsToolsDropdownOpen] = useState(false);
   const [generatorInputMode, setGeneratorInputMode] = useState<'text' | 'image'>('text');
   const [isMetadataModalOpen, setIsMetadataModalOpen] = useState(false);
@@ -98,6 +100,7 @@ export function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authNotice, setAuthNotice] = useState('');
+  const [trialNotice, setTrialNotice] = useState('');
   const [checkoutSelection, setCheckoutSelection] = useState<{ plan: 'pro' | 'enterprise'; cycle: 'monthly' | 'yearly' }>({ plan: 'pro', cycle: 'monthly' });
   const [pendingCheckout, setPendingCheckout] = useState<typeof checkoutSelection | null>(null);
 
@@ -196,6 +199,7 @@ export function App() {
     window.addEventListener('panorama-user-refresh', refreshPaymentUser);
 
     const initializeGuest = () => {
+      if (typeof activeTab !== 'undefined' && activeTab !== 'generator') return;
       const request = ++userRequest;
       const userId = getCurrentUser().id;
       initServerGuestUser().then(result => {
@@ -204,7 +208,7 @@ export function App() {
           localStorage.setItem('panorama_server_user_token', result.token);
           applyUser(result.user);
         } else if (!result.success) {
-          setAuthNotice(result.error || 'Free trial unavailable. Sign in to continue.');
+          setTrialNotice(result.error || 'Free trial unavailable. Sign in to continue.');
           applyUser({ ...getCurrentUser(), creditsBalance: 0, creditsTotal: 0 });
         }
       });
@@ -325,7 +329,7 @@ export function App() {
     };
 
     // Special override if current pathname is 360-image-maker
-    const isImageMakerPath = typeof window !== 'undefined' && window.location.pathname.includes('360-image-maker');
+    const isImageMakerPath = currentPath.includes('360-image-maker');
 
     const target = isImageMakerPath
       ? {
@@ -363,12 +367,13 @@ export function App() {
       }
       canonicalLink.setAttribute('href', `https://360panoramaviewer.com/${slug}`);
     }
-  }, [activeTab]);
+  }, [activeTab, currentPath]);
 
   // Synchronize history & popstate for browser back/forward buttons
   useEffect(() => {
     const handlePopState = () => {
       setActiveTab(getInitialTabFromLocation());
+      setCurrentPath(window.location.pathname);
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -407,6 +412,15 @@ export function App() {
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== targetPath) {
       window.history.pushState(null, '', targetPath);
     }
+    if (typeof setCurrentPath === 'function') {
+      setCurrentPath(window.location.pathname);
+    }
+  };
+
+  const handleRouteLink = (event: ReactMouseEvent<HTMLAnchorElement>, tab: ActiveTab, path: string) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    navigateTo(tab, path);
   };
 
   // Close dropdown on outside click or escape
@@ -449,7 +463,7 @@ export function App() {
 
   const handleSelectTextTo360 = () => {
     setGeneratorInputMode('text');
-    navigateTo('generator', '/');
+    navigateTo('generator', '/360-image-maker/');
     setTimeout(() => {
       const el = document.getElementById('prompt-input');
       if (el) {
@@ -461,7 +475,7 @@ export function App() {
 
   const handleSelectImageToPano = () => {
     setGeneratorInputMode('image');
-    navigateTo('generator', '/');
+    navigateTo('generator', '/360-image-maker/');
     setTimeout(() => {
       const el = document.getElementById('reference-uploader') || document.getElementById('studio-generator-workbench');
       if (el) {
@@ -495,13 +509,8 @@ export function App() {
         return panoFromQuery;
       }
     }
-    const canvas = generateProceduralPanorama(
-      'cyberpunk',
-      'futuristic cyberpunk city at night, neon holograms, 8k equirectangular 360 panorama',
-      2048,
-      1024
-    );
-    return canvas.toDataURL('image/jpeg', 0.92);
+    // ponytail: reuse the bundled sample; procedural demos run only when selected.
+    return samplePanoramaUrl;
   });
 
   const isEmbedMode = typeof window !== 'undefined' && (
@@ -537,8 +546,10 @@ export function App() {
       <header className="sticky top-0 z-50 bg-[#040e22]/90 backdrop-blur-2xl border-b border-cyan-500/20 shadow-[0_4px_35px_rgba(0,242,254,0.12)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4 relative z-10">
           {/* Logo & Brand */}
-          <div
-            onClick={() => setActiveTab('generator')}
+          <a
+            href="/"
+            onClick={(event) => handleRouteLink(event, 'generator', '/')}
+            aria-label="360 Panorama Viewer home"
             className="flex items-center gap-3 cursor-pointer group shrink-0"
           >
             <div className="relative p-2.5 bg-gradient-to-tr from-cyan-400 via-teal-400 to-blue-600 rounded-2xl text-slate-950 shadow-lg shadow-cyan-500/30 group-hover:shadow-cyan-400/60 group-hover:scale-105 transition-all duration-300">
@@ -559,7 +570,7 @@ export function App() {
                 <span>Free 360° Viewer, AI Generator &amp; VR Skybox</span>
               </div>
             </div>
-          </div>
+          </a>
 
           {/* Navigation Links with Tools Dropdown */}
           <nav className="flex items-center gap-1 bg-[#06152d]/90 border border-cyan-500/25 p-1.5 rounded-2xl backdrop-blur-xl shadow-inner overflow-visible">
@@ -693,11 +704,11 @@ export function App() {
                     <div className="space-y-1.5">
                       <div className="text-[10px] uppercase font-bold tracking-wider text-cyan-400/70 px-2 pb-1 flex items-center justify-between border-b border-cyan-500/15">
                         <span>Specialized Tools</span>
-                        <span className="text-[9px] font-mono text-teal-400">SEO Matrix</span>
+                        <span className="text-[9px] font-mono text-teal-400">Create &amp; Convert</span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => navigateTo('landing-hdri', '/ai-hdri-generator/')}
+                      <a
+                        href="/ai-hdri-generator/"
+                        onClick={(event) => handleRouteLink(event, 'landing-hdri', '/ai-hdri-generator/')}
                         className="w-full px-2.5 py-1.5 rounded-xl hover:bg-cyan-950/80 hover:border hover:border-cyan-500/30 text-left flex items-center gap-2.5 text-xs text-white transition-all cursor-pointer group"
                       >
                         <div className="p-1.5 rounded-lg bg-amber-500/15 text-amber-400 group-hover:bg-amber-500/30 group-hover:text-amber-200 transition-colors">
@@ -712,11 +723,11 @@ export function App() {
                           </div>
                           <div className="text-[10px] text-cyan-300/60">32-bit IBL lighting environments</div>
                         </div>
-                      </button>
+                      </a>
 
-                      <button
-                        type="button"
-                        onClick={() => navigateTo('landing-skybox', '/skybox-generator/')}
+                      <a
+                        href="/skybox-generator/"
+                        onClick={(event) => handleRouteLink(event, 'landing-skybox', '/skybox-generator/')}
                         className="w-full px-2.5 py-1.5 rounded-xl hover:bg-cyan-950/80 hover:border hover:border-cyan-500/30 text-left flex items-center gap-2.5 text-xs text-white transition-all cursor-pointer group"
                       >
                         <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400 group-hover:bg-indigo-500/30 group-hover:text-indigo-200 transition-colors">
@@ -731,11 +742,11 @@ export function App() {
                           </div>
                           <div className="text-[10px] text-cyan-300/60">Panoramic game environments</div>
                         </div>
-                      </button>
+                      </a>
 
-                      <button
-                        type="button"
-                        onClick={() => navigateTo('landing-photo360', '/photo-to-360-converter/')}
+                      <a
+                        href="/photo-to-360-converter/"
+                        onClick={(event) => handleRouteLink(event, 'landing-photo360', '/photo-to-360-converter/')}
                         className="w-full px-2.5 py-1.5 rounded-xl hover:bg-cyan-950/80 hover:border hover:border-cyan-500/30 text-left flex items-center gap-2.5 text-xs text-white transition-all cursor-pointer group"
                       >
                         <div className="p-1.5 rounded-lg bg-teal-500/15 text-teal-400 group-hover:bg-teal-500/30 group-hover:text-teal-200 transition-colors">
@@ -750,11 +761,11 @@ export function App() {
                           </div>
                           <div className="text-[10px] text-cyan-300/60">Spatial expansion from photos</div>
                         </div>
-                      </button>
+                      </a>
 
-                      <button
-                        type="button"
-                        onClick={() => navigateTo('landing-cubemap', '/cubemap-generator/')}
+                      <a
+                        href="/cubemap-generator/"
+                        onClick={(event) => handleRouteLink(event, 'landing-cubemap', '/cubemap-generator/')}
                         className="w-full px-2.5 py-1.5 rounded-xl hover:bg-cyan-950/80 hover:border hover:border-cyan-500/30 text-left flex items-center gap-2.5 text-xs text-white transition-all cursor-pointer group"
                       >
                         <div className="p-1.5 rounded-lg bg-cyan-500/15 text-cyan-400 group-hover:bg-cyan-500/30 group-hover:text-cyan-200 transition-colors">
@@ -769,11 +780,11 @@ export function App() {
                           </div>
                           <div className="text-[10px] text-cyan-300/60">Batch 6 cube face packaging</div>
                         </div>
-                      </button>
+                      </a>
 
-                      <button
-                        type="button"
-                        onClick={() => navigateTo('landing-metadata', '/360-metadata-injector/')}
+                      <a
+                        href="/360-metadata-injector/"
+                        onClick={(event) => handleRouteLink(event, 'landing-metadata', '/360-metadata-injector/')}
                         className="w-full px-2.5 py-1.5 rounded-xl hover:bg-cyan-950/80 hover:border hover:border-cyan-500/30 text-left flex items-center gap-2.5 text-xs text-white transition-all cursor-pointer group"
                       >
                         <div className="p-1.5 rounded-lg bg-blue-500/15 text-blue-400 group-hover:bg-blue-500/30 group-hover:text-blue-200 transition-colors">
@@ -788,11 +799,11 @@ export function App() {
                           </div>
                           <div className="text-[10px] text-cyan-300/60">PhotoSphere Facebook tagger</div>
                         </div>
-                      </button>
+                      </a>
 
-                      <button
-                        type="button"
-                        onClick={() => navigateTo('landing-video', '/360-photo-to-video/')}
+                      <a
+                        href="/360-photo-to-video/"
+                        onClick={(event) => handleRouteLink(event, 'landing-video', '/360-photo-to-video/')}
                         className="w-full px-2.5 py-1.5 rounded-xl hover:bg-cyan-950/80 hover:border hover:border-cyan-500/30 text-left flex items-center gap-2.5 text-xs text-white transition-all cursor-pointer group"
                       >
                         <div className="p-1.5 rounded-lg bg-purple-500/15 text-purple-400 group-hover:bg-purple-500/30 group-hover:text-purple-200 transition-colors">
@@ -807,16 +818,16 @@ export function App() {
                           </div>
                           <div className="text-[10px] text-cyan-300/60">TikTok &amp; YouTube rotation animator</div>
                         </div>
-                      </button>
+                      </a>
                     </div>
                   </div>
                 </div>
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => navigateTo('generator', '/')}
+            <a
+              href="/360-image-maker/"
+              onClick={(event) => handleRouteLink(event, 'generator', '/360-image-maker/')}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${
                 activeTab === 'generator'
                   ? 'bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/35 font-extrabold'
@@ -825,11 +836,11 @@ export function App() {
             >
               <Sparkles className="w-3.5 h-3.5 text-cyan-300 fill-current" />
               <span>Studio</span>
-            </button>
+            </a>
 
-            <button
-              type="button"
-              onClick={() => navigateTo('viewer', '/360-panorama-viewer/')}
+            <a
+              href="/360-panorama-viewer/"
+              onClick={(event) => handleRouteLink(event, 'viewer', '/360-panorama-viewer/')}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${
                 activeTab === 'viewer'
                   ? 'bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/35 font-extrabold'
@@ -841,11 +852,11 @@ export function App() {
               <span className="text-[9px] px-1 py-0.2 bg-teal-400/25 text-teal-300 rounded font-mono font-bold">
                 FREE
               </span>
-            </button>
+            </a>
 
-            <button
-              type="button"
-              onClick={() => navigateTo('landing-cubemap', '/cubemap-generator/')}
+            <a
+              href="/cubemap-generator/"
+              onClick={(event) => handleRouteLink(event, 'landing-cubemap', '/cubemap-generator/')}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${
                 activeTab === 'landing-cubemap' || activeTab === 'cubemap'
                   ? 'bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/35 font-extrabold'
@@ -854,11 +865,11 @@ export function App() {
             >
               <Box className="w-3.5 h-3.5 text-cyan-300" />
               <span>Cubemap</span>
-            </button>
+            </a>
 
-            <button
-              type="button"
-              onClick={() => navigateTo('globe', '/photo-to-globe/')}
+            <a
+              href="/photo-to-globe/"
+              onClick={(event) => handleRouteLink(event, 'globe', '/photo-to-globe/')}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${
                 activeTab === 'globe'
                   ? 'bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/35 font-extrabold'
@@ -867,11 +878,11 @@ export function App() {
             >
               <Globe2 className="w-3.5 h-3.5 text-teal-300" />
               <span>3D Globe</span>
-            </button>
+            </a>
 
-            <button
-              type="button"
-              onClick={() => navigateTo('pricing', '/#pricing')}
+            <a
+              href="/#pricing"
+              onClick={(event) => handleRouteLink(event, 'pricing', '/#pricing')}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${
                 activeTab === 'pricing'
                   ? 'bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/35 font-extrabold'
@@ -880,7 +891,7 @@ export function App() {
             >
               <CreditCard className="w-3.5 h-3.5 text-cyan-300" />
               <span>Pricing</span>
-            </button>
+            </a>
           </nav>
 
           {/* Right Action Trigger, Active Account Status & Checkout */}
@@ -922,6 +933,8 @@ export function App() {
       <main id="studio-main" key={activeTab} tabIndex={-1} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 relative z-10 animate-in fade-in duration-200">
         {activeTab === 'generator' && (
           <GeneratorTab
+            isViewerHomepage={currentPath === '/'}
+            trialNotice={currentUser.id.startsWith('usr_guest') ? trialNotice : ''}
             currentUser={currentUser}
             billingConfig={billingConfig}
             onUserChange={user => {
@@ -950,20 +963,20 @@ export function App() {
           <PhotoToGlobePage
             currentPanoramaUrl={currentPanoramaUrl}
             onNavigateTab={navigateTo}
-            onLaunchStudio={() => navigateTo('generator', '/')}
+            onLaunchStudio={() => navigateTo('generator', '/360-image-maker/')}
           />
         )}
         {activeTab === 'pricing' && <PricingTab currentUser={currentUser} billingConfig={billingConfig} onChoosePlan={handleChoosePlan} onOpenStudio={() => navigateTo('generator')} />}
-        {activeTab === 'admin' && <AdminTab />}
+        {activeTab === 'admin' && <Suspense fallback={<p role="status">Loading admin console...</p>}><AdminTab /></Suspense>}
         {activeTab === 'showcase' && (
           <ShowcasePage
-            onOpenStudio={() => navigateTo('generator', '/')}
+            onOpenStudio={() => navigateTo('generator', '/360-image-maker/')}
             onOpenViewer={() => navigateTo('viewer', '/360-panorama-viewer/')}
             onOpenInStudio={(url, prompt, style) => {
               if (url) setCurrentPanoramaUrl(url);
               if (prompt) setStudioPresetPrompt(prompt);
               setStudioPresetStyle(style);
-              navigateTo('generator', '/');
+              navigateTo('generator', '/360-image-maker/');
             }}
           />
         )}
@@ -973,14 +986,14 @@ export function App() {
           <CubemapToEquirectPage
             onNavigateTab={navigateTo}
             onPanoramaChange={setCurrentPanoramaUrl}
-            onLaunchStudio={() => navigateTo('generator', '/')}
+            onLaunchStudio={() => navigateTo('generator', '/360-image-maker/')}
           />
         )}
         {activeTab === 'landing-hdri-viewer' && (
           <HdriViewerPage
             onNavigateTab={navigateTo}
             onPanoramaChange={setCurrentPanoramaUrl}
-            onLaunchStudio={() => navigateTo('generator', '/')}
+            onLaunchStudio={() => navigateTo('generator', '/360-image-maker/')}
           />
         )}
         {activeTab === 'landing-text2pano' && (
@@ -989,10 +1002,10 @@ export function App() {
               setStudioPresetPrompt(prompt);
               setStudioPresetStyle(style);
               setGeneratorInputMode('text');
-              navigateTo('generator', '/');
+              navigateTo('generator', '/360-image-maker/');
             }}
             onNavigateTab={navigateTo}
-            onLaunchStudio={() => navigateTo('generator', '/')}
+            onLaunchStudio={() => navigateTo('generator', '/360-image-maker/')}
           />
         )}
         {activeTab === 'developers' && (
@@ -1004,7 +1017,7 @@ export function App() {
               if (presetPrompt) setStudioPresetPrompt(presetPrompt);
               setStudioPresetStyle('nature');
               setGeneratorInputMode('text');
-              navigateTo('generator', '/');
+              navigateTo('generator', '/360-image-maker/');
             }}
             onOpenCubemap={() => navigateTo('cubemap', '/#cubemap')}
           />
@@ -1015,7 +1028,7 @@ export function App() {
               if (presetPrompt) setStudioPresetPrompt(presetPrompt);
               setStudioPresetStyle('space');
               setGeneratorInputMode('text');
-              navigateTo('generator', '/');
+              navigateTo('generator', '/360-image-maker/');
             }}
             onOpenCubemap={() => navigateTo('cubemap', '/#cubemap')}
           />
@@ -1023,7 +1036,7 @@ export function App() {
         {activeTab === 'landing-photo360' && (
           <PhotoTo360Page
             onLaunchImageToPano={() => {
-              navigateTo('generator', '/');
+              navigateTo('generator', '/360-image-maker/');
               setGeneratorInputMode('image');
               setTimeout(() => {
                 const el = document.getElementById('reference-uploader') || document.getElementById('studio-generator-workbench');
@@ -1037,19 +1050,19 @@ export function App() {
         )}
         {activeTab === 'landing-cubemap' && (
           <CubemapGeneratorPage
-            onLaunchStudio={() => navigateTo('generator', '/')}
+            onLaunchStudio={() => navigateTo('generator', '/360-image-maker/')}
             currentPanoramaUrl={currentPanoramaUrl}
             onPanoramaChange={setCurrentPanoramaUrl}
           />
         )}
         {activeTab === 'landing-metadata' && (
           <MetadataInjectorPage
-            onLaunchStudio={() => navigateTo('generator', '/')}
+            onLaunchStudio={() => navigateTo('generator', '/360-image-maker/')}
           />
         )}
         {activeTab === 'landing-video' && (
           <PhotoToVideoPage
-            onLaunchStudio={() => navigateTo('generator', '/')}
+            onLaunchStudio={() => navigateTo('generator', '/360-image-maker/')}
             currentPanoramaUrl={currentPanoramaUrl}
             onPanoramaChange={setCurrentPanoramaUrl}
           />
@@ -1094,12 +1107,12 @@ export function App() {
                   </a>
                 </li>
                 <li>
-                  <button type="button" onClick={() => navigateTo('generator', '/')} className="hover:text-cyan-300 transition-colors cursor-pointer">
+                  <button type="button" onClick={() => navigateTo('generator', '/360-image-maker/')} className="hover:text-cyan-300 transition-colors cursor-pointer">
                     Text to 360 Panorama
                   </button>
                 </li>
                 <li>
-                  <button type="button" onClick={() => { setGeneratorInputMode('image'); navigateTo('generator', '/'); }} className="hover:text-cyan-300 transition-colors cursor-pointer">
+                  <button type="button" onClick={() => { setGeneratorInputMode('image'); navigateTo('generator', '/360-image-maker/'); }} className="hover:text-cyan-300 transition-colors cursor-pointer">
                     Image to 360 (Reference Mode)
                   </button>
                 </li>
@@ -1317,7 +1330,7 @@ export function App() {
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-300">
                 <Activity className="w-3 h-3 text-teal-400" />
-                <span>99.98% Service Uptime</span>
+                <span>Local viewing &middot; No upload</span>
               </span>
               <div className="flex items-center gap-1 text-cyan-300">
                 <Code2 className="w-3.5 h-3.5 text-cyan-400" />
