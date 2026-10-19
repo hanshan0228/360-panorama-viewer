@@ -88,6 +88,9 @@ export type ActiveTab =
   | 'landing-photo360'
   | 'landing-cubemap'
   | 'landing-metadata'
+  | 'landing-cube2eq'
+  | 'landing-text2pano'
+  | 'developers'
   | 'landing-video';
 
 export type ModelRoutingMode = 'single' | 'failover' | 'round-robin';

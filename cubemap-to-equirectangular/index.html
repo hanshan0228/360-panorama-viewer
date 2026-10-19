@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Primary Meta Tags -->
+    <title>Cubemap to Equirectangular Converter — Free 2:1 360° Panorama Maker</title>
+    <meta name="title" content="Cubemap to Equirectangular Converter — Free 2:1 360° Panorama Maker" />
+    <meta
+      name="description"
+      content="Convert 6 cube faces (posx, negx, posy, negy, posz, negz) back into one seamless 2:1 equirectangular 360° panorama. Exact inverse ray casting, PNG export up to 4096×2048, no upload — free and browser-based."
+    />
+    <meta
+      name="keywords"
+      content="cubemap to equirectangular, cubemap to panorama, cube map to equirectangular, 6 faces to equirectangular, px nx py ny pz nz to equirectangular, unity skybox to panorama, convert cubemap to 360 photo, cubemap converter online, equirectangular converter, skybox to panorama"
+    />
+    <meta name="author" content="360 Panorama Viewer" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <link rel="canonical" href="https://360panoramaviewer.com/cubemap-to-equirectangular/" />
+    <meta name="theme-color" content="#040c1a" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:site_name" content="360 Panorama Viewer" />
+    <meta property="og:url" content="https://360panoramaviewer.com/cubemap-to-equirectangular/" />
+    <meta property="og:title" content="Cubemap to Equirectangular Converter — Free 2:1 360° Panorama Maker" />
+    <meta
+      property="og:description"
+      content="Stitch Unity, Unreal or Blender cube faces back into a seamless 2:1 equirectangular panorama. Client-side, free, and no upload."
+    />
+    <meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@360panoramaviewer" />
+    <meta name="twitter:creator" content="@360panoramaviewer" />
+    <meta name="twitter:url" content="https://360panoramaviewer.com/cubemap-to-equirectangular/" />
+    <meta name="twitter:title" content="Cubemap to Equirectangular Converter — Free 2:1 360° Panorama Maker" />
+    <meta
+      name="twitter:description"
+      content="Six cube faces in, one seamless 2:1 equirectangular panorama out. Free, private, client-side."
+    />
+    <meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
+
+    <!-- Schema.org JSON-LD Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "@id": "https://360panoramaviewer.com/cubemap-to-equirectangular/#software",
+            "name": "Cubemap to Equirectangular Converter",
+            "headline": "Convert 6 Cube Faces Back into a 2:1 Equirectangular 360° Panorama",
+            "description": "Free online inverse projection tool that stitches posx, negx, posy, negy, posz and negz cube faces into a seamless 2:1 equirectangular panorama for YouTube 360, Facebook, Street View, VR headsets and Blender.",
+            "applicationCategory": "DesignApplication",
+            "operatingSystem": "All, Web Browser",
+            "url": "https://360panoramaviewer.com/cubemap-to-equirectangular/",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD",
+              "description": "100% Free Client-Side Tool"
+            }
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://360panoramaviewer.com/cubemap-to-equirectangular/#breadcrumbs",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://360panoramaviewer.com/" },
+              { "@type": "ListItem", "position": 2, "name": "Cubemap to Equirectangular", "item": "https://360panoramaviewer.com/cubemap-to-equirectangular/" }
+            ]
+          },
+          {
+            "@type": "HowTo",
+            "@id": "https://360panoramaviewer.com/cubemap-to-equirectangular/#howto",
+            "name": "How to Convert Cube Faces Back to a Sphere",
+            "description": "Step-by-step guide to rebuilding a 2:1 equirectangular panorama from six cubemap faces in the browser.",
+            "step": [
+              { "@type": "HowToStep", "position": 1, "name": "Collect the six faces", "text": "Export the Right, Left, Up, Down, Front and Back faces (posx, negx, posy, negy, posz, negz) from Unity, Unreal, Blender or any skybox tool." },
+              { "@type": "HowToStep", "position": 2, "name": "Drop them into the slots", "text": "Load each labeled slot with the matching face file so no direction lands upside down." },
+              { "@type": "HowToStep", "position": 3, "name": "Stitch to 2:1", "text": "The stitcher ray-marches every equirectangular pixel back to its source face and writes a 1024×512, 2048×1024 or 4096×2048 panorama." },
+              { "@type": "HowToStep", "position": 4, "name": "Download or open it", "text": "Save the PNG, inspect it in the free 360° panorama viewer, or slice it back to different face sizes." }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://360panoramaviewer.com/cubemap-to-equirectangular/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What does a Cubemap to Equirectangular converter do?",
+                "acceptedAnswer": { "@type": "Answer", "text": "It is the exact inverse of cubemap slicing. Six square faces each cover a 90° field of view along one axis of a cube; the converter samples them by direction and writes a single 2:1 equirectangular image where longitude runs along X and latitude along Y — the format 360° viewers, YouTube 360, Facebook 360 and VR headsets expect." }
+              },
+              {
+                "@type": "Question",
+                "name": "When would I need this instead of a cubemap?",
+                "acceptedAnswer": { "@type": "Answer", "text": "Whenever the destination expects a spherical panorama: YouTube or Facebook 360 uploads, Google Street View, mapping onto a sphere in Three.js or Blender, building an AI HDRI environment, or simply sharing one file instead of six." }
+              },
+              {
+                "@type": "Question",
+                "name": "Are the faces uploaded anywhere?",
+                "acceptedAnswer": { "@type": "Answer", "text": "No. Every face is decoded and stitched in your browser with Canvas pixel maths, so unreleased game art and client work never leave your machine." }
+              },
+              {
+                "@type": "Question",
+                "name": "Which face order should I use?",
+                "acceptedAnswer": { "@type": "Answer", "text": "Order does not matter because each slot is labeled with its cube direction. If your export uses px, nx, py, ny, pz and nz filenames, px is Right, nx is Left, py is Up, ny is Down, pz is Front and nz is Back." }
+              },
+              {
+                "@type": "Question",
+                "name": "My panorama looks mirrored or upside down. What went wrong?",
+                "acceptedAnswer": { "@type": "Answer", "text": "That is a convention mismatch rather than broken maths: some exporters rotate the top face 180° relative to the others. Rotate the offending face in an image editor and stitch again." }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I stitch a five-face export?",
+                "acceptedAnswer": { "@type": "Answer", "text": "Yes. Missing faces are left transparent, so you still get a preview and can see exactly which direction is absent." }
+              },
+              {
+                "@type": "Question",
+                "name": "What output size should I choose?",
+                "acceptedAnswer": { "@type": "Answer", "text": "Match the source faces: 2048 px faces suit a 4096×2048 panorama, while 512 or 1024 px faces are best at 2048×1024. Exporting larger than the source only interpolates and adds no detail." }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I go back from equirectangular to cube faces?",
+                "acceptedAnswer": { "@type": "Answer", "text": "Yes. The cubemap generator slices a 2:1 panorama into six rectilinear faces with ZIP export, so the two tools round-trip in either direction." }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root">
+      <noscript>
+        <header>
+          <h1>Cubemap to Equirectangular — Rebuild a 360° Panorama from 6 Faces</h1>
+          <p>
+            Load the six faces your engine exported (+X Right, -X Left, +Y Up, -Y Down, +Z Front, -Z Back) and
+            get one seamless 2:1 equirectangular panorama for YouTube 360, Facebook, Street View, VR headsets or
+            Blender. Exact inverse ray casting, client-side, no upload required.
+          </p>
+        </header>
+        <main>
+          <section>
+            <h2>What Is a Cubemap to Equirectangular Converter?</h2>
+            <p>
+              A cubemap stores an environment as six square 90° faces, one per cube axis. An equirectangular
+              panorama stores the same environment as a single 2:1 image in which the X axis is longitude and
+              the Y axis is latitude. This converter samples every output pixel by direction, finds the cube
+              face that faces that way, and writes the result as one flat seamless image.
+            </p>
+          </section>
+          <section>
+            <h2>How to Convert Cube Faces Back to a Sphere</h2>
+            <ol>
+              <li><strong>Collect the six faces:</strong> export Rt / Lf / Up / Dn / Ft / Bk or px / nx / py / ny / pz / nz from Unity, Unreal, Blender or a skybox tool.</li>
+              <li><strong>Drop them into the labeled slots:</strong> each slot maps one file to a cube direction, so no face lands upside down.</li>
+              <li><strong>Stitch to 2:1:</strong> choose 1024×512, 2048×1024 or 4096×2048 output and let the ray caster rebuild every direction.</li>
+              <li><strong>Download or open it:</strong> save the PNG, inspect it in the free 360° panorama viewer, or slice it back into faces.</li>
+            </ol>
+          </section>
+          <section>
+            <h2>Face Naming Conventions by Engine</h2>
+            <ul>
+              <li><strong>Unity 6-Sided Skybox:</strong> Front, Back, Left, Right, Up, Down (_Front, _Back, _Left, _Right, _Up, _Down)</li>
+              <li><strong>Unreal Engine 5:</strong> px, nx, py, ny, pz, nz</li>
+              <li><strong>Three.js CubeTextureLoader:</strong> px, nx, py, ny, pz, nz</li>
+              <li><strong>Blender / Cycles:</strong> Left, Right, Up, Down, Front, Back</li>
+              <li><strong>Source 2 skybox:</strong> Rt, Lf, Up, Dn, Ft, Bk</li>
+            </ul>
+          </section>
+          <section>
+            <h2>Why Convert Back to a Sphere?</h2>
+            <ul>
+              <li><strong>Publishing:</strong> YouTube 360, Facebook 360, Google Street View and VR headsets all consume 2:1 equirectangular images.</li>
+              <li><strong>Engines that expect spheres:</strong> Three.js, Babylon.js, Blender world backgrounds and panorama viewers take an equirectangular texture.</li>
+              <li><strong>Lighting:</strong> feed the stitched panorama into the AI HDRI generator to get a 32-bit environment map.</li>
+              <li><strong>Sharing:</strong> one file is easier to send, host and archive than six.</li>
+            </ul>
+          </section>
+          <section>
+            <h2>Privacy</h2>
+            <p>
+              All conversion happens in your browser with HTML5 Canvas pixel maths. No face images are uploaded
+              to a server, which makes the tool safe for unreleased game art and client work.
+            </p>
+          </section>
+        </main>
+      </noscript>
+    </div>
+
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

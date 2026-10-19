@@ -24,7 +24,6 @@ import type { ActiveTab, StylePresetId, ManagedUser } from './types/panorama';
 import { GeneratorTab } from './components/GeneratorTab';
 import { ViewerTab } from './components/ViewerTab';
 import { CubemapTab } from './components/CubemapTab';
-import { GlobeTab } from './components/GlobeTab';
 import { PricingTab } from './components/PricingTab';
 import { AdminTab } from './components/AdminTab';
 import { MetadataInjectorModal } from './components/commercial/MetadataInjectorModal';
@@ -50,6 +49,10 @@ import { CubemapGeneratorPage } from './components/landing/CubemapGeneratorPage'
 import { MetadataInjectorPage } from './components/landing/MetadataInjectorPage';
 import { PhotoToVideoPage } from './components/landing/PhotoToVideoPage';
 import { ShowcasePage } from './components/landing/ShowcasePage';
+import { PhotoToGlobePage } from './components/landing/PhotoToGlobePage';
+import { CubemapToEquirectPage } from './components/landing/CubemapToEquirectPage';
+import { TextToPanoramaPage } from './components/landing/TextToPanoramaPage';
+import { DevelopersPage } from './components/landing/DevelopersPage';
 import { EmbedViewer } from './components/commercial/EmbedViewer';
 
 function getInitialTabFromLocation(): ActiveTab {
@@ -63,6 +66,9 @@ function getInitialTabFromLocation(): ActiveTab {
   if (path.includes('cubemap-generator') || hash.includes('cubemap-generator')) return 'landing-cubemap';
   if (path.includes('360-metadata-injector') || hash.includes('360-metadata-injector')) return 'landing-metadata';
   if (path.includes('360-photo-to-video') || hash.includes('360-photo-to-video')) return 'landing-video';
+  if (path.includes('cubemap-to-equirectangular') || hash.includes('cubemap-to-equirectangular')) return 'landing-cube2eq';
+  if (path.includes('text-to-panorama') || hash.includes('text-to-panorama')) return 'landing-text2pano';
+  if (path.includes('developers') || hash.includes('developers')) return 'developers';
   if (path.includes('360-image-maker') || hash.includes('360-image-maker')) return 'generator';
   if (path.includes('viewer') || hash.includes('viewer')) return 'viewer';
   if (path.includes('cubemap') || hash.includes('cubemap')) return 'cubemap';
@@ -298,6 +304,18 @@ export function App() {
         title: '360° Photo to Video Generator | Turn Panoramas into Rotating Videos',
         desc: 'Convert any 360° equirectangular photo into a cinematic rotating MP4/WebM video in seconds. Perfect for TikTok, Instagram Reels, YouTube Shorts, and Amazon 360 product showcases.',
       },
+      'landing-cube2eq': {
+        title: 'Cubemap to Equirectangular Converter — Free 2:1 Panorama Maker',
+        desc: 'Turn 6 cube faces (posx, negx, posy, negy, posz, negz) back into one seamless 2:1 equirectangular 360° panorama. Free online, client-side, PNG export up to 4096×2048.',
+      },
+      'landing-text2pano': {
+        title: 'Text to Panorama AI — Free 360° Prompt Generator Online',
+        desc: 'Describe a scene and get a seamless 2:1 equirectangular 360° panorama. Free text to panorama AI with a copy-ready prompt library, seam healing, cubemap slicing and .HDR export.',
+      },
+      developers: {
+        title: 'Developer Docs — 360° Panorama Embed & Free JSON API',
+        desc: 'Embed an interactive 360° panorama with one iframe, or use the free JSON API: generate panoramas, publish shares, and read images for galleries, AI agents and MCP tools.',
+      },
     };
 
     // Special override if current pathname is 360-image-maker
@@ -325,6 +343,9 @@ export function App() {
         'landing-cubemap': 'cubemap-generator/',
         'landing-metadata': '360-metadata-injector/',
         'landing-video': '360-photo-to-video/',
+        'landing-cube2eq': 'cubemap-to-equirectangular/',
+        'landing-text2pano': 'text-to-panorama-ai/',
+        developers: 'developers/',
         viewer: '360-panorama-viewer/',
         globe: 'photo-to-globe/',
         showcase: 'showcase/',
@@ -361,6 +382,9 @@ export function App() {
         case 'landing-cubemap': return '/cubemap-generator/';
         case 'landing-metadata': return '/360-metadata-injector/';
         case 'landing-video': return '/360-photo-to-video/';
+        case 'landing-cube2eq': return '/cubemap-to-equirectangular/';
+        case 'landing-text2pano': return '/text-to-panorama-ai/';
+        case 'developers': return '/developers/';
         case 'generator': return '/';
         case 'viewer': return '/360-panorama-viewer/';
         case 'cubemap': return '/cubemap-generator/';
@@ -915,7 +939,11 @@ export function App() {
           <CubemapTab currentPanoramaUrl={currentPanoramaUrl} />
         )}
         {activeTab === 'globe' && (
-          <GlobeTab currentPanoramaUrl={currentPanoramaUrl} onNavigateTab={navigateTo} />
+          <PhotoToGlobePage
+            currentPanoramaUrl={currentPanoramaUrl}
+            onNavigateTab={navigateTo}
+            onLaunchStudio={() => navigateTo('generator', '/')}
+          />
         )}
         {activeTab === 'pricing' && <PricingTab currentUser={currentUser} billingConfig={billingConfig} onChoosePlan={handleChoosePlan} onOpenStudio={() => navigateTo('generator')} />}
         {activeTab === 'admin' && <AdminTab />}
@@ -933,6 +961,28 @@ export function App() {
         )}
 
         {/* Programmatic SEO Sub-Landing Pages */}
+        {activeTab === 'landing-cube2eq' && (
+          <CubemapToEquirectPage
+            onNavigateTab={navigateTo}
+            onPanoramaChange={setCurrentPanoramaUrl}
+            onLaunchStudio={() => navigateTo('generator', '/')}
+          />
+        )}
+        {activeTab === 'landing-text2pano' && (
+          <TextToPanoramaPage
+            onUsePrompt={(prompt, style) => {
+              setStudioPresetPrompt(prompt);
+              setStudioPresetStyle(style);
+              setGeneratorInputMode('text');
+              navigateTo('generator', '/');
+            }}
+            onNavigateTab={navigateTo}
+            onLaunchStudio={() => navigateTo('generator', '/')}
+          />
+        )}
+        {activeTab === 'developers' && (
+          <DevelopersPage onNavigateTab={navigateTo} />
+        )}
         {activeTab === 'landing-hdri' && (
           <AiHdriGeneratorPage
             onLaunchStudio={(presetPrompt) => {
@@ -1135,6 +1185,26 @@ export function App() {
                     <span className="text-[9px] font-mono px-1 rounded bg-purple-400/20 text-purple-300">MP4</span>
                   </a>
                 </li>
+                <li>
+                  <a
+                    href="/cubemap-to-equirectangular/"
+                    onClick={(e) => { e.preventDefault(); navigateTo('landing-cube2eq', '/cubemap-to-equirectangular/'); }}
+                    className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center justify-between"
+                  >
+                    <span>Cubemap to Equirectangular</span>
+                    <span className="text-[9px] font-mono px-1 rounded bg-teal-400/20 text-teal-300">2:1</span>
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/text-to-panorama-ai/"
+                    onClick={(e) => { e.preventDefault(); navigateTo('landing-text2pano', '/text-to-panorama-ai/'); }}
+                    className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center justify-between"
+                  >
+                    <span>Text to Panorama AI</span>
+                    <span className="text-[9px] font-mono px-1 rounded bg-cyan-400/20 text-cyan-300">PROMPT</span>
+                  </a>
+                </li>
               </ul>
             </div>
 
@@ -1180,6 +1250,16 @@ export function App() {
                   <button type="button" onClick={() => navigateTo('pricing', '/#pricing')} className="hover:text-cyan-300 transition-colors cursor-pointer">
                     Pricing &amp; API Plans
                   </button>
+                </li>
+                <li>
+                  <a
+                    href="/developers/"
+                    onClick={(e) => { e.preventDefault(); navigateTo('developers', '/developers/'); }}
+                    className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center justify-between"
+                  >
+                    <span>Developer Docs: Embed &amp; API</span>
+                    <span className="text-[9px] font-mono px-1 rounded bg-emerald-400/20 text-emerald-300">JSON</span>
+                  </a>
                 </li>
                 <li>
                   <span className="text-cyan-200/50">Terms of Service</span>

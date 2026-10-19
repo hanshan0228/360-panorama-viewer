@@ -34,6 +34,9 @@ export default defineConfig({
         metadata: resolve(import.meta.dirname, '360-metadata-injector/index.html'),
         video: resolve(import.meta.dirname, '360-photo-to-video/index.html'),
         showcase: resolve(import.meta.dirname, 'showcase/index.html'),
+        cube2eq: resolve(import.meta.dirname, 'cubemap-to-equirectangular/index.html'),
+        text2pano: resolve(import.meta.dirname, 'text-to-panorama-ai/index.html'),
+        developers: resolve(import.meta.dirname, 'developers/index.html'),
       },
       output: {
         manualChunks(id) {

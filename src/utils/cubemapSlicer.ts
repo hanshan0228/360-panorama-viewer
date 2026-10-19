@@ -123,3 +123,96 @@ export function sliceEquirectangularToCubemap(
 
   return cubemapFaces;
 }
+
+export interface CubemapFacePixels {
+  name: CubemapFaceName;
+  width: number;
+  height: number;
+  data: Uint8ClampedArray;
+}
+
+/** Exact inverse of the slicer's per-face ray mapping: cube normal -> face + (u, v). */
+function projectToFace(nx: number, ny: number, nz: number): [CubemapFaceName, number, number] {
+  const ax = Math.abs(nx);
+  const ay = Math.abs(ny);
+  const az = Math.abs(nz);
+  if (az >= ax && az >= ay) return nz > 0 ? ['posz', nx / nz, ny / nz] : ['negz', nx / nz, -ny / nz];
+  if (ax >= ay) return nx > 0 ? ['posx', -nz / nx, ny / nx] : ['negx', -nz / nx, -ny / nx];
+  return ny > 0 ? ['posy', nx / ny, -nz / ny] : ['negy', -nx / ny, -nz / ny];
+}
+
+/**
+ * Stitches 6 cube faces back into a 2:1 equirectangular image by ray-marching every
+ * output pixel to its source face. Splitting the pure pixel math out keeps it testable
+ * without a DOM; `stitchCubemapToEquirectangular` is the canvas wrapper.
+ */
+export function stitchCubemapPixelsToEquirectangular(
+  faces: CubemapFacePixels[],
+  eqWidth: number,
+  eqHeight: number
+): Uint8ClampedArray {
+  const byName = new Map(faces.map(face => [face.name, face]));
+  const out = new Uint8ClampedArray(eqWidth * eqHeight * 4);
+
+  for (let y = 0; y < eqHeight; y++) {
+    const lat = (0.5 - y / Math.max(1, eqHeight - 1)) * Math.PI;
+    const cosLat = Math.cos(lat);
+    const ny = Math.sin(lat);
+
+    for (let x = 0; x < eqWidth; x++) {
+      const lon = ((x / Math.max(1, eqWidth - 1)) * 2 - 1) * Math.PI;
+      const [name, u, v] = projectToFace(
+        Math.sin(lon) * cosLat,
+        ny,
+        Math.cos(lon) * cosLat
+      );
+
+      const outIdx = (y * eqWidth + x) * 4;
+      const face = byName.get(name);
+      if (!face) {
+        // Faces the caller did not provide stay transparent instead of guessing.
+        continue;
+      }
+
+      const srcX = Math.min(face.width - 1, Math.max(0, Math.round(((u + 1) * 0.5) * face.width - 0.5)));
+      const srcY = Math.min(face.height - 1, Math.max(0, Math.round(((1 - v) * 0.5) * face.height - 0.5)));
+      const srcIdx = (srcY * face.width + srcX) * 4;
+
+      out[outIdx] = face.data[srcIdx];
+      out[outIdx + 1] = face.data[srcIdx + 1];
+      out[outIdx + 2] = face.data[srcIdx + 2];
+      out[outIdx + 3] = 255;
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Canvas wrapper used by the Cubemap to Equirectangular page. `faces` may be a partial
+ * set: missing faces are left transparent so a 5-of-6 import still previews.
+ */
+export function stitchCubemapToEquirectangular(
+  faces: CubemapFace[],
+  eqWidth = 2048
+): HTMLCanvasElement {
+  const eqHeight = Math.round(eqWidth / 2);
+  const pixels: CubemapFacePixels[] = [];
+  for (const face of faces) {
+    const ctx = face.canvas.getContext('2d');
+    if (!ctx) throw new Error('Failed to read cubemap face pixels');
+    const image = ctx.getImageData(0, 0, face.canvas.width, face.canvas.height);
+    pixels.push({ name: face.name, width: face.canvas.width, height: face.canvas.height, data: image.data });
+  }
+
+  const out = stitchCubemapPixelsToEquirectangular(pixels, eqWidth, eqHeight);
+  const canvas = document.createElement('canvas');
+  canvas.width = eqWidth;
+  canvas.height = eqHeight;
+  const outCtx = canvas.getContext('2d');
+  if (!outCtx) throw new Error('Failed to acquire 2D context for the equirectangular canvas');
+  const image = outCtx.createImageData(eqWidth, eqHeight);
+  image.data.set(out);
+  outCtx.putImageData(image, 0, 0);
+  return canvas;
+}

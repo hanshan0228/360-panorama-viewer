@@ -122,4 +122,37 @@
       <image:caption>Convert 360 panoramas into smooth orbital rotation videos with horizontal panning and elevation wave</image:caption>
     </image:image>
   </url>
+  <url>
+    <loc>https://360panoramaviewer.com/cubemap-to-equirectangular/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
+      <image:title>Cubemap to Equirectangular Converter - Free 2:1 360 Panorama Maker</image:title>
+      <image:caption>Stitch 6 cube faces (posx, negx, posy, negy, posz, negz) back into one seamless 2:1 equirectangular panorama</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/text-to-panorama-ai/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
+      <image:title>Text to Panorama AI - Free 360 Prompt Generator</image:title>
+      <image:caption>Turn a written prompt into a seamless 2:1 equirectangular 360 panorama with a copy-ready prompt library</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/developers/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <image:image>
+      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
+      <image:title>Developer Docs - 360 Panorama Embed and JSON API</image:title>
+      <image:caption>Embed a 360 panorama with one iframe or call the free JSON API for generation, publishing and image reads</image:caption>
+    </image:image>
+  </url>
 </urlset>

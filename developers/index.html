@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Primary Meta Tags -->
+    <title>Developer Docs — 360° Panorama Embed &amp; Free JSON API</title>
+    <meta name="title" content="Developer Docs — 360° Panorama Embed &amp; Free JSON API" />
+    <meta
+      name="description"
+      content="Embed an interactive 360° panorama with one iframe, or use the free JSON API: generate equirectangular panoramas, publish shares, and read images back for galleries, websites, AI agents and MCP tools. No SDK required."
+    />
+    <meta
+      name="keywords"
+      content="360 panorama embed, embed 360 photo website, iframe 360 viewer, panorama api, 360 image api, equirectangular api, embed vr viewer, panorama json api, mcp panorama tool, ai agent panorama"
+    />
+    <meta name="author" content="360 Panorama Viewer" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <link rel="canonical" href="https://360panoramaviewer.com/developers/" />
+    <meta name="theme-color" content="#040c1a" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:site_name" content="360 Panorama Viewer" />
+    <meta property="og:url" content="https://360panoramaviewer.com/developers/" />
+    <meta property="og:title" content="Developer Docs — 360° Panorama Embed &amp; Free JSON API" />
+    <meta
+      property="og:description"
+      content="One-line iframe embed plus a free JSON API for generating, publishing and reading 360° equirectangular panoramas."
+    />
+    <meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@360panoramaviewer" />
+    <meta name="twitter:creator" content="@360panoramaviewer" />
+    <meta name="twitter:url" content="https://360panoramaviewer.com/developers/" />
+    <meta name="twitter:title" content="Developer Docs — 360° Panorama Embed &amp; Free JSON API" />
+    <meta
+      name="twitter:description"
+      content="Embed a 360° panorama with one iframe or drive the viewer from your own code with a free JSON API."
+    />
+    <meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
+
+    <!-- Schema.org JSON-LD Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebAPI",
+            "@id": "https://360panoramaviewer.com/developers/#api",
+            "name": "360 Panorama Viewer API",
+            "description": "Free JSON API for generating 2:1 equirectangular panoramas, publishing share links and reading panorama images back as binary data. Read-only endpoints need no authentication and send permissive CORS headers.",
+            "documentation": "https://360panoramaviewer.com/developers/",
+            "provider": {
+              "@type": "Organization",
+              "name": "360 Panorama Viewer",
+              "url": "https://360panoramaviewer.com/"
+            }
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://360panoramaviewer.com/developers/#breadcrumbs",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://360panoramaviewer.com/" },
+              { "@type": "ListItem", "position": 2, "name": "Developers", "item": "https://360panoramaviewer.com/developers/" }
+            ]
+          },
+          {
+            "@type": "HowTo",
+            "@id": "https://360panoramaviewer.com/developers/#howto",
+            "name": "How to Embed a 360° Panorama in a Website",
+            "description": "Embed an interactive equirectangular panorama on any page with an iframe.",
+            "step": [
+              { "@type": "HowToStep", "position": 1, "name": "Host the panorama", "text": "Publish a 2:1 equirectangular image at a public HTTPS URL, or upload it through the share API and use its /api/shares/{id}/image link." },
+              { "@type": "HowToStep", "position": 2, "name": "Build the iframe URL", "text": "Point the viewer at /?embed=true and pass the image with the pano parameter, optionally adding autorotate=1." },
+              { "@type": "HowToStep", "position": 3, "name": "Allow fullscreen and motion", "text": "Keep allowfullscreen and the accelerometer, gyroscope, vr and fullscreen permissions so mobile visitors can tilt and enter cardboard VR." }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://360panoramaviewer.com/developers/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Can I embed a 360 panorama on my own website for free?",
+                "acceptedAnswer": { "@type": "Answer", "text": "Yes. The embed is an iframe pointing at the viewer with ?embed=true, so it works on any host that can render HTML, including WordPress, Webflow, Shopify, Squarespace, a README or a plain static page. No API key or account is required for viewing." }
+              },
+              {
+                "@type": "Question",
+                "name": "Which image URL can I pass to the pano parameter?",
+                "acceptedAnswer": { "@type": "Answer", "text": "Any publicly reachable HTTPS image in 2:1 equirectangular projection that can be loaded cross-origin. Panoramas published through the share API expose an /api/shares/{id}/image link that is already CORS-friendly and stays valid while the share is active." }
+              },
+              {
+                "@type": "Question",
+                "name": "Do I need a server to use the API?",
+                "acceptedAnswer": { "@type": "Answer", "text": "No. The endpoints are plain JSON over HTTPS and the read-only ones need no authentication, so a static site, a Cloudflare Worker, a serverless function or a local script can call them directly." }
+              },
+              {
+                "@type": "Question",
+                "name": "How does the API authenticate private calls?",
+                "acceptedAnswer": { "@type": "Answer", "text": "Send the session token from POST /api/user/guest or POST /api/user/auth as an Authorization: Bearer header. Guest sessions can generate panoramas with trial credits but cannot publish permanent shares, which requires a signed-in, non-guest account." }
+              },
+              {
+                "@type": "Question",
+                "name": "Are there rate limits?",
+                "acceptedAnswer": { "@type": "Answer", "text": "Share reads are limited per hour and per day, publishing is limited to a handful of new links per day with a 100 MB personal quota, and generation is limited by daily credits and concurrent requests." }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I call this API from an AI agent or an MCP server?",
+                "acceptedAnswer": { "@type": "Answer", "text": "Yes. Every endpoint is standard JSON over HTTPS with no SDK requirement: POST /api/generate creates a scene, GET /api/shares?public=1 lists examples, and /api/shares/{id}/image is a texture URL that can be handed to other tools." }
+              },
+              {
+                "@type": "Question",
+                "name": "Is the viewer open source or self-hostable?",
+                "acceptedAnswer": { "@type": "Answer", "text": "The rendering core is the standard Three.js equirectangular approach: one inverted sphere, a 2:1 texture and pointer controls. This page documents the hosted embed and API, and the same layout can be reproduced in your own build." }
+              },
+              {
+                "@type": "Question",
+                "name": "What response format do the endpoints return?",
+                "acceptedAnswer": { "@type": "Answer", "text": "UTF-8 JSON for metadata and binary image bytes for /image and /download. Errors use standard HTTP status codes: 400 for invalid input, 401 for missing tokens, 403 for disabled downloads, 415 for unsupported upload types, 429 for rate limits and 503 while an upload is still propagating." }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root">
+      <noscript>
+        <header>
+          <h1>Developer Docs — Embed a 360° Panorama or Call the API</h1>
+          <p>
+            Drop an interactive 360° viewer into any page with a single iframe, or drive the platform from your
+            own code: generate equirectangular panoramas, publish them, and read them back as JSON or image
+            bytes. No SDK, and no API key for reads.
+          </p>
+        </header>
+        <main>
+          <section>
+            <h2>Embed a 360° Panorama with One iframe</h2>
+            <p>
+              Load <code>https://360panoramaviewer.com/?embed=true&amp;pano=https://example.com/my-panorama.jpg#embed</code>
+              inside an iframe. The page switches to full-viewport viewer mode, so the frame shows the scene only.
+            </p>
+            <ul>
+              <li><strong>embed=true</strong> — full-viewport viewer mode with a small branding badge.</li>
+              <li><strong>pano</strong> — public HTTPS URL of the 2:1 equirectangular image.</li>
+              <li><strong>autorotate=1</strong> — slow automatic camera rotation until the visitor drags.</li>
+              <li><strong>#embed</strong> — hash form of the embed switch for hosts that strip query strings.</li>
+            </ul>
+          </section>
+          <section>
+            <h2>REST API Endpoints</h2>
+            <ul>
+              <li><strong>GET /api/health</strong> — service, database and payment gateway status.</li>
+              <li><strong>GET /api/billing</strong> — public plan configuration and trial credits.</li>
+              <li><strong>GET /api/models</strong> — available image models with API keys stripped.</li>
+              <li><strong>POST /api/user/guest</strong> — create a trial session and bearer token.</li>
+              <li><strong>POST /api/generate</strong> — generate a 2:1 equirectangular panorama from a prompt.</li>
+              <li><strong>GET /api/shares?public=1</strong> — listed panoramas only, newest first, no auth.</li>
+              <li><strong>GET /api/shares/{id}/image</strong> — panorama bytes, usable as a texture or embed source.</li>
+              <li><strong>POST /api/shares</strong> — publish a panorama with a bearer token (PNG or JPEG body).</li>
+            </ul>
+          </section>
+          <section>
+            <h2>Authentication and Limits</h2>
+            <p>
+              Read-only endpoints need no credentials and send <code>Access-Control-Allow-Origin: *</code>.
+              Private calls use an <code>Authorization: Bearer</code> session token from the guest or auth
+              endpoint. Share reads are rate limited per hour and per day, publishing is limited to a few new
+              links per day with a 100 MB personal quota, and generation is limited by daily credits.
+            </p>
+          </section>
+          <section>
+            <h2>AI Agents and MCP Tools</h2>
+            <p>
+              Every endpoint is ordinary JSON over HTTPS, so an agent or a self-hosted MCP server can call
+              <code>/api/generate</code> to create a scene and then pass <code>/api/shares/{id}/image</code> to
+              other tools as a plain image URL.
+            </p>
+          </section>
+        </main>
+      </noscript>
+    </div>
+
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

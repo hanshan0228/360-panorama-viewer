@@ -156,6 +156,20 @@ Shares are private and `noindex` by default. Ticking **List publicly in the 360 
 
 Checks: `node --test tests/shares.test.mjs` and the account-isolation/public-viewer regressions in `tests/generation_flow.test.mjs`, plus the normal build, lint and complete test suite.
 
+### Programmatic SEO landing pages
+
+Competitor analysis of `panoramagenerator.com` (9 月 sitemap 新增 75 个 URL 后搜索流量 549 → 2101) showed that depth per query cluster, gap-filling tool pages and localized long-form content drive the growth. This repo now mirrors the cheap half of that playbook with query-cluster landing pages: `/photo-to-globe/` (map to globe / maptoglobe), `/cubemap-to-equirectangular/` (6 faces back to 2:1 — a real inverse-projection tool, not just copy), `/text-to-panorama-ai/` (prompt library that loads prompts into the studio), and `/developers/` (embed + JSON API, the link magnet AI directories pick up).
+
+Adding a landing page touches five places, all required:
+
+1. `src/components/landing/<Name>Page.tsx` — hero, how-to, comparison table, FAQ accordion and a keyword-anchored "related tools" grid; content lives in the React tree so it renders for users and for JS-capable crawlers.
+2. `<slug>/index.html` at the repo root — its own title, description, canonical, OG/Twitter tags, `WebApplication` + `HowTo` + `FAQPage` + `BreadcrumbList` JSON-LD, and a `<noscript>` body that mirrors the visible sections for non-JS crawlers.
+3. `vite.config.ts` `build.rollupOptions.input` — without it the shell is not emitted into `dist`, and Cloudflare Pages serves the SPA fallback instead of the page.
+4. `public/sitemap.xml` — one `<url>` entry with `<image:image>`.
+5. `src/App.tsx` — a `getInitialTabFromLocation()` branch (order matters: specific slugs must be tested before the generic `cubemap`/`viewer` ones), an entry in `tabSeoMap`, an entry in `slugMap`, a `navigateTo()` case, and a footer link so the page is reachable from every route.
+
+The cubemap stitcher is the exact inverse of the slicer, and `tests/cubemap_stitch.test.mjs` proves it with a slice → stitch round trip that must land within a mean absolute error of 12/255 on a longitude/latitude gradient.
+
 ### Private generated works (Cloudflare)
 Signed-in permanent accounts automatically archive each new model original in private cloud history. Open **My works** in the studio preview toolbar to reopen a panorama, download the exact original, create an explicit public share, or delete the private original. Existing public links are managed separately in Share panorama. Guest results and images generated before this feature are not archived.
 

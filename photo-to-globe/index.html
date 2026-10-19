@@ -146,6 +146,46 @@
                   "@type": "Answer",
                   "text": "Absolutely! It is widely used by fantasy authors, game designers, and tabletop RPG creators to see how flat world maps look wrapped around an actual planetary sphere."
                 }
+              },
+              {
+                "@type": "Question",
+                "name": "What is the difference between map to globe and photo to globe?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The maths is identical and only the source image changes. A map to globe conversion wraps a cartographic world map so continents land on a sphere. A photo to globe conversion wraps an equirectangular 360 photograph or a flat picture so the panorama becomes a small planet you can spin."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Which projection should I export from QGIS, Photoshop or GIMP?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Equirectangular, also called plate carree, EPSG:4326 or simple cylindrical. Export at a 2:1 ratio such as 4096x2048, keep the whole world inside the frame, and place 0 degrees longitude in the centre column for the cleanest wrap."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I rotate the globe automatically for a video or presentation?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Turn on auto-rotation, set the speed and record the viewport. If you need a rendered file instead of a screen capture, the 360 photo to video tool exports rotating MP4 and WebM clips."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does the globe maker work on phones and tablets?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. The globe uses touch drag to orbit and pinch to zoom, and the whole projection runs in the mobile browser without an app install or an account."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is this globe maker useful for geography or science teaching?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. It is a fast way to demonstrate map projection distortion: load the same syllabus map in Mercator and in equirectangular form and compare how the polar regions compress or explode on the sphere."
+                }
               }
             ]
           }
@@ -168,6 +208,58 @@
               <li><strong>Interactive 3D Sphere:</strong> Drag to rotate, zoom, and adjust planetary spin speed.</li>
               <li><strong>Atmospheric Scattering Shader:</strong> Cinematic Fresnel atmospheric halo effect.</li>
               <li><strong>Wireframe &amp; Solid Modes:</strong> Inspect topology and map projections seamlessly.</li>
+            </ul>
+          </section>
+          <section>
+            <h2>What Is a Map to Globe Converter?</h2>
+            <p>
+              A map to globe converter takes a flat, rectangular image and wraps it around a sphere so you can
+              rotate the result like a planet. It is also called a globe maker, an image to globe tool, or a
+              sphere projection tool; the operation is always the same: read every pixel of the image, convert
+              its X and Y coordinates into longitude and latitude, and sample the pixel that lies in that
+              direction.
+            </p>
+            <p>
+              Because the maths is pure geometry, the result is instant and lossless. What matters for quality
+              is the source image: an equirectangular world map wraps without artefacts, while a Mercator wall
+              map squeezes the poles the moment it becomes spherical. Any equirectangular 360 photo is already
+              in the right projection, so loading one here produces the classic tiny planet view.
+            </p>
+          </section>
+          <section>
+            <h2>How to Wrap an Image onto a 3D Globe</h2>
+            <ol>
+              <li><strong>Upload the texture:</strong> pick any 2:1 image — a geographic world map, a fictional continent chart, a flat picture, or an exported 360° panorama.</li>
+              <li><strong>Automatic spherical wrapping:</strong> the WebGL engine maps the image to UV coordinates on a Three.js sphere, so longitudes run around the equator.</li>
+              <li><strong>Control the planet:</strong> adjust auto-rotation speed, pause the spin, toggle wireframe mode, and orbit or zoom freely.</li>
+              <li><strong>Capture the result:</strong> grab a high-resolution perspective snapshot for a thumbnail, slide or video intro.</li>
+            </ol>
+          </section>
+          <section>
+            <h2>Map to Globe vs MapToGlobe, WebGL Earth and Google Earth Web</h2>
+            <ul>
+              <li><strong>360 Panorama Viewer globe maker:</strong> free, no account, nothing uploaded, and any custom image — including fantasy maps — can be wrapped.</li>
+              <li><strong>MapToGlobe:</strong> wraps arbitrary images too, but the file is uploaded to their server and the free tier carries watermark and advertising constraints.</li>
+              <li><strong>WebGL Earth:</strong> renders hosted globes rather than your own texture.</li>
+              <li><strong>Google Earth Web:</strong> excellent real satellite imagery, but it cannot wrap a custom map onto the sphere.</li>
+            </ul>
+          </section>
+          <section>
+            <h2>Which Image Format Wraps Best on a Sphere?</h2>
+            <ul>
+              <li><strong>Aspect ratio:</strong> 2:1 is ideal, for example 4096×2048. A square image wraps once around the equator and pinches at both poles.</li>
+              <li><strong>Longitude origin:</strong> the centre column becomes longitude 0°, and the left and right edges meet at 180°.</li>
+              <li><strong>File types:</strong> PNG, JPEG, WEBP and GIF all work; use PNG or high-quality JPEG at roughly 4096 px wide for crisp continents.</li>
+              <li><strong>Flat maps:</strong> Mercator and Robinson maps still wrap, but pre-project to equirectangular for a believable planet.</li>
+            </ul>
+          </section>
+          <section>
+            <h2>Common Uses</h2>
+            <ul>
+              <li><strong>Fantasy worldbuilding:</strong> check that campaign-map continents survive being wrapped onto a planet.</li>
+              <li><strong>Geography teaching:</strong> show how a Mercator classroom map distorts Greenland and Antarctica on a real sphere.</li>
+              <li><strong>Game prototyping:</strong> preview a planet texture or procedural world map before importing it into Unity, Unreal Engine or Three.js.</li>
+              <li><strong>Tiny planets:</strong> wrap any equirectangular 360 photo onto the globe without installing a stereographic projection app.</li>
             </ul>
           </section>
         </main>
