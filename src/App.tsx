@@ -23,8 +23,6 @@ import {
 import type { ActiveTab, StylePresetId, ManagedUser } from './types/panorama';
 import { GeneratorTab } from './components/GeneratorTab';
 import { ViewerTab } from './components/ViewerTab';
-import { CubemapTab } from './components/CubemapTab';
-import { PricingTab } from './components/PricingTab';
 import { MetadataInjectorModal } from './components/commercial/MetadataInjectorModal';
 import { CheckoutModal } from './components/commercial/CheckoutModal';
 import { UserAuthModal } from './components/commercial/UserAuthModal';
@@ -41,21 +39,23 @@ import {
 } from './utils/adminStorage';
 import samplePanoramaUrl from './assets/coastal-cover.png';
 import { fetchServerUser, fetchPublicModelsConfig, fetchPublicBillingConfig, initServerGuestUser } from './utils/commercialApi';
-import { AiHdriGeneratorPage } from './components/landing/AiHdriGeneratorPage';
-import { HdriViewerPage } from './components/landing/HdriViewerPage';
-import { SkyboxGeneratorPage } from './components/landing/SkyboxGeneratorPage';
-import { PhotoTo360Page } from './components/landing/PhotoTo360Page';
-import { CubemapGeneratorPage } from './components/landing/CubemapGeneratorPage';
-import { MetadataInjectorPage } from './components/landing/MetadataInjectorPage';
-import { PhotoToVideoPage } from './components/landing/PhotoToVideoPage';
-import { ShowcasePage } from './components/landing/ShowcasePage';
-import { PhotoToGlobePage } from './components/landing/PhotoToGlobePage';
-import { CubemapToEquirectPage } from './components/landing/CubemapToEquirectPage';
-import { TextToPanoramaPage } from './components/landing/TextToPanoramaPage';
-import { DevelopersPage } from './components/landing/DevelopersPage';
 import { EmbedViewer } from './components/commercial/EmbedViewer';
 
 const AdminTab = lazy(() => import('./components/AdminTab').then(module => ({ default: module.AdminTab })));
+const CubemapTab = lazy(() => import('./components/CubemapTab').then(module => ({ default: module.CubemapTab })));
+const PricingTab = lazy(() => import('./components/PricingTab').then(module => ({ default: module.PricingTab })));
+const AiHdriGeneratorPage = lazy(() => import('./components/landing/AiHdriGeneratorPage').then(module => ({ default: module.AiHdriGeneratorPage })));
+const HdriViewerPage = lazy(() => import('./components/landing/HdriViewerPage').then(module => ({ default: module.HdriViewerPage })));
+const SkyboxGeneratorPage = lazy(() => import('./components/landing/SkyboxGeneratorPage').then(module => ({ default: module.SkyboxGeneratorPage })));
+const PhotoTo360Page = lazy(() => import('./components/landing/PhotoTo360Page').then(module => ({ default: module.PhotoTo360Page })));
+const CubemapGeneratorPage = lazy(() => import('./components/landing/CubemapGeneratorPage').then(module => ({ default: module.CubemapGeneratorPage })));
+const MetadataInjectorPage = lazy(() => import('./components/landing/MetadataInjectorPage').then(module => ({ default: module.MetadataInjectorPage })));
+const PhotoToVideoPage = lazy(() => import('./components/landing/PhotoToVideoPage').then(module => ({ default: module.PhotoToVideoPage })));
+const ShowcasePage = lazy(() => import('./components/landing/ShowcasePage').then(module => ({ default: module.ShowcasePage })));
+const PhotoToGlobePage = lazy(() => import('./components/landing/PhotoToGlobePage').then(module => ({ default: module.PhotoToGlobePage })));
+const CubemapToEquirectPage = lazy(() => import('./components/landing/CubemapToEquirectPage').then(module => ({ default: module.CubemapToEquirectPage })));
+const TextToPanoramaPage = lazy(() => import('./components/landing/TextToPanoramaPage').then(module => ({ default: module.TextToPanoramaPage })));
+const DevelopersPage = lazy(() => import('./components/landing/DevelopersPage').then(module => ({ default: module.DevelopersPage })));
 
 function getInitialTabFromLocation(): ActiveTab {
   if (typeof window === 'undefined') return 'generator';
@@ -931,6 +931,7 @@ export function App() {
 
       {/* Main App Canvas / Tab Container */}
       <main id="studio-main" key={activeTab} tabIndex={-1} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 relative z-10 animate-in fade-in duration-200">
+        <Suspense fallback={<div role="status" className="py-20 text-center text-cyan-400 font-mono text-xs">Loading view...</div>}>
         {activeTab === 'generator' && (
           <GeneratorTab
             isViewerHomepage={currentPath === '/'}
@@ -967,7 +968,7 @@ export function App() {
           />
         )}
         {activeTab === 'pricing' && <PricingTab currentUser={currentUser} billingConfig={billingConfig} onChoosePlan={handleChoosePlan} onOpenStudio={() => navigateTo('generator')} />}
-        {activeTab === 'admin' && <Suspense fallback={<p role="status">Loading admin console...</p>}><AdminTab /></Suspense>}
+        {activeTab === 'admin' && <AdminTab />}
         {activeTab === 'showcase' && (
           <ShowcasePage
             onOpenStudio={() => navigateTo('generator', '/360-image-maker/')}
@@ -1067,6 +1068,7 @@ export function App() {
             onPanoramaChange={setCurrentPanoramaUrl}
           />
         )}
+        </Suspense>
       </main>
 
       {/* =========================================================================
