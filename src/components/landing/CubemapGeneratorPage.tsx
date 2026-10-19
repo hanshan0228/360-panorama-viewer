@@ -10,8 +10,11 @@ import {
   Cpu,
   Archive,
   Upload,
+  Check,
 } from 'lucide-react';
 import { CubemapTab } from '../CubemapTab';
+import { generateProceduralPanorama } from '../../utils/proceduralPanoramas';
+import type { StylePresetId } from '../../types/panorama';
 
 interface CubemapGeneratorPageProps {
   onLaunchStudio: () => void;
@@ -21,6 +24,27 @@ interface CubemapGeneratorPageProps {
 
 export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activePanoUrl, onPanoramaChange: setActivePanoUrl }: CubemapGeneratorPageProps) {
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
+  const [activePreset, setActivePreset] = useState<string | null>(null);
+  const isHdriMode = typeof window !== 'undefined' && window.location.pathname.includes('hdri-to-cubemap');
+
+  const samplePresets: Array<{ id: string; label: string; style: StylePresetId; desc: string }> = [
+    { id: 'space', label: 'Cosmic Nebula', style: 'space', desc: 'Deep space cosmic skybox' },
+    { id: 'cyberpunk', label: 'Cyberpunk Metropolis', style: 'cyberpunk', desc: 'Neon city night skybox' },
+    { id: 'nature', label: 'Tropical Sunset', style: 'nature', desc: 'Golden hour ocean horizon' },
+    { id: 'fantasy', label: 'Celestial Temple', style: 'fantasy', desc: 'Fantasy ruins & aurora' },
+    { id: 'interior', label: 'Modern Penthouse', style: 'interior', desc: 'Architectural studio lighting' },
+  ];
+
+  const handleSelectSample = (preset: typeof samplePresets[number]) => {
+    try {
+      const canvas = generateProceduralPanorama(preset.style, '', 2048, 1024);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      setActivePreset(preset.id);
+      setActivePanoUrl(dataUrl);
+    } catch (err) {
+      console.error('Failed to generate sample cubemap:', err);
+    }
+  };
 
   const handleCustomUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -34,7 +58,24 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
     reader.readAsDataURL(file);
   };
 
-  const faqs = [
+  const faqs = isHdriMode ? [
+    {
+      q: 'How does HDRI to Cubemap conversion work?',
+      a: 'HDRI to cubemap conversion maps a 2:1 equirectangular high-dynamic-range environment onto the 6 internal faces of a cube (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back). Each face is rendered with an exact 90-degree field of view using tangent ray-casting, eliminating all spherical pinching at the poles.',
+    },
+    {
+      q: 'Which 3D engines and DCC apps support these cubemap faces?',
+      a: 'The output faces are compatible with Unity (6-sided Skybox shader), Unreal Engine (IBL environment probes), Blender (World background and reflection probes), Godot, Three.js, and Babylon.js.',
+    },
+    {
+      q: 'Can I download the 6 cubemap faces as a single ZIP archive?',
+      a: 'Yes. Simply click "Download All (ZIP)" to package posx, negx, posy, negy, posz, and negz into one clean ZIP archive ready for immediate engine import.',
+    },
+    {
+      q: 'Is this HDRI to cubemap converter free and private?',
+      a: 'Yes, 100% free with unlimited conversions. The slicing math runs entirely inside your browser WebGL memory—no environment textures are uploaded to external servers.',
+    },
+  ] : [
     {
       q: 'What is a Cubemap Generator and why do game engines require it?',
       a: 'A Cubemap Generator converts a 2:1 equirectangular spherical panorama into 6 rectilinear 90° field-of-view cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back). Most game engines (Unity, Unreal Engine, Godot, Three.js) rely on cubemaps for skybox rendering and specular reflection probes because GPU texture lookups across cube faces are significantly faster than spherical trigonometry.',
@@ -52,6 +93,10 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
       a: 'The archive contains posx.png (Right), negx.png (Left), posy.png (Top / Up), negy.png (Bottom / Down), posz.png (Front), and negz.png (Back). This naming convention matches Unity Skybox / 6 Sided shaders and Three.js CubeTexture loaders directly.',
     },
     {
+      q: 'Can I download free cubemaps directly without uploading?',
+      a: 'Yes! Click any of the free presets (Cosmic Nebula, Cyberpunk Metropolis, Tropical Sunset, etc.) above the slicer to instantly preview the 6 sliced faces and click "Download All (ZIP)" to get a free cubemap pack immediately.',
+    },
+    {
       q: 'Is this cubemap generator completely free?',
       a: 'Yes! The Cubemap Slicer is an unlimited free utility. You can upload any 2:1 equirectangular image, inspect the 6 slices, and download the complete ZIP archive without paying any credits or logging in.',
     },
@@ -65,7 +110,7 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
         <span>/</span>
         <span className="text-cyan-300">Tools</span>
         <span>/</span>
-        <span className="text-white font-medium">Cubemap Generator</span>
+        <span className="text-white font-medium">{isHdriMode ? 'HDRI to Cubemap' : 'Cubemap Generator'}</span>
       </nav>
 
       {/* Hero Section */}
@@ -73,19 +118,20 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
         <div className="max-w-4xl space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-400/15 border border-cyan-400/40 text-cyan-300 text-xs font-semibold tracking-wide">
             <Box className="w-3.5 h-3.5 text-cyan-400" />
-            <span>100% CLIENT-SIDE &bull; 6-FACE CUBIC SLICER &bull; UNITY &amp; UNREAL</span>
+            <span>{isHdriMode ? 'HDRI CONVERTER • RADIANCE HDR & EXR TO CUBEMAP • 6 CUBE FACES' : '100% CLIENT-SIDE • 6-FACE CUBIC SLICER • UNITY & UNREAL'}</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
-            Cubemap Generator:{' '}
+            {isHdriMode ? 'HDRI to Cubemap: ' : 'Cubemap Generator: '}
             <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-400 bg-clip-text text-transparent">
-              Slice 360° Panoramas to 6 Cube Faces
+              {isHdriMode ? 'Convert 360° HDR Environments to 6 Cube Faces' : 'Slice 360° Panoramas to 6 Cube Faces'}
             </span>
           </h1>
 
           <p className="text-base sm:text-lg text-cyan-100/80 leading-relaxed max-w-3xl">
-            Convert 2:1 equirectangular spherical panoramas into 6 rectilinear cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back) with client-side WebGL math.
-            One-click batch ZIP download for Unity Skyboxes, Unreal Engine, and Three.js.
+            {isHdriMode
+              ? 'Convert 2:1 equirectangular HDRI environment lighting maps and spherical captures into 6 rectilinear cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back). Export standard engine-ready textures for Unity, Unreal Engine, and Three.js.'
+              : 'Convert 2:1 equirectangular spherical panoramas into 6 rectilinear cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back) with client-side WebGL math. Includes free ready-to-download sample cubemaps and one-click batch ZIP export.'}
           </p>
 
           <div className="flex flex-wrap items-center gap-4 pt-2">
@@ -140,6 +186,40 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
           </div>
           <div className="text-xs text-cyan-300/80">
             Powered by Browser WebGL
+          </div>
+        </div>
+
+        {/* Free Sample Cubemaps & Skybox Packs Selector */}
+        <div className="p-4 rounded-2xl bg-[#03132b]/80 border border-cyan-500/30 space-y-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-cyan-300 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-cyan-400" />
+              <span>Free Sample Cubemaps &amp; Skyboxes (Click to Slice &amp; Download Free ZIP)</span>
+            </span>
+            <span className="text-cyan-400/60 font-mono text-[11px]">Instant 6-Face Preview</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
+            {samplePresets.map((preset) => {
+              const isSelected = activePreset === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => handleSelectSample(preset)}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1 ${
+                    isSelected
+                      ? 'border-cyan-400 bg-cyan-500/25 shadow-md shadow-cyan-500/30 text-white'
+                      : 'border-cyan-500/20 bg-[#020b18] text-cyan-200/80 hover:bg-cyan-500/10 hover:border-cyan-400/50'
+                  }`}
+                >
+                  <div className="font-semibold text-xs flex items-center justify-between">
+                    <span>{preset.label}</span>
+                    {isSelected && <Check className="w-3.5 h-3.5 text-teal-400 shrink-0" />}
+                  </div>
+                  <div className="text-[10px] text-cyan-300/60 leading-tight">{preset.desc}</div>
+                </button>
+              );
+            })}
           </div>
         </div>
 

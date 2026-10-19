@@ -1,165 +1,378 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://360panoramaviewer.com/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
-    <image:image>
-      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
-      <image:title>AI 360 Panorama Generator and VR Skybox Studio</image:title>
-      <image:caption>Generate seamless 2:1 equirectangular 360 panoramas, cubemaps, and VR skyboxes with AI</image:caption>
-    </image:image>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/" />
   </url>
   <url>
-    <loc>https://360panoramaviewer.com/360-image-maker/</loc>
+    <loc>https://360panoramaviewer.com/zh/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>daily</changefreq>
-    <priority>0.95</priority>
-    <image:image>
-      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
-      <image:title>360 Image Maker - Free AI 360 Degree Image Creator</image:title>
-      <image:caption>Create seamless 360 equirectangular panoramas and VR images from text prompts or 2D photos</image:caption>
-    </image:image>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/" />
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/es/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/" />
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/de/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/" />
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/ja/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/" />
   </url>
   <url>
     <loc>https://360panoramaviewer.com/360-panorama-viewer/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.95</priority>
-    <image:image>
-      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
-      <image:title>Free 360 Panorama Viewer Online - No Upload Needed</image:title>
-      <image:caption>Inspect and roam equirectangular 360 panoramas in real-time WebGL with Ctrl+V clipboard support</image:caption>
-    </image:image>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/360-panorama-viewer/" />
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/zh/360-panorama-viewer/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/360-panorama-viewer/" />
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/es/360-panorama-viewer/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/360-panorama-viewer/" />
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/de/360-panorama-viewer/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/360-panorama-viewer/" />
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/ja/360-panorama-viewer/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/360-panorama-viewer/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/360-panorama-viewer/" />
   </url>
   <url>
     <loc>https://360panoramaviewer.com/photo-to-globe/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
-      <image:title>Map to Globe - Free 2D Image to 3D Rotating Globe Maker</image:title>
-      <image:caption>Wrap 2D maps and equirectangular images onto interactive 3D revolving spheres</image:caption>
-    </image:image>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/photo-to-globe/" />
   </url>
   <url>
-    <loc>https://360panoramaviewer.com/ai-hdri-generator/</loc>
+    <loc>https://360panoramaviewer.com/zh/photo-to-globe/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
-      <image:title>AI HDRI Generator for Blender, Unreal Engine and Unity</image:title>
-      <image:caption>Generate 360 HDR environment lighting maps and Radiance .HDR files</image:caption>
-    </image:image>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/photo-to-globe/" />
   </url>
   <url>
-    <loc>https://360panoramaviewer.com/skybox-generator/</loc>
+    <loc>https://360panoramaviewer.com/es/photo-to-globe/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
-      <image:title>AI Skybox Generator for Games and VR Worlds</image:title>
-      <image:caption>Create 360 panoramic game skyboxes with 6-sided cubemap slicing</image:caption>
-    </image:image>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/photo-to-globe/" />
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/de/photo-to-globe/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/photo-to-globe/" />
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/ja/photo-to-globe/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/photo-to-globe/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/photo-to-globe/" />
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/cubemap-generator/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/cubemap-generator/" />
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/zh/cubemap-generator/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/cubemap-generator/" />
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/es/cubemap-generator/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/cubemap-generator/" />
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/de/cubemap-generator/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/cubemap-generator/" />
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/ja/cubemap-generator/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/cubemap-generator/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/cubemap-generator/" />
   </url>
   <url>
     <loc>https://360panoramaviewer.com/photo-to-360-converter/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
-      <image:title>Photo to 360 Converter AI</image:title>
-      <image:caption>Transform 2D photos and architectural renders into spherical 360 panoramas</image:caption>
-    </image:image>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/photo-to-360-converter/" />
   </url>
   <url>
-    <loc>https://360panoramaviewer.com/cubemap-generator/</loc>
+    <loc>https://360panoramaviewer.com/zh/photo-to-360-converter/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.85</priority>
-    <image:image>
-      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
-      <image:title>Cubemap Generator 6-Sided Slicer Online</image:title>
-      <image:caption>Slice 2:1 equirectangular panoramas into 6 rectilinear cube faces with ZIP export</image:caption>
-    </image:image>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/photo-to-360-converter/" />
   </url>
   <url>
-    <loc>https://360panoramaviewer.com/360-metadata-injector/</loc>
+    <loc>https://360panoramaviewer.com/es/photo-to-360-converter/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.85</priority>
-    <image:image>
-      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
-      <image:title>360 Photo Metadata Injector for Facebook and Street View</image:title>
-      <image:caption>Embed Google PhotoSphere XMP GPano tags into panoramic JPEG files</image:caption>
-    </image:image>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/photo-to-360-converter/" />
   </url>
   <url>
-    <loc>https://360panoramaviewer.com/showcase/</loc>
+    <loc>https://360panoramaviewer.com/de/photo-to-360-converter/</loc>
     <lastmod>2026-10-19</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.7</priority>
-    <image:image>
-      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
-      <image:title>360 Panorama Showcase - Real 360 Photo and VR Skybox Examples</image:title>
-      <image:caption>Community gallery of equirectangular 360 panoramas and VR skyboxes openable in the free browser viewer</image:caption>
-    </image:image>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/photo-to-360-converter/" />
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/ja/photo-to-360-converter/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/photo-to-360-converter/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/photo-to-360-converter/" />
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/360-product-video-generator/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/hdri-to-cubemap/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/ai-hdri-generator/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/skybox-generator/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/360-image-maker/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://360panoramaviewer.com/360-photo-to-video/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
-      <image:title>360 Photo to Video Converter for TikTok, Reels and YouTube</image:title>
-      <image:caption>Convert 360 panoramas into smooth orbital rotation videos with horizontal panning and elevation wave</image:caption>
-    </image:image>
   </url>
   <url>
     <loc>https://360panoramaviewer.com/cubemap-to-equirectangular/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
-      <image:title>Cubemap to Equirectangular Converter - Free 2:1 360 Panorama Maker</image:title>
-      <image:caption>Stitch 6 cube faces (posx, negx, posy, negy, posz, negz) back into one seamless 2:1 equirectangular panorama</image:caption>
-    </image:image>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/360-metadata-injector/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/hdri-viewer/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
   </url>
   <url>
     <loc>https://360panoramaviewer.com/text-to-panorama-ai/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
-      <image:title>Text to Panorama AI - Free 360 Prompt Generator</image:title>
-      <image:caption>Turn a written prompt into a seamless 2:1 equirectangular 360 panorama with a copy-ready prompt library</image:caption>
-    </image:image>
+    <priority>0.85</priority>
   </url>
   <url>
     <loc>https://360panoramaviewer.com/developers/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
-    <image:image>
-      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
-      <image:title>Developer Docs - 360 Panorama Embed and JSON API</image:title>
-      <image:caption>Embed a 360 panorama with one iframe or call the free JSON API for generation, publishing and image reads</image:caption>
-    </image:image>
   </url>
   <url>
-    <loc>https://360panoramaviewer.com/hdri-viewer/</loc>
+    <loc>https://360panoramaviewer.com/showcase/</loc>
     <lastmod>2026-10-19</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.85</priority>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://360panoramaviewer.com/blog/</loc>

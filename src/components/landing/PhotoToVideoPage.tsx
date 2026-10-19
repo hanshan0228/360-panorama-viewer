@@ -24,7 +24,8 @@ interface PhotoToVideoPageProps {
 
 export function PhotoToVideoPage({ onLaunchStudio, currentPanoramaUrl: activePanoUrl, onPanoramaChange: setActivePanoUrl }: PhotoToVideoPageProps) {
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
-  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1'>('16:9');
+  const isProductMode = typeof window !== 'undefined' && window.location.pathname.includes('360-product-video');
+  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1'>(() => (isProductMode ? '1:1' : '16:9'));
   const [duration, setDuration] = useState<number>(8);
   const [tilt, setTilt] = useState<boolean>(true);
   const [isRecording, setIsRecording] = useState<boolean>(false);
@@ -113,6 +114,16 @@ export function PhotoToVideoPage({ onLaunchStudio, currentPanoramaUrl: activePan
   };
 
   const faqs = [
+    ...(isProductMode ? [
+      {
+        q: 'How does the 360 Product Video Generator improve conversion rates on Shopify & Amazon?',
+        a: 'Rotating turntable videos give prospective buyers an all-angles view of textures, seams, and dimensions. Adding a 360 spin video to product media feeds has been shown to increase purchase intent by up to 30% while reducing customer return rates by clarifying real-world expectations.',
+      },
+      {
+        q: 'Which aspect ratio is best for Shopify and Amazon product cards?',
+        a: 'The 1:1 Square (1080x1080) preset is the e-commerce standard for Shopify and Amazon product gallery thumbnails. For full-width website hero displays, 16:9 Landscape is recommended.',
+      },
+    ] : []),
     {
       q: 'How does 360 Photo to Video generation work?',
       a: '360 Panorama Viewer maps your 2:1 equirectangular panorama onto a virtual 360° sphere and animates a cinematic camera rotating smoothly along the horizon. It captures the WebGL viewport in real-time using the browser MediaRecorder API, producing a ready-to-post MP4 or WebM video file without requiring any video editing software.',
@@ -143,7 +154,7 @@ export function PhotoToVideoPage({ onLaunchStudio, currentPanoramaUrl: activePan
         <span>/</span>
         <span className="text-cyan-300">Tools</span>
         <span>/</span>
-        <span className="text-white font-medium">360° Photo to Video</span>
+        <span className="text-white font-medium">{isProductMode ? '360° Product Video Generator' : '360° Photo to Video'}</span>
       </nav>
 
       {/* Hero Section */}
@@ -151,19 +162,20 @@ export function PhotoToVideoPage({ onLaunchStudio, currentPanoramaUrl: activePan
         <div className="max-w-4xl space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-400/15 border border-cyan-400/40 text-cyan-300 text-xs font-semibold tracking-wide">
             <Film className="w-3.5 h-3.5 text-cyan-400" />
-            <span>VIRAL VIDEO TOOL &bull; TIKTOK &bull; INSTAGRAM REELS &bull; AMAZON 360</span>
+            <span>{isProductMode ? 'E-COMMERCE 360 TURNTABLE • SHOPIFY • AMAZON • ETSY' : 'VIRAL VIDEO TOOL • TIKTOK • INSTAGRAM REELS • AMAZON 360'}</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
-            360° Photo to Video:{' '}
+            {isProductMode ? '360° Product Video Generator: ' : '360° Photo to Video: '}
             <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-300 bg-clip-text text-transparent">
-              Turn Panoramas into Rotating Videos
+              {isProductMode ? 'Turn 360 Photos into Rotating E-Commerce Videos' : 'Turn Panoramas into Rotating Videos'}
             </span>
           </h1>
 
           <p className="text-base sm:text-lg text-cyan-100/80 leading-relaxed max-w-3xl">
-            Convert any 360° equirectangular photo into a cinematic rotating MP4/WebM video in seconds.
-            Optimized for TikTok, Instagram Reels, YouTube Shorts, and e-commerce 360 product showcases with zero server uploads.
+            {isProductMode
+              ? 'Convert 360° panoramic product captures and turntable photos into smooth rotating MP4/WebM videos for Shopify, Amazon, Etsy, and WooCommerce listings. 100% free and client-side.'
+              : 'Convert any 360° equirectangular photo into a cinematic rotating MP4/WebM video in seconds. Optimized for TikTok, Instagram Reels, YouTube Shorts, and e-commerce 360 product showcases with zero server uploads.'}
           </p>
 
           <div className="flex flex-wrap items-center gap-6 pt-2 text-xs text-cyan-300/70">

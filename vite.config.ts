@@ -1,7 +1,28 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { resolve } from 'path'
+import fs from 'fs'
+import path from 'path'
+
+function getHtmlInputs() {
+  const root = import.meta.dirname;
+  const entries: Record<string, string> = {};
+  const scan = (dir: string) => {
+    for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (item.isDirectory()) {
+        if (item.name === 'node_modules' || item.name === 'dist' || item.name === 'public' || item.name === '.git' || item.name === 'tests' || item.name === 'output') continue;
+        scan(path.join(dir, item.name));
+      } else if (item.name === 'index.html') {
+        const fullPath = path.join(dir, item.name);
+        const rel = path.relative(root, fullPath);
+        const key = rel === 'index.html' ? 'main' : rel.replace(/\/index\.html$/, '').replace(/[/-]/g, '_');
+        entries[key] = fullPath;
+      }
+    }
+  };
+  scan(root);
+  return entries;
+}
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -22,23 +43,7 @@ export default defineConfig({
   ],
   build: {
     rollupOptions: {
-      input: {
-        main: resolve(import.meta.dirname, 'index.html'),
-        maker: resolve(import.meta.dirname, '360-image-maker/index.html'),
-        viewer: resolve(import.meta.dirname, '360-panorama-viewer/index.html'),
-        globe: resolve(import.meta.dirname, 'photo-to-globe/index.html'),
-        hdri: resolve(import.meta.dirname, 'ai-hdri-generator/index.html'),
-        skybox: resolve(import.meta.dirname, 'skybox-generator/index.html'),
-        photo360: resolve(import.meta.dirname, 'photo-to-360-converter/index.html'),
-        cubemap: resolve(import.meta.dirname, 'cubemap-generator/index.html'),
-        metadata: resolve(import.meta.dirname, '360-metadata-injector/index.html'),
-        video: resolve(import.meta.dirname, '360-photo-to-video/index.html'),
-        showcase: resolve(import.meta.dirname, 'showcase/index.html'),
-        cube2eq: resolve(import.meta.dirname, 'cubemap-to-equirectangular/index.html'),
-        hdriViewer: resolve(import.meta.dirname, 'hdri-viewer/index.html'),
-        text2pano: resolve(import.meta.dirname, 'text-to-panorama-ai/index.html'),
-        developers: resolve(import.meta.dirname, 'developers/index.html'),
-      },
+      input: getHtmlInputs(),
       output: {
         manualChunks(id) {
           if (id.includes('node_modules/three')) {

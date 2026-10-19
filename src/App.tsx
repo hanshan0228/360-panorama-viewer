@@ -66,9 +66,9 @@ function getInitialTabFromLocation(): ActiveTab {
   if (path.includes('hdri-viewer') || hash.includes('hdri-viewer')) return 'landing-hdri-viewer';
   if (path.includes('skybox-generator') || hash.includes('skybox-generator')) return 'landing-skybox';
   if (path.includes('photo-to-360-converter') || hash.includes('photo-to-360-converter')) return 'landing-photo360';
-  if (path.includes('cubemap-generator') || hash.includes('cubemap-generator')) return 'landing-cubemap';
+  if (path.includes('cubemap-generator') || hash.includes('cubemap-generator') || path.includes('hdri-to-cubemap')) return 'landing-cubemap';
   if (path.includes('360-metadata-injector') || hash.includes('360-metadata-injector')) return 'landing-metadata';
-  if (path.includes('360-photo-to-video') || hash.includes('360-photo-to-video')) return 'landing-video';
+  if (path.includes('360-photo-to-video') || hash.includes('360-photo-to-video') || path.includes('360-product-video-generator')) return 'landing-video';
   if (path.includes('cubemap-to-equirectangular') || hash.includes('cubemap-to-equirectangular')) return 'landing-cube2eq';
   if (path.includes('text-to-panorama') || hash.includes('text-to-panorama')) return 'landing-text2pano';
   if (path.includes('developers') || hash.includes('developers')) return 'developers';
@@ -1213,6 +1213,26 @@ export function App() {
                   >
                     <span>360° Photo to Video</span>
                     <span className="text-[9px] font-mono px-1 rounded bg-purple-400/20 text-purple-300">MP4</span>
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/360-product-video-generator/"
+                    onClick={(e) => { e.preventDefault(); navigateTo('landing-video', '/360-product-video-generator/'); }}
+                    className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center justify-between"
+                  >
+                    <span>360° Product Video</span>
+                    <span className="text-[9px] font-mono px-1 rounded bg-emerald-400/20 text-emerald-300">SHOP</span>
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/hdri-to-cubemap/"
+                    onClick={(e) => { e.preventDefault(); navigateTo('landing-cubemap', '/hdri-to-cubemap/'); }}
+                    className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center justify-between"
+                  >
+                    <span>HDRI to Cubemap</span>
+                    <span className="text-[9px] font-mono px-1 rounded bg-teal-400/20 text-teal-300">HDR</span>
                   </a>
                 </li>
                 <li>

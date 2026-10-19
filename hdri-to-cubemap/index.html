@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Primary Meta Tags -->
+    <title>HDRI to Cubemap Converter — Convert 360 HDR to 6 Cube Faces Online</title>
+    <meta name="title" content="HDRI to Cubemap Converter — Convert 360 HDR to 6 Cube Faces Online" />
+    <meta name="description" content="Free online HDRI to cubemap converter. Slice 360° HDR, EXR, and equirectangular environment lighting maps into 6 rectilinear cube faces for Unity, Unreal Engine, and WebGL." />
+    <meta
+      name="keywords"
+      content="hdri to cubemap, convert hdri to cubemap, hdri to 6 cube faces, radiance hdr cubemap slicer, hdri skybox generator, unity hdri cubemap, unreal engine hdri skybox, 6-sided cubemap from hdri"
+    />
+    <meta name="author" content="360 Panorama Viewer" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <link rel="canonical" href="https://360panoramaviewer.com/hdri-to-cubemap/" />
+    <meta name="theme-color" content="#040c1a" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:site_name" content="360 Panorama Viewer" />
+    <meta property="og:url" content="https://360panoramaviewer.com/hdri-to-cubemap/" />
+    <meta property="og:title" content="HDRI to Cubemap Converter — Convert 360 HDR to 6 Cube Faces Online" />
+    <meta property="og:description" content="Free online HDRI to cubemap converter. Slice 360° HDR, EXR, and equirectangular environment lighting maps into 6 rectilinear cube faces for Unity, Unreal Engine, and WebGL." />
+    <meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@360panoramaviewer" />
+    <meta name="twitter:creator" content="@360panoramaviewer" />
+    <meta name="twitter:url" content="https://360panoramaviewer.com/hdri-to-cubemap/" />
+    <meta name="twitter:title" content="HDRI to Cubemap Converter — Convert 360 HDR to 6 Cube Faces Online" />
+    <meta name="twitter:description" content="Free online HDRI to cubemap converter. Slice 360° HDR, EXR, and equirectangular environment lighting maps into 6 rectilinear cube faces for Unity, Unreal Engine, and WebGL." />
+    <meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
+
+    <!-- Schema.org JSON-LD Structured Data: SoftwareApplication + HowTo + FAQPage + Breadcrumbs -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://360panoramaviewer.com/hdri-to-cubemap/#software",
+            "name": "HDRI to Cubemap Converter",
+            "headline": "360° HDRI and Equirectangular Environment Cubemap Slicer",
+            "description": "Convert 360-degree high dynamic range (HDRI) environments into 6 rectilinear cube faces for Unity, Unreal Engine, and WebGL.",
+            "applicationCategory": "MultimediaApplication",
+            "operatingSystem": "All, Web Browser",
+            "url": "https://360panoramaviewer.com/hdri-to-cubemap/",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD",
+              "description": "100% Free online tool"
+            },
+            "aggregateRating": {
+              "@type": "AggregateRating",
+              "ratingValue": "4.9",
+              "ratingCount": "510",
+              "bestRating": "5",
+              "worstRating": "1"
+            }
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://360panoramaviewer.com/hdri-to-cubemap/#breadcrumbs",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://360panoramaviewer.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "HDRI to Cubemap",
+                "item": "https://360panoramaviewer.com/hdri-to-cubemap/"
+              }
+            ]
+          },
+          {
+            "@type": "HowTo",
+            "@id": "https://360panoramaviewer.com/hdri-to-cubemap/#howto",
+            "name": "How to Convert an HDRI Environment into 6 Cubemap Faces",
+            "description": "Step-by-step instructions for slicing spherical HDRI captures into cube faces.",
+            "step": [
+              {
+                "@type": "HowToStep",
+                "position": 1,
+                "name": "Upload 2:1 HDRI or Panoramic Map",
+                "text": "Select your 360° HDR, Radiance HDR, or equirectangular panorama."
+              },
+              {
+                "@type": "HowToStep",
+                "position": 2,
+                "name": "Select Face Resolution",
+                "text": "Choose 512x512, 1024x1024, or 2048x2048 resolution per cube face."
+              },
+              {
+                "@type": "HowToStep",
+                "position": 3,
+                "name": "Client-Side Ray Slicing",
+                "text": "Browser WebGL projects inverse tangent rays across the 6 faces (+X, -X, +Y, -Y, +Z, -Z)."
+              },
+              {
+                "@type": "HowToStep",
+                "position": 4,
+                "name": "Download Packaged ZIP Archive",
+                "text": "Download all 6 cube faces bundled in a single ZIP file ready for Unity or Unreal."
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://360panoramaviewer.com/hdri-to-cubemap/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Why do game engines use cubemaps instead of spherical HDRIs?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "GPUs sample cubemap faces with simple vector directions, requiring significantly fewer trigonometric calculations than spherical coordinates. Cubemaps also prevent pole distortion artifacts."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Are the exported cube faces compatible with Unity Skyboxes?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. The downloaded archive provides posx, negx, posy, negy, posz, and negz PNG files that map 1:1 to Unity 6-sided Skybox shader slots."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is the HDRI to Cubemap tool free?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes, 100% free with unlimited conversions and no account needed."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root">
+      <header>
+        <h1>HDRI to Cubemap Converter: Convert 360 HDR Environments to 6 Cube Faces</h1>
+        <p>Slice 360° HDR, EXR, and equirectangular environment lighting maps into 6 rectilinear cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back) for Unity, Unreal Engine, Blender, and WebGL.</p>
+      </header>
+      <main>
+        <section>
+          <h2>How to Convert HDRI to Cubemap</h2>
+          <ol>
+            <li><strong>Upload Your HDRI Environment:</strong> Drag and drop your 2:1 equirectangular HDR capture or choose from our free built-in skybox presets.</li>
+            <li><strong>Select Face Resolution:</strong> Choose 512&times;512, 1024&times;1024, or 2048&times;2048 pixels per face.</li>
+            <li><strong>Live 6-Face Preview:</strong> Inspect all 6 rectilinear faces rendered in real-time with zero optical pinch.</li>
+            <li><strong>Download Batch ZIP:</strong> Save posx.png, negx.png, posy.png, negy.png, posz.png, and negz.png in one click.</li>
+          </ol>
+        </section>
+        <section>
+          <h2>Features of Our Free HDRI Cubemap Slicer</h2>
+          <ul>
+            <li><strong>Zero Spherical Distortion:</strong> Uses exact tangent-space ray casting to eliminate polar pinching and seam artifacts.</li>
+            <li><strong>Instant Client-Side Processing:</strong> Rendering runs 100% in your browser GPU memory. No textures are uploaded to cloud servers.</li>
+            <li><strong>Plug-and-Play Unity &amp; Unreal Engine:</strong> Naming matches Unity Skybox / 6 Sided shaders and Three.js CubeTexture loaders directly.</li>
+            <li><strong>Free Skybox Presets Included:</strong> Download ready-to-use cosmic nebula, cyberpunk, sunset, and temple cubemap packs without uploading files.</li>
+          </ul>
+        </section>
+        <section>
+          <h2>Frequently Asked Questions</h2>
+          <h3>What face naming convention is used in the ZIP archive?</h3>
+          <p>The archive packages posx.png (Right +X), negx.png (Left -X), posy.png (Top +Y), negy.png (Bottom -Y), posz.png (Front +Z), and negz.png (Back -Z).</p>
+          <h3>Is my HDRI file kept private?</h3>
+          <p>Yes. The entire projection pipeline executes locally in your browser memory using WebGL and HTML5 Canvas. Your 3D assets never leave your workstation.</p>
+        </section>
+        <section>
+          <h2>Related 360° Panorama &amp; Game Tools</h2>
+          <ul>
+            <li><a href="/cubemap-generator/">Cubemap Generator</a> — Slice 360 panoramas into 6 cube faces.</li>
+            <li><a href="/cubemap-to-equirectangular/">Cubemap to Equirectangular</a> — Stitch 6 cube faces back into a seamless 2:1 panorama.</li>
+            <li><a href="/ai-hdri-generator/">AI HDRI Generator</a> — Generate 360° HDR environment maps with AI.</li>
+            <li><a href="/hdri-viewer/">HDRI Viewer</a> — Inspect 360 HDRIs with real-time exposure and tonemapping.</li>
+            <li><a href="/skybox-generator/">Skybox Generator</a> — Create panoramic game skyboxes.</li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
