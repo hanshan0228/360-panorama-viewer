@@ -2,7 +2,7 @@ import { preparePanoramaShare } from "../../utils/imageOptimizer";
 import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 import { SphereViewer } from "../SphereViewer";
 
-type Share = { id: string; title: string; width: number; height: number; allowDownload: boolean; createdAt: number; revoked?: boolean };
+type Share = { id: string; title: string; width: number; height: number; allowDownload: boolean; listed?: boolean; createdAt: number; revoked?: boolean };
 const getSubpath = () => {
   if (typeof window === "undefined" || !window.location || typeof window.location.pathname !== "string") return "";
   const pathname = window.location.pathname;
@@ -43,6 +43,7 @@ export function SharePanoramaModal({
   const [shares, setShares] = useState<Share[]>([]);
   const [title, setTitle] = useState(() => (prompt || "").trim().slice(0, 80) || "My panorama");
   const [allowDownload, setAllowDownload] = useState(true);
+  const [listed, setListed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -58,6 +59,7 @@ export function SharePanoramaModal({
     // oxlint-disable-next-line react/set-state-in-effect
     setShares([]); setError(""); setNotice(""); setNewlyCreatedShareId(null); setNewlyCreatedUrl(null);
     setTitle((prompt || "").trim().slice(0, 80) || "My panorama");
+    setListed(false);
     setBusy(true);
     if (dialog.current && !dialog.current.open) dialog.current.showModal();
     void shareApi(token, "", {}, abort.signal).then(data => {
@@ -85,7 +87,7 @@ export function SharePanoramaModal({
     const prepared = await preparePanoramaShare(await response.blob(), signal);
     const { blob } = prepared;
     signal.throwIfAborted();
-    const query = new URLSearchParams({ title: title.trim(), allowDownload: allowDownload ? "1" : "0" });
+    const query = new URLSearchParams({ title: title.trim(), allowDownload: allowDownload ? "1" : "0", listed: listed ? "1" : "0" });
     const data = await shareApi(token, `?${query}`, { method: "POST", headers: { "Content-Type": blob.type }, body: blob }, signal);
     if (signal.aborted || localStorage.getItem("panorama_server_user_token") !== token) return;
     const newShare = data.share;
@@ -108,10 +110,10 @@ export function SharePanoramaModal({
       : `Share link created! Copy the link above.`);
   });
 
-  const update = (share: Share, revoke = false) => run(async signal => {
-    await shareApi(token, `/${share.id}`, { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(revoke ? { action: "revoke" } : { allowDownload: !share.allowDownload }) }, signal);
-    if (!signal.aborted && localStorage.getItem("panorama_server_user_token") === token) setShares(prev => prev.map(row => row.id === share.id ? { ...row, revoked: revoke, allowDownload: revoke ? row.allowDownload : !row.allowDownload } : row));
+  const update = (share: Share, body: Record<string, unknown>) => run(async signal => {
+    await shareApi(token, `/${share.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }, signal);
+    if (!signal.aborted && localStorage.getItem("panorama_server_user_token") === token) setShares(prev => prev.map(row =>
+      row.id === share.id ? { ...row, ...(body.action === "revoke" ? { revoked: true } : body) } : row));
   });
 
   if (!isOpen) return null;
@@ -179,6 +181,14 @@ export function SharePanoramaModal({
         Allow viewers to download the sharing copy
       </label>
 
+      <label className="mt-2 flex items-start gap-2 text-xs text-slate-300 cursor-pointer">
+        <input type="checkbox" checked={listed} onChange={event => setListed(event.target.checked)} className="mt-0.5 rounded" />
+        <span>
+          List publicly in the <a href="/showcase/" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline hover:text-cyan-200">360 Panorama Showcase</a>
+          <span className="block text-[11px] text-slate-400">Off by default. Public links are indexed by search engines and appear on the showcase page; you can unlist at any time.</span>
+        </span>
+      </label>
+
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800/80 pt-3">
         <span className="text-[11px] text-slate-400">Only the sharing copy is compressed; your original image stays unchanged.</span>
         <button
@@ -228,6 +238,7 @@ export function SharePanoramaModal({
             <p className="break-words font-medium text-sm text-slate-100 flex items-center gap-2">
               <span>{share.title}</span>
               {isCurrent && <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-teal-400/20 text-teal-300 border border-teal-400/40">Current</span>}
+              {!share.revoked && share.listed && <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-cyan-400/20 text-cyan-300 border border-cyan-400/40">Public</span>}
               {share.revoked && <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">Revoked</span>}
             </p>
             <span className="text-[11px] text-slate-400 shrink-0">{createdDate}</span>
@@ -236,8 +247,9 @@ export function SharePanoramaModal({
           {!share.revoked && <><input aria-label={`Share link for ${share.title}`} readOnly value={linkFor(share.id)} onFocus={event => event.target.select()} className="my-2.5 w-full rounded-lg bg-slate-950 p-2 text-xs font-mono text-slate-300 border border-slate-800" /><div className="flex flex-wrap gap-2">
             <button type="button" className={button} onClick={() => { if (!navigator.clipboard?.writeText) { setError("Select and copy the link above."); return; } void navigator.clipboard.writeText(linkFor(share.id)).then(() => setNotice("Link copied.")).catch(() => setError("Copy failed. Select and copy the link above.")); }}>Copy link</button>
             <a className={button} href={linkFor(share.id)} target="_blank" rel="noopener noreferrer">Open</a>
-            <button type="button" disabled={busy} className={button} onClick={() => update(share)}>{share.allowDownload ? "Hide download" : "Allow download"}</button>
-            <button type="button" disabled={busy} className={button} onClick={() => update(share, true)}>Revoke link</button>
+            <button type="button" disabled={busy} className={button} onClick={() => update(share, { allowDownload: !share.allowDownload })}>{share.allowDownload ? "Hide download" : "Allow download"}</button>
+            <button type="button" disabled={busy} className={button} onClick={() => update(share, { listed: !share.listed })}>{share.listed ? "Remove from showcase" : "List in showcase"}</button>
+            <button type="button" disabled={busy} className={button} onClick={() => update(share, { action: "revoke" })}>Revoke link</button>
           </div></>}
         </li>;
       })}</ul>
@@ -272,7 +284,7 @@ export function SharedPanorama({ id }: { id: string }) {
       if (!imageResponse.ok) throw new Error((await imageResponse.json().catch(() => ({}))).error || "The panorama image is unavailable.");
       localUrl = URL.createObjectURL(await imageResponse.blob());
       if (abort.signal.aborted) { URL.revokeObjectURL(localUrl); return; }
-      setShare(data.share); setImageUrl(localUrl); document.title = `${data.share.title} — 360 Panorama Viewer`;
+      setShare(data.share); setImageUrl(localUrl); document.title = `${data.share.title} — 360° Panorama | 360 Panorama Viewer`;
     };
     void load().catch(err => { if (!abort.signal.aborted) setError(err.message); });
     return () => { abort.abort(); if (localUrl) URL.revokeObjectURL(localUrl); };

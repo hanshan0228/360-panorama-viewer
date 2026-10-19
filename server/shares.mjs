@@ -6,8 +6,20 @@ const json = (data, status = 200, extra = {}) => new Response(JSON.stringify(dat
 export const shareSchema = `CREATE TABLE IF NOT EXISTS panorama_shares (
   id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, title TEXT NOT NULL, width INTEGER NOT NULL,
   height INTEGER NOT NULL, size INTEGER NOT NULL, allow_download INTEGER NOT NULL,
-  created_at INTEGER NOT NULL, revoked_at INTEGER, ready INTEGER NOT NULL DEFAULT 0, stored_bytes INTEGER NOT NULL DEFAULT 20971520
+  listed INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, revoked_at INTEGER, ready INTEGER NOT NULL DEFAULT 0,
+  stored_bytes INTEGER NOT NULL DEFAULT 20971520
 )`;
+
+// Idempotent migration: share tables created before the public showcase flag keep working.
+export async function ensureShareColumns(db) {
+  const columns = await db.prepare('PRAGMA table_info(panorama_shares)').all();
+  if (columns.results.some(column => column.name === 'listed')) return;
+  try { await db.prepare('ALTER TABLE panorama_shares ADD COLUMN listed INTEGER NOT NULL DEFAULT 0').run(); }
+  catch (error) {
+    const current = await db.prepare('PRAGMA table_info(panorama_shares)').all();
+    if (!current.results.some(column => column.name === 'listed')) throw error;
+  }
+}
 
 async function readLimited(request, maximum) {
   if (Number(request.headers.get('Content-Length')) > maximum) throw new RangeError('Upload is too large');
@@ -83,6 +95,7 @@ export async function handleShareRequest({ request, db, storage }) {
   db = db.withSession ? db.withSession('first-primary') : db;
   await db.prepare(shareSchema).run();
   await ensureByteAccounting(db, 'panorama_shares', MAX_BYTES);
+  await ensureShareColumns(db);
   await db.prepare('CREATE INDEX IF NOT EXISTS panorama_shares_owner ON panorama_shares(owner_id, created_at)').run();
   const url = new URL(request.url);
   const match = url.pathname.replace(/\/+$/, '').match(/^\/api\/shares(?:\/([a-f0-9]{32})(?:\/(image|download))?)?$/);
@@ -90,9 +103,9 @@ export async function handleShareRequest({ request, db, storage }) {
   const [, id, media] = match;
   const method = request.method;
   if (id && method === 'GET') {
-    const row = await db.prepare('SELECT id, title, width, height, allow_download, created_at FROM panorama_shares WHERE id = ? AND revoked_at IS NULL AND ready = 1').bind(id).first();
+    const row = await db.prepare('SELECT id, title, width, height, allow_download, listed, created_at FROM panorama_shares WHERE id = ? AND revoked_at IS NULL AND ready = 1').bind(id).first();
     if (!row) return json({ error: 'This panorama link is unavailable or has been revoked.' }, 404);
-    if (!media) return json({ share: { id: row.id, title: row.title, width: row.width, height: row.height, allowDownload: !!row.allow_download, createdAt: row.created_at } });
+    if (!media) return json({ share: { id: row.id, title: row.title, width: row.width, height: row.height, allowDownload: !!row.allow_download, listed: !!row.listed, createdAt: row.created_at } });
     if (media === 'download' && !row.allow_download) return json({ error: 'The author has disabled the download button.' }, 403);
     await initRisk(db);
     if (!await consumeLimit(db, 'share-read:'+await sourceKey(request), 120, 3600000) || !await consumeLimit(db, 'share-read-global', 3000, 86400000)) return json({ error: 'Image transfer safety limit reached. Please try later.' }, 429);
@@ -102,13 +115,20 @@ export async function handleShareRequest({ request, db, storage }) {
     return new Response(image.value, { headers: { ...headers, 'Content-Type': mime,
       'Content-Disposition': `${media === 'download' ? 'attachment' : 'inline'}; filename="panorama-${id}.${mime === 'image/jpeg' ? 'jpg' : 'png'}"` } });
   }
+  // Anonymous showcase feed: only shares whose owner opted into public listing.
+  if (!id && method === 'GET' && url.searchParams.get('public') === '1') {
+    await initRisk(db);
+    if (!await consumeLimit(db, 'share-listing:' + await sourceKey(request), 60, 3600000)) return json({ error: 'Too many showcase requests. Please try again later.' }, 429);
+    const rows = await db.prepare('SELECT id, title, width, height, created_at FROM panorama_shares WHERE listed = 1 AND ready = 1 AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 200').all();
+    return json({ shares: rows.results.map(row => ({ id: row.id, title: row.title, width: row.width, height: row.height, createdAt: row.created_at })) });
+  }
   const token = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
   const user = token ? await db.prepare(`SELECT u.id, u.status FROM user_sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > ?`).bind(token, Date.now()).first() : null;
   if (!user) return json({ error: 'Sign in to manage shared panoramas.' }, 401);
   if (user.status !== 'active' || user.id.startsWith('usr_guest')) return json({ error: 'Sign in with a permanent, active account to share panoramas.' }, 403);
   if (!id && method === 'GET') {
-    const rows = await db.prepare('SELECT id, title, width, height, allow_download, created_at, revoked_at FROM panorama_shares WHERE owner_id = ? ORDER BY created_at DESC LIMIT 50').bind(user.id).all();
-    return json({ shares: rows.results.map(row => ({ id: row.id, title: row.title, width: row.width, height: row.height, allowDownload: !!row.allow_download, createdAt: row.created_at, revoked: row.revoked_at !== null })) });
+    const rows = await db.prepare('SELECT id, title, width, height, allow_download, listed, created_at, revoked_at FROM panorama_shares WHERE owner_id = ? ORDER BY created_at DESC LIMIT 50').bind(user.id).all();
+    return json({ shares: rows.results.map(row => ({ id: row.id, title: row.title, width: row.width, height: row.height, allowDownload: !!row.allow_download, listed: !!row.listed, createdAt: row.created_at, revoked: row.revoked_at !== null })) });
   }
   try {
     if (!id && method === 'POST') {
@@ -120,13 +140,14 @@ export async function handleShareRequest({ request, db, storage }) {
       const { width, height } = inspectSharedImage(bytes, contentType);
       const shareId = crypto.randomUUID().replaceAll('-', '');
       const createdAt = Date.now(), allowDownload = url.searchParams.get('allowDownload') !== '0';
-      const reserved = await db.prepare(`INSERT INTO panorama_shares (id, owner_id, title, width, height, size, allow_download, created_at, stored_bytes)
-        SELECT ?,?,?,?,?,?,?,?,? WHERE
+      const listed = url.searchParams.get('listed') === '1';
+      const reserved = await db.prepare(`INSERT INTO panorama_shares (id, owner_id, title, width, height, size, allow_download, listed, created_at, stored_bytes)
+        SELECT ?,?,?,?,?,?,?,?,?,? WHERE
         (SELECT COALESCE(SUM(stored_bytes),0) FROM panorama_shares) + ? <= ? AND
         (SELECT COALESCE(SUM(stored_bytes),0) FROM panorama_shares WHERE owner_id = ?) + ? <= 104857600 AND
         (SELECT COUNT(*) FROM panorama_shares WHERE owner_id = ? AND revoked_at IS NULL) < 10 AND
         (SELECT COUNT(*) FROM panorama_shares WHERE owner_id = ? AND created_at > ?) < 5`)
-        .bind(shareId, user.id, title, width, height, bytes.length, allowDownload ? 1 : 0, createdAt, bytes.length, bytes.length, SHARE_STORAGE_LIMIT, user.id, bytes.length, user.id, user.id, createdAt - 86400000).run();
+        .bind(shareId, user.id, title, width, height, bytes.length, allowDownload ? 1 : 0, listed ? 1 : 0, createdAt, bytes.length, bytes.length, SHARE_STORAGE_LIMIT, user.id, bytes.length, user.id, user.id, createdAt - 86400000).run();
       if (!reserved.meta.changes) return json({ error: 'Sharing limit reached: personal or site storage capacity, 10 active links, or 5 new links per day.' }, 429);
       try {
         await storage.put(`panorama:${shareId}`, bytes, { metadata: { contentType } });
@@ -136,7 +157,7 @@ export async function handleShareRequest({ request, db, storage }) {
         try { await storage.delete(`panorama:${shareId}`); await db.prepare('DELETE FROM panorama_shares WHERE id = ?').bind(shareId).run(); } catch { /* Retain capacity for unconfirmed physical cleanup. */ }
         throw error;
       }
-      return json({ share: { id: shareId, title, width, height, allowDownload, createdAt } }, 201);
+      return json({ share: { id: shareId, title, width, height, allowDownload, listed, createdAt } }, 201);
     }
     if (id && !media && method === 'POST') {
       const row = await db.prepare('SELECT owner_id FROM panorama_shares WHERE id = ? AND revoked_at IS NULL AND ready = 1').bind(id).first();
@@ -148,8 +169,11 @@ export async function handleShareRequest({ request, db, storage }) {
         try { await storage.delete(`panorama:${id}`); await db.prepare('UPDATE panorama_shares SET stored_bytes = 0 WHERE id = ?').bind(id).run(); } catch { /* Retain capacity for unconfirmed physical cleanup. */ }
         return json({ success: true });
       }
-      if (typeof body.allowDownload !== 'boolean') return json({ error: 'Specify download permission or revoke the link.' }, 400);
-      await db.prepare('UPDATE panorama_shares SET allow_download = ? WHERE id = ? AND owner_id = ?').bind(body.allowDownload ? 1 : 0, id, user.id).run();
+      const updates = [];
+      if (typeof body.allowDownload === 'boolean') updates.push(['allow_download', body.allowDownload ? 1 : 0]);
+      if (typeof body.listed === 'boolean') updates.push(['listed', body.listed ? 1 : 0]);
+      if (!updates.length) return json({ error: 'Specify download permission, showcase listing, or revoke the link.' }, 400);
+      for (const [column, value] of updates) await db.prepare(`UPDATE panorama_shares SET ${column} = ? WHERE id = ? AND owner_id = ?`).bind(value, id, user.id).run();
       return json({ success: true });
     }
     return json({ error: 'Method not allowed' }, 405);

@@ -1,6 +1,8 @@
 # robots.txt for 360 Panorama Viewer (https://360panoramaviewer.com)
 User-agent: *
 Allow: /
+# Public share pages and their images must stay crawlable for the showcase to be discoverable.
+Allow: /api/shares
 Disallow: /admin
 Disallow: /api/
 

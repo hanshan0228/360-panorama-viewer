@@ -101,6 +101,17 @@
     </image:image>
   </url>
   <url>
+    <loc>https://360panoramaviewer.com/showcase/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+    <image:image>
+      <image:loc>https://360panoramaviewer.com/og-preview.png</image:loc>
+      <image:title>360 Panorama Showcase - Real 360 Photo and VR Skybox Examples</image:title>
+      <image:caption>Community gallery of equirectangular 360 panoramas and VR skyboxes openable in the free browser viewer</image:caption>
+    </image:image>
+  </url>
+  <url>
     <loc>https://360panoramaviewer.com/360-photo-to-video/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>weekly</changefreq>

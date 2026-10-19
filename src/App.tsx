@@ -49,6 +49,7 @@ import { PhotoTo360Page } from './components/landing/PhotoTo360Page';
 import { CubemapGeneratorPage } from './components/landing/CubemapGeneratorPage';
 import { MetadataInjectorPage } from './components/landing/MetadataInjectorPage';
 import { PhotoToVideoPage } from './components/landing/PhotoToVideoPage';
+import { ShowcasePage } from './components/landing/ShowcasePage';
 import { EmbedViewer } from './components/commercial/EmbedViewer';
 
 function getInitialTabFromLocation(): ActiveTab {
@@ -266,8 +267,8 @@ export function App() {
         desc: 'Transparent credit-based pricing for AI 360 panorama generation. Free explorer tier with 4 trial credits, Pro subscriptions with full commercial license.',
       },
       showcase: {
-        title: 'Community 360° Panorama Showcase | AI VR Skybox Inspiration',
-        desc: 'Explore high-resolution 360 equirectangular panoramas created by 3D artists, game developers, and architects using 360 Panorama Viewer.',
+        title: '360 Panorama Showcase — Real 360° Photo & VR Skybox Examples',
+        desc: 'Browse a community showcase of real equirectangular 360° panoramas and VR skyboxes, published by their creators. Open any example in the free browser-based panorama viewer.',
       },
       admin: {
         title: 'Admin Console | 360 Panorama Viewer',
@@ -326,6 +327,7 @@ export function App() {
         'landing-video': '360-photo-to-video/',
         viewer: '360-panorama-viewer/',
         globe: 'photo-to-globe/',
+        showcase: 'showcase/',
       };
       let slug = slugMap[activeTab] || '';
       if (isImageMakerPath) {
@@ -364,7 +366,7 @@ export function App() {
         case 'cubemap': return '/cubemap-generator/';
         case 'globe': return '/photo-to-globe/';
         case 'pricing': return '/#pricing';
-        case 'showcase': return '/#showcase';
+        case 'showcase': return '/showcase/';
         case 'admin': return '/#admin';
         default: return '/';
       }
@@ -917,6 +919,18 @@ export function App() {
         )}
         {activeTab === 'pricing' && <PricingTab currentUser={currentUser} billingConfig={billingConfig} onChoosePlan={handleChoosePlan} onOpenStudio={() => navigateTo('generator')} />}
         {activeTab === 'admin' && <AdminTab />}
+        {activeTab === 'showcase' && (
+          <ShowcasePage
+            onOpenStudio={() => navigateTo('generator', '/')}
+            onOpenViewer={() => navigateTo('viewer', '/360-panorama-viewer/')}
+            onOpenInStudio={(url, prompt, style) => {
+              if (url) setCurrentPanoramaUrl(url);
+              if (prompt) setStudioPresetPrompt(prompt);
+              setStudioPresetStyle(style);
+              navigateTo('generator', '/');
+            }}
+          />
+        )}
 
         {/* Programmatic SEO Sub-Landing Pages */}
         {activeTab === 'landing-hdri' && (
@@ -1032,6 +1046,16 @@ export function App() {
                   >
                     <span>360° WebGL Panorama Viewer</span>
                     <span className="text-[9px] font-mono px-1 rounded bg-teal-400/20 text-teal-300">FREE</span>
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/showcase/"
+                    onClick={(e) => { e.preventDefault(); navigateTo('showcase', '/showcase/'); }}
+                    className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center justify-between"
+                  >
+                    <span>360° Panorama Showcase</span>
+                    <span className="text-[9px] font-mono px-1 rounded bg-teal-400/20 text-teal-300">NEW</span>
                   </a>
                 </li>
                 <li>

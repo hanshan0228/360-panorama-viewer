@@ -33,9 +33,46 @@ function fixture(t) {
     }) });
     return { response, data: response.headers.get('Content-Type')?.startsWith('application/json') ? await response.json() : null };
   };
-  const create = options => call('?title=Alpine%20lake&allowDownload=1', { body: png, headers: { 'Content-Type': 'image/png' }, ...options });
+  const create = (options, listed = false) => call(`?title=Alpine%20lake&allowDownload=1${listed ? '&listed=1' : ''}`, { body: png, headers: { 'Content-Type': 'image/png' }, ...options });
   return { db, sqlite, storage, objects, metadata, call, create };
 }
+
+test('showcase listing is opt-in, anonymous, and reversible', async t => {
+  const f = fixture(t);
+  const privateShare = await f.create();
+  const publicShare = await f.create({}, true);
+  assert.equal(privateShare.data.share.listed, false);
+  assert.equal(publicShare.data.share.listed, true);
+  assert.equal((await f.call('/' + publicShare.data.share.id, { token: null })).data.share.listed, true);
+
+  // A private share never leaks into the anonymous feed, even to its own owner.
+  const feed = await f.call('?public=1', { token: null });
+  assert.equal(feed.response.status, 200);
+  assert.deepEqual(feed.data.shares.map(row => row.id), [publicShare.data.share.id]);
+  assert.deepEqual(Object.keys(feed.data.shares[0]).sort(), ['createdAt', 'height', 'id', 'title', 'width']);
+
+  const mine = (await f.call('')).data.shares;
+  assert.equal(mine.find(row => row.id === publicShare.data.share.id).listed, true);
+  assert.equal(mine.find(row => row.id === privateShare.data.share.id).listed, false);
+
+  const id = publicShare.data.share.id;
+  assert.equal((await f.call('/' + id, { token: 'other', body: { listed: false } })).response.status, 404);
+  assert.equal((await f.call('/' + id, { body: { listed: false } })).response.status, 200);
+  assert.equal((await f.call('?public=1', { token: null })).data.shares.length, 0);
+  await f.call('/' + id, { body: { listed: true } });
+  assert.equal((await f.call('?public=1', { token: null })).data.shares.length, 1);
+  await f.call('/' + id, { body: { action: 'revoke' } });
+  assert.equal((await f.call('?public=1', { token: null })).data.shares.length, 0);
+});
+
+test('share tables created before the showcase flag gain the listing column', async t => {
+  const f = fixture(t);
+  f.sqlite.exec('ALTER TABLE panorama_shares DROP COLUMN listed');
+  assert.equal((await f.create()).data.share.listed, false);
+  assert.equal((await f.create({}, true)).data.share.listed, true);
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS n FROM panorama_shares WHERE listed = 1').get().n, 1);
+  assert.equal((await f.call('?public=1', { token: null })).data.shares.length, 1);
+});
 
 test('share lifecycle: create, anonymous interaction image, download toggle, ownership and revocation', async t => {
   const f = fixture(t);

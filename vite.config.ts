@@ -33,6 +33,7 @@ export default defineConfig({
         cubemap: resolve(import.meta.dirname, 'cubemap-generator/index.html'),
         metadata: resolve(import.meta.dirname, '360-metadata-injector/index.html'),
         video: resolve(import.meta.dirname, '360-photo-to-video/index.html'),
+        showcase: resolve(import.meta.dirname, 'showcase/index.html'),
       },
       output: {
         manualChunks(id) {
