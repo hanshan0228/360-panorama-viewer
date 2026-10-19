@@ -332,10 +332,10 @@ export function ViewerTab({
           <span>ZERO-LATENCY WEBGL ENGINE</span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
-          Interactive 360° Panorama Viewer
+          Panorama Viewer — Interactive 360° Photo Viewer
         </h1>
         <p className="text-sm text-slate-400">
-          Instant client-side WebGL panoramic viewer featuring smooth damped inertia, 16x anisotropic filtering, and ACES cinematic tone mapping.
+          Free online panorama viewer — open 360° equirectangular photos, Photo Spheres, and VR panoramas straight in your browser, with no upload and no account. Instant client-side WebGL rendering with smooth damped inertia, 16x anisotropic filtering, and ACES cinematic tone mapping.
         </p>
       </div>
 
@@ -904,10 +904,10 @@ export function ViewerTab({
 
       {/* Frequently Asked Questions (FAQ Accordion for 360 Viewer SEO) */}
       <div className="glass-panel border border-cyan-500/20 rounded-3xl p-6 space-y-3.5 shadow-xl">
-        <h3 className="text-sm font-bold text-white flex items-center gap-2 pb-2 border-b border-white/[0.08]">
+        <h2 className="text-sm font-bold text-white flex items-center gap-2 pb-2 border-b border-white/[0.08]">
           <HelpCircle className="w-4 h-4 text-cyan-400" />
           <span>Frequently Asked Questions — 360° Panorama Viewer</span>
-        </h3>
+        </h2>
 
         <div className="space-y-2.5 text-xs">
           <details className="group glass-card rounded-2xl p-4 cursor-pointer">
@@ -961,7 +961,214 @@ export function ViewerTab({
               Yes. Once viewed, you can send the panorama directly into our built-in Cubemap Generator to slice it into standard 6 faces (posx, negx, posy, negy, posz, negz) for Unity, Unreal Engine 5, or Godot.
             </p>
           </details>
+
+          <details className="group glass-card rounded-2xl p-4 cursor-pointer">
+            <summary className="font-semibold text-slate-200 flex items-center justify-between list-none">
+              <span>Is a panorama viewer the same thing as a panoramic viewer or 360 viewer?</span>
+              <ChevronDown className="w-4 h-4 text-cyan-400 group-open:rotate-180 transition-transform shrink-0" />
+            </summary>
+            <p className="mt-2 text-slate-400 leading-relaxed text-[11px]">
+              Yes. Panorama viewer, panoramic viewer, 360 viewer, and 360 photo viewer all describe the same tool: a player that renders a 2:1 equirectangular photo inside an interactive sphere you can rotate and zoom. Some desktop programs and cloud hosts (PTGui, Pano2VR, Kuula) add stitching, tour authoring, or public hosting on top; this page focuses on instant in-browser viewing of a photo that never leaves your device.
+            </p>
+          </details>
+
+          <details className="group glass-card rounded-2xl p-4 cursor-pointer">
+            <summary className="font-semibold text-slate-200 flex items-center justify-between list-none">
+              <span>Which 360 cameras and phones produce photos I can view here?</span>
+              <ChevronDown className="w-4 h-4 text-cyan-400 group-open:rotate-180 transition-transform shrink-0" />
+            </summary>
+            <p className="mt-2 text-slate-400 leading-relaxed text-[11px]">
+              Any device that exports a 2:1 equirectangular image works: Insta360 ONE X / X2 / X3 / X4, GoPro MAX, Ricoh Theta S / V / Z1, Kandao QooCam, Trisio, iPhone and Android panorama mode, and Google Street View photo exports. Raw dual-fisheye files (.insp, DNG) and HEIC stills must be stitched or converted to JPG first — Safari can decode HEIC, Chrome and Firefox cannot.
+            </p>
+          </details>
         </div>
+      </div>
+
+      {/* On-Page SEO Content: definition, how-to, compatibility, comparison, internal links */}
+      <div className="border-t border-white/[0.08] pt-6 space-y-8">
+        <section className="space-y-3">
+          <h2 className="text-lg font-black text-white tracking-tight">What is a panorama viewer?</h2>
+          <p className="text-xs text-slate-400 leading-relaxed max-w-4xl">
+            A panorama viewer wraps a flat 2:1 equirectangular photo — the format exported by Insta360, GoPro MAX, Ricoh Theta, and phone
+            panorama mode — around the inside of a virtual sphere, so dragging the image feels like standing inside the scene instead of
+            staring at a stretched rectangle. It is the same projection Google Street View, Facebook 360 photos, and VR headsets use. This
+            page runs that projection locally in your browser with Three.js and WebGL: no plugin, no upload, no account.
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-lg font-black text-white tracking-tight">
+            How to view a 360° panorama online (no upload, no account)
+          </h2>
+          <ol className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] text-slate-400 list-none">
+            <li className="glass-card p-4 rounded-2xl space-y-1.5">
+              <div className="font-semibold text-slate-200">1. Load the photo</div>
+              <p className="leading-relaxed">
+                Drag and drop your 2:1 equirectangular image onto the viewport, click <strong className="text-slate-300">Open Local Panorama</strong>,
+                or press <kbd className="font-mono text-cyan-300 font-bold">Ctrl + V</kbd> / <kbd className="font-mono text-cyan-300 font-bold">Cmd + V</kbd> to paste from the clipboard.
+              </p>
+            </li>
+            <li className="glass-card p-4 rounded-2xl space-y-1.5">
+              <div className="font-semibold text-slate-200">2. Look around</div>
+              <p className="leading-relaxed">
+                Drag with the mouse, swipe on a phone or tablet, or use the arrow keys to pan 360° horizontally and 180° vertically.
+                Scroll or pinch to zoom.
+              </p>
+            </li>
+            <li className="glass-card p-4 rounded-2xl space-y-1.5">
+              <div className="font-semibold text-slate-200">3. Switch the projection</div>
+              <p className="leading-relaxed">
+                <strong className="text-slate-300">360° Sphere</strong> for realistic interior roaming,
+                <strong className="text-slate-300"> Little Planet</strong> for a stereographic fisheye tiny-planet shot, and
+                <strong className="text-slate-300"> VR Split</strong> for a stereoscopic cardboard headset view.
+              </p>
+            </li>
+            <li className="glass-card p-4 rounded-2xl space-y-1.5">
+              <div className="font-semibold text-slate-200">4. Reuse the result</div>
+              <p className="leading-relaxed">
+                Export a PNG viewport snapshot, add spatial hotspots to build a mini tour, copy an embed code for your own website, or
+                clean up the file in place with 4K upscale, seam healing, and pole repair.
+              </p>
+            </li>
+          </ol>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-lg font-black text-white tracking-tight">Supported formats, resolutions, and 360 cameras</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px] text-slate-400">
+            <div className="glass-card p-4 rounded-2xl space-y-1.5">
+              <div className="font-semibold text-slate-200">Files that open directly</div>
+              <p className="leading-relaxed">
+                2:1 equirectangular JPG, PNG, and WebP up to 16K, limited only by your GPU memory. Non-2:1 images are detected and offered a
+                smart optimization mode instead of being silently stretched.
+              </p>
+            </div>
+            <div className="glass-card p-4 rounded-2xl space-y-1.5">
+              <div className="font-semibold text-slate-200">Cameras and apps</div>
+              <p className="leading-relaxed">
+                Insta360 ONE X / X2 / X3 / X4, GoPro MAX, Ricoh Theta S / V / Z1, Kandao QooCam, Trisio, iPhone and Android panorama mode, and
+                Google Street View exports — just pick the equirectangular JPG export option in the camera app.
+              </p>
+            </div>
+            <div className="glass-card p-4 rounded-2xl space-y-1.5">
+              <div className="font-semibold text-slate-200">Convert before viewing</div>
+              <p className="leading-relaxed">
+                Insta360 .insp raws, dual-fisheye DNGs, and HEIC stills need stitching or conversion to JPG first (Safari can decode HEIC,
+                Chrome and Firefox cannot). Anything that exports a 2:1 JPG works here afterwards.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-lg font-black text-white tracking-tight">
+            How this viewer compares with cloud hosts and desktop software
+          </h2>
+          <div className="overflow-x-auto rounded-2xl border border-cyan-500/20">
+            <table className="w-full text-left text-[11px]">
+              <thead className="bg-cyan-950/40 text-cyan-200 uppercase tracking-wider font-semibold">
+                <tr>
+                  <th className="py-3 px-4"> </th>
+                  <th className="py-3 px-4 text-cyan-300">360 Panorama Viewer</th>
+                  <th className="py-3 px-4 text-slate-400">Cloud hosts (Kuula, Momento360)</th>
+                  <th className="py-3 px-4 text-slate-400">Google Street View / Maps</th>
+                  <th className="py-3 px-4 text-slate-400">Desktop 3D software (Pano2VR, Blender)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-cyan-500/10 text-slate-400">
+                <tr>
+                  <td className="py-3 px-4 font-semibold text-slate-200">Account required</td>
+                  <td className="py-3 px-4 text-teal-400 font-bold">None</td>
+                  <td className="py-3 px-4">Yes, to upload and embed</td>
+                  <td className="py-3 px-4">Google account</td>
+                  <td className="py-3 px-4">License or install</td>
+                </tr>
+                <tr>
+                  <td className="py-3 px-4 font-semibold text-slate-200">Where your photo goes</td>
+                  <td className="py-3 px-4 text-teal-400 font-bold">Stays on your device</td>
+                  <td className="py-3 px-4">Stored on their servers</td>
+                  <td className="py-3 px-4">Published publicly</td>
+                  <td className="py-3 px-4">Stays local</td>
+                </tr>
+                <tr>
+                  <td className="py-3 px-4 font-semibold text-slate-200">Cost</td>
+                  <td className="py-3 px-4 text-teal-400 font-bold">Free, unlimited views</td>
+                  <td className="py-3 px-4">Free tier with limits, paid plans for pro features</td>
+                  <td className="py-3 px-4">Free, but public</td>
+                  <td className="py-3 px-4">Paid license</td>
+                </tr>
+                <tr>
+                  <td className="py-3 px-4 font-semibold text-slate-200">Cardboard VR mode</td>
+                  <td className="py-3 px-4 text-teal-400 font-bold">Built-in stereoscopic split</td>
+                  <td className="py-3 px-4">Varies by plan</td>
+                  <td className="py-3 px-4">Separate phone or headset app</td>
+                  <td className="py-3 px-4">Manual export</td>
+                </tr>
+                <tr>
+                  <td className="py-3 px-4 font-semibold text-slate-200">Game engine output</td>
+                  <td className="py-3 px-4 text-teal-400 font-bold">6-face cubemap ZIP + .HDR pipeline</td>
+                  <td className="py-3 px-4">Hosted embed only</td>
+                  <td className="py-3 px-4">Not offered</td>
+                  <td className="py-3 px-4">Yes, manual setup</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-lg font-black text-white tracking-tight">Related 360° panorama tools</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
+            <a
+              href="/cubemap-generator/"
+              onClick={(e) => { e.preventDefault(); onNavigateTab('landing-cubemap'); }}
+              className="glass-card p-4 rounded-2xl space-y-1 hover:border-cyan-400/50 transition-all cursor-pointer"
+            >
+              <div className="font-bold text-white">Cubemap Generator</div>
+              <p className="text-slate-400 leading-relaxed">Slice a panorama into 6 rectilinear faces for Unity, Unreal Engine 5, and Godot.</p>
+            </a>
+            <a
+              href="/photo-to-360-converter/"
+              onClick={(e) => { e.preventDefault(); onNavigateTab('landing-photo360'); }}
+              className="glass-card p-4 rounded-2xl space-y-1 hover:border-teal-400/50 transition-all cursor-pointer"
+            >
+              <div className="font-bold text-white">Photo to 360 Converter</div>
+              <p className="text-slate-400 leading-relaxed">Turn a normal 2D photo into a full equirectangular panorama with AI outpaint.</p>
+            </a>
+            <a
+              href="/skybox-generator/"
+              onClick={(e) => { e.preventDefault(); onNavigateTab('landing-skybox'); }}
+              className="glass-card p-4 rounded-2xl space-y-1 hover:border-indigo-400/50 transition-all cursor-pointer"
+            >
+              <div className="font-bold text-white">AI Skybox Generator</div>
+              <p className="text-slate-400 leading-relaxed">Generate seamless 360° game skyboxes from a text prompt, then view them here.</p>
+            </a>
+            <a
+              href="/ai-hdri-generator/"
+              onClick={(e) => { e.preventDefault(); onNavigateTab('landing-hdri'); }}
+              className="glass-card p-4 rounded-2xl space-y-1 hover:border-amber-400/50 transition-all cursor-pointer"
+            >
+              <div className="font-bold text-white">AI HDRI Generator</div>
+              <p className="text-slate-400 leading-relaxed">Create 32-bit Radiance .HDR lighting maps for Blender and Unreal Engine.</p>
+            </a>
+            <a
+              href="/360-metadata-injector/"
+              onClick={(e) => { e.preventDefault(); onNavigateTab('landing-metadata'); }}
+              className="glass-card p-4 rounded-2xl space-y-1 hover:border-blue-400/50 transition-all cursor-pointer"
+            >
+              <div className="font-bold text-white">360° Metadata Injector</div>
+              <p className="text-slate-400 leading-relaxed">Embed PhotoSphere XMP so Facebook, Street View, and VR apps treat it as a sphere.</p>
+            </a>
+            <a
+              href="/360-photo-to-video/"
+              onClick={(e) => { e.preventDefault(); onNavigateTab('landing-video'); }}
+              className="glass-card p-4 rounded-2xl space-y-1 hover:border-purple-400/50 transition-all cursor-pointer"
+            >
+              <div className="font-bold text-white">360° Photo to Video</div>
+              <p className="text-slate-400 leading-relaxed">Render a rotating MP4 or WebM clip for Reels, Shorts, and product pages.</p>
+            </a>
+          </div>
+        </section>
       </div>
 
       {/* Embed 360 Viewer Modal */}

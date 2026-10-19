@@ -250,8 +250,8 @@ export function App() {
         desc: 'Free online 360 panorama viewer: inspect equirectangular photos and VR skyboxes in WebGL with no upload, or generate seamless 360° panoramas from text and photos with AI.',
       },
       viewer: {
-        title: 'Free 360° Viewer Online — Panorama Viewer, No Upload Needed',
-        desc: 'Free online 360° panorama viewer and equirectangular Photo Sphere player. Instant WebGL 3D rendering, Little Planet projection, cardboard VR mode, and Ctrl+V clipboard paste. 100% client-side, zero server upload required.',
+        title: 'Panorama Viewer — Free Online 360° Photo Viewer, No Upload',
+        desc: 'Free online panorama viewer and 360° photo viewer: open equirectangular photos or Photo Spheres in WebGL with Little Planet, cardboard VR, hotspots. No upload, no signup.',
       },
       cubemap: {
         title: 'Free Cubemap Generator — Panorama to 6 Faces Online (No Upload)',
