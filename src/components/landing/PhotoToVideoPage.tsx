@@ -17,14 +17,14 @@ import confetti from 'canvas-confetti';
 import { renderPanoramaToVideoBlob, type VideoRecordOptions } from '../../utils/videoRecorder';
 
 interface PhotoToVideoPageProps {
+  showcaseMode?: boolean;
   onLaunchStudio: () => void;
   currentPanoramaUrl: string;
   onPanoramaChange: (url: string) => void;
 }
 
-export function PhotoToVideoPage({ onLaunchStudio, currentPanoramaUrl: activePanoUrl, onPanoramaChange: setActivePanoUrl }: PhotoToVideoPageProps) {
+export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunchStudio, currentPanoramaUrl: activePanoUrl, onPanoramaChange: setActivePanoUrl }: PhotoToVideoPageProps) {
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
-  const isProductMode = typeof window !== 'undefined' && window.location.pathname.includes('360-product-video');
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1'>(() => (isProductMode ? '1:1' : '16:9'));
   const [duration, setDuration] = useState<number>(8);
   const [tilt, setTilt] = useState<boolean>(true);
@@ -116,12 +116,12 @@ export function PhotoToVideoPage({ onLaunchStudio, currentPanoramaUrl: activePan
   const faqs = [
     ...(isProductMode ? [
       {
-        q: 'How does the 360 Product Video Generator improve conversion rates on Shopify & Amazon?',
-        a: 'Rotating turntable videos give prospective buyers an all-angles view of textures, seams, and dimensions. Adding a 360 spin video to product media feeds has been shown to increase purchase intent by up to 30% while reducing customer return rates by clarifying real-world expectations.',
+        q: 'Can this tool create a product turntable from ordinary product photos?',
+        a: 'This tool pans a camera inside one 2:1 equirectangular panorama, such as a showroom or store interior. It does not reconstruct product angles or animate a sequence of turntable photos. Use a frame-sequence video editor for a true product spin.',
       },
       {
-        q: 'Which aspect ratio is best for Shopify and Amazon product cards?',
-        a: 'The 1:1 Square (1080x1080) preset is the e-commerce standard for Shopify and Amazon product gallery thumbnails. For full-width website hero displays, 16:9 Landscape is recommended.',
+        q: 'Can I upload the exported video to a store?',
+        a: 'Check the destination platform requirements and the actual downloaded format. MP4 or WebM output depends on browser codec support; a WebM file may need conversion before upload. The 1:1 preset produces a square 1080x1080 video.',
       },
     ] : []),
     {
@@ -130,7 +130,7 @@ export function PhotoToVideoPage({ onLaunchStudio, currentPanoramaUrl: activePan
     },
     {
       q: 'Which platforms can I post the generated 360 rotation videos on?',
-      a: 'Because the output is a standard video file (16:9, 9:16, or 1:1), you can post it anywhere standard video is accepted: Instagram Reels, TikTok, YouTube Shorts, Shopify product showcases, Amazon 360 product listings, Facebook feed, and LinkedIn.',
+      a: 'Export a 16:9, 9:16, or 1:1 video for social feeds, portfolios or store showcases. Check your destination platform requirements: your browser may export WebM rather than MP4, which can require conversion.',
     },
     {
       q: 'Can I choose vertical video format for TikTok and Instagram Reels?',
@@ -154,7 +154,7 @@ export function PhotoToVideoPage({ onLaunchStudio, currentPanoramaUrl: activePan
         <span>/</span>
         <span className="text-cyan-300">Tools</span>
         <span>/</span>
-        <span className="text-white font-medium">{isProductMode ? '360° Product Video Generator' : '360° Photo to Video'}</span>
+        <span className="text-white font-medium">{isProductMode ? 'Panorama Showcase Video' : '360° Photo to Video'}</span>
       </nav>
 
       {/* Hero Section */}
@@ -162,20 +162,20 @@ export function PhotoToVideoPage({ onLaunchStudio, currentPanoramaUrl: activePan
         <div className="max-w-4xl space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-400/15 border border-cyan-400/40 text-cyan-300 text-xs font-semibold tracking-wide">
             <Film className="w-3.5 h-3.5 text-cyan-400" />
-            <span>{isProductMode ? 'E-COMMERCE 360 TURNTABLE • SHOPIFY • AMAZON • ETSY' : 'VIRAL VIDEO TOOL • TIKTOK • INSTAGRAM REELS • AMAZON 360'}</span>
+            <span>PANORAMA CAMERA PAN &bull; LOCAL VIDEO EXPORT</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
-            {isProductMode ? '360° Product Video Generator: ' : '360° Photo to Video: '}
+            {isProductMode ? 'Panorama Showcase Video: ' : '360° Photo to Video: '}
             <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-300 bg-clip-text text-transparent">
-              {isProductMode ? 'Turn 360 Photos into Rotating E-Commerce Videos' : 'Turn Panoramas into Rotating Videos'}
+              Turn a 360° Panorama into a Panning Video
             </span>
           </h1>
 
           <p className="text-base sm:text-lg text-cyan-100/80 leading-relaxed max-w-3xl">
             {isProductMode
-              ? 'Convert 360° panoramic product captures and turntable photos into smooth rotating MP4/WebM videos for Shopify, Amazon, Etsy, and WooCommerce listings. 100% free and client-side.'
-              : 'Convert any 360° equirectangular photo into a cinematic rotating MP4/WebM video in seconds. Optimized for TikTok, Instagram Reels, YouTube Shorts, and e-commerce 360 product showcases with zero server uploads.'}
+              ? 'Animate a 2:1 panorama of your showroom, store or virtual environment into a panning showcase video. Free local MP4 or WebM export, depending on browser support.'
+              : 'Convert a 2:1 equirectangular panorama into a panning video for social feeds, portfolios and store showcases. Free local MP4 or WebM export, depending on browser support.'}
           </p>
 
           <div className="flex flex-wrap items-center gap-6 pt-2 text-xs text-cyan-300/70">
@@ -383,9 +383,9 @@ export function PhotoToVideoPage({ onLaunchStudio, currentPanoramaUrl: activePan
             <div className="p-2.5 rounded-xl bg-teal-500/15 text-teal-400 w-fit">
               <ShoppingBag className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">Shopify &amp; Amazon 360</h3>
+            <h3 className="font-bold text-white text-base">Store &amp; Showroom Showcases</h3>
             <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Create rotating ambient product showcase videos and studio turntable videos that increase e-commerce listing conversion rates.
+              Pan through a showroom panorama for a store or portfolio. Check the destination platform's format requirements before uploading.
             </p>
           </div>
 

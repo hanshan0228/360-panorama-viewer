@@ -46,7 +46,8 @@ async function submit() {
       headers: {
         'Content-Type': 'application/json; charset=utf-8'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(30_000)
     });
     console.log(`IndexNow response status: ${res.status} (${res.statusText})`);
     if (res.status === 200 || res.status === 202) {
@@ -54,9 +55,11 @@ async function submit() {
     } else {
       const text = await res.text();
       console.log('IndexNow response:', text);
+      process.exitCode = 1;
     }
   } catch (err) {
     console.error('IndexNow submission error:', err);
+    process.exitCode = 1;
   }
 }
 

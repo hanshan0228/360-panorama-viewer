@@ -15,6 +15,13 @@ const LANGUAGES = [
   { code: 'ja', name: '日本語', locale: 'ja_JP' },
 ];
 
+const LABELS = {
+  zh: { open: '打开工具（英文界面）', notice: '本页提供中文介绍。交互工具目前使用英文界面。', faq: '常见问题', tools: '相关工具', languages: '语言', home: '首页', skip: '跳到正文', ai: 'AI 生成功能需要积分，免费试用以当前可用额度为准；本地查看和切图工具免费。' },
+  es: { open: 'Abrir herramienta (en inglés)', notice: 'Esta guía está en español. La interfaz de la herramienta está en inglés.', faq: 'Preguntas frecuentes', tools: 'Herramientas relacionadas', languages: 'Idiomas', home: 'Inicio', skip: 'Ir al contenido', ai: 'La generación con IA requiere créditos; la prueba depende de la disponibilidad. El visor y el corte local son gratuitos.' },
+  de: { open: 'Werkzeug öffnen (auf Englisch)', notice: 'Diese Anleitung ist auf Deutsch. Die Werkzeugoberfläche ist auf Englisch.', faq: 'Häufig gestellte Fragen', tools: 'Weitere Werkzeuge', languages: 'Sprachen', home: 'Startseite', skip: 'Zum Inhalt', ai: 'KI-Generierung benötigt Guthaben; eine Testphase hängt von der Verfügbarkeit ab. Lokaler Viewer und Zuschnitt sind kostenlos.' },
+  ja: { open: 'ツールを開く（英語の画面）', notice: 'このページは日本語のガイドです。ツールの操作画面は英語です。', faq: 'よくある質問', tools: '関連ツール', languages: '言語', home: 'ホーム', skip: '本文へ', ai: 'AI生成にはクレジットが必要です。無料体験は利用状況によります。ローカル表示と分割ツールは無料です。' },
+};
+
 const PAGES = [
   {
     id: 'home',
@@ -32,7 +39,7 @@ const PAGES = [
         ]
       },
       zh: {
-        title: 'AI 360全景图生成器与VR天空盒工作室 — 在线免费全景制作',
+        title: 'AI 360全景图生成器与VR天空盒工作室',
         description: '使用AI一键生成无缝2:1等距柱状360度全景图、立方体贴图与VR天空盒。免安装纯前端360全景查看器与图片转360全景工具。',
         keywords: 'AI全景图生成器, 360全景制作, VR天空盒AI, 文本生成全景图, 360全景查看器, 等距柱状投影全景, 图片转全景',
         h1: 'AI 360全景图生成器与VR天空盒制作工具',
@@ -72,7 +79,7 @@ const PAGES = [
         sub: 'テキスト入力や写真から、継ぎ目のない2:1パノラマ画像とゲーム用スカイボックスを瞬時に生成。',
         faq: [
           { q: 'AI 360度パノラマ生成器とは何ですか？', a: 'テキストの説明や2D写真から、VRや3Dゲームエンジンで使用できる完全な360度正距円筒画像を生成するツールです。' },
-          { q: '無料の360度ビューアーは付属していますか？', a: 'はい。生成された画像やお手持ちの写真をブラウザ内で即座に360度回転・閲覧できます。サーバーへのアップロードは一切ありません。' }
+          { q: '無料の360度ビューアーは付属していますか？', a: 'はい。ローカル表示では写真をアップロードせず閲覧できます。AI生成の参照写真はサービスに送信されます。' }
         ]
       }
     }
@@ -149,18 +156,18 @@ const PAGES = [
         h1: 'Map to Globe: 2D Image to 3D Rotating Sphere',
         sub: 'Transform fantasy world maps, textures, and panoramic photos into spinning 3D globes in real-time WebGL.',
         faq: [
-          { q: 'Is this a free alternative to MapToGlobe?', a: 'Yes! It provides instant client-side spherical projection without server lag, accounts, or file size limits.' },
-          { q: 'Can I export rotating videos or 3D models?', a: 'Yes, you can record seamless rotating loops for presentations or fantasy worldbuilding lore.' }
+          { q: 'Is this a free alternative to MapToGlobe?', a: 'Yes. It provides client-side spherical projection without uploading maps.' },
+          { q: 'Can I export rotating videos or 3D models?', a: 'The globe rotates interactively. Use a screen recorder to capture it; this tool does not export 3D models.' }
         ]
       },
       zh: {
         title: '地图转地球(Map to Globe) — 免费2D图片转3D旋转地球制作器',
-        description: '将2D平面地图或全景照片无缝包裹在交互式3D旋转球体上。替代已停运的maptoglobe，架空世界观建造与游戏地图球体化必备工具。',
+        description: '将2D平面地图或全景照片无缝包裹在交互式3D旋转球体上。可用于架空世界观建造与游戏地图球体化。',
         keywords: 'maptoglobe替代品, 地图转地球, 2D地图转3D球体, 地球仪制作器, 图片转地球, 架空世界地图球体化, 在线旋转地球仪',
         h1: 'Map to Globe: 2D平面地图转3D旋转球体',
         sub: '将世界地图、架空设定图或全景照片即时投射为3D可交互旋转地球仪。纯前端实时计算，免费无限制。',
         faq: [
-          { q: '这是已关停的MapToGlobe的替代工具吗？', a: '是的！针对原有maptoglobe的停服，本工具提供了更轻量、免上传、纯WebGL的现代化高分辨率地球映射体验。' },
+          { q: '可以作为MapToGlobe的替代工具吗？', a: '可以。本工具在浏览器中完成球体映射，无需上传地图。' },
           { q: '适合世界观设定与DnD跑团地图吗？', a: '非常适合。无论是r/worldbuilding创作者还是DnD地下城主，都可以瞬间直观查看大陆两极与经纬度无缝闭合情况。' }
         ]
       },
@@ -266,13 +273,13 @@ const PAGES = [
     translations: {
       en: {
         title: 'Photo to 360 Converter AI — Convert 2D Images to 360 Panoramas',
-        description: 'Transform normal 2D photos and wide architectural renders into spherical 360 equirectangular panoramas using client-side AI reprojection.',
+        description: 'Transform normal 2D photos and wide architectural renders into spherical 360 equirectangular panoramas using reference-image AI generation.',
         keywords: 'convert image to 360, 360 image converter, how to make photo 360 degree, photo to 360 converter, 2d to 360 panorama, image to 360',
         h1: 'Photo to 360 Converter AI',
         sub: 'Convert ordinary 2D photos and wide landscape shots into immersive 360° panoramas with seam healing.',
         faq: [
-          { q: 'How does photo to 360 conversion work?', a: 'It reprojects flat perspective photos onto a 2:1 spherical equirectangular canvas, wrapping the horizon and blending seamless edges.' },
-          { q: 'Is this converter free?', a: 'Yes, 100% free with client-side WebGL canvas processing and instant viewing.' }
+          { q: 'How does photo to 360 conversion work?', a: 'Reference photos guide server-side AI generation of a new 2:1 panorama. Generated details may differ from the original scene.' },
+          { q: 'Is this converter free?', a: 'AI generation requires credits; trial credits depend on availability. The local panorama viewer is free.' }
         ]
       },
       zh: {
@@ -282,7 +289,7 @@ const PAGES = [
         h1: '照片转 360° 全景图 AI 工具',
         sub: '将普通的2D宽幅照片、建筑效果图转化为可在VR与全景播放器中环顾漫游的360度球形全景。',
         faq: [
-          { q: '普通照片怎么转成360全景？', a: '本工具通过球形几何逆投影与智能接缝修补，将普通2D图片按2:1画幅包裹至球体内表面，消除接缝裁切痕迹。' },
+          { q: '普通照片怎么转成360全景？', a: '参考照片会发送至AI生成服务，用于生成新的2:1全景图。AI补充的细节不一定与真实场景一致，生成需要积分。' },
           { q: '转换后的全景图可以在手机上查看吗？', a: '可以！直接在内置的360全景查看器中拖拽转动，或下载后发送至支持全景浏览的应用中。' }
         ]
       },
@@ -293,8 +300,8 @@ const PAGES = [
         h1: 'Conversor de Foto a Panorama 360° con IA',
         sub: 'Convierte fotos 2D estándar en experiencias inmersivas 360° listas para visores VR y redes sociales.',
         faq: [
-          { q: '¿Cómo funciona la conversión de 2D a 360?', a: 'Aplica reproyección esférica 2:1 y suavizado de bordes para que la imagen se cierre sin cortes visibles.' },
-          { q: '¿Es gratuito?', a: 'Sí, totalmente gratis y procesado de forma local en tu navegador.' }
+          { q: '¿Cómo funciona la conversión de 2D a 360?', a: 'Las fotos de referencia se envían al servicio de IA para generar un panorama 2:1 nuevo. Los detalles generados pueden diferir de la escena real.' },
+          { q: '¿Es gratuito?', a: 'La generación con IA requiere créditos y envía las referencias al servicio. El visor local es gratuito.' }
         ]
       },
       de: {
@@ -304,19 +311,19 @@ const PAGES = [
         h1: 'Foto zu 360° Panorama Konverter KI',
         sub: 'Wandle normale Fotos in nahtlose 360°-Kugeln um, die sich drehen und erkunden lassen.',
         faq: [
-          { q: 'Wie funktioniert die Konvertierung?', a: 'Das Foto wird mathematisch auf eine 2:1 Kugeloberfläche projiziert und die Kanten werden nahtlos verblendet.' },
-          { q: 'Bleiben meine Fotos privat?', a: 'Ja, die gesamte Bildverarbeitung läuft ohne Upload lokal auf Ihrem PC.' }
+          { q: 'Wie funktioniert die Konvertierung?', a: 'Referenzfotos werden an den KI-Dienst gesendet, der ein neues 2:1-Panorama erzeugt. Generierte Details können von der realen Szene abweichen.' },
+          { q: 'Bleiben meine Fotos privat?', a: 'Für die KI-Generierung werden Referenzbilder an den Dienst gesendet. Nur der lokale Panorama-Viewer arbeitet ohne Upload.' }
         ]
       },
       ja: {
         title: '写真360度変換AI — 通常の2D写真を360°パノラマ画像に変換',
-        description: 'スマート幾何学再投影技術により、通常の2D写真や広角風景画像をシームレスな2:1正距円筒360度パノラマ写真に無料変換。',
+        description: '参照写真をAIサービスに送信し、新しい2:1正距円筒360度パノラマを生成します。AI生成にはクレジットが必要です。',
         keywords: '画像360変換, 写真を360度写真にする方法, 2Dから360度パノラマ, 写真360度変換オンライン, 無料360変換',
         h1: '写真から 360° パノラマ変換 AI',
         sub: 'スマートな球体投影と境界ブレンドにより、手持ちの2D写真を全方位見渡せるパノラマ空間に変換。',
         faq: [
-          { q: '普通の写真を360度化できますか？', a: 'はい。2:1の球体フォーマットに展開し、左右の境界を自然に繋ぎ合わせることで360度ビューアーで鑑賞可能にします。' },
-          { q: '無料で使用できますか？', a: 'はい、完全無料でブラウザ上で何度でも変換・ダウンロードできます。' }
+          { q: '普通の写真を360度化できますか？', a: 'はい。参照写真をAIサービスに送信し、新しい2:1パノラマを生成します。生成された細部は実際の場面と異なる場合があります。' },
+          { q: '無料で使用できますか？', a: 'AI生成にはクレジットが必要で、無料体験は利用状況によります。ローカル表示ツールは無料です。' }
         ]
       }
     }
@@ -337,132 +344,102 @@ function generateAlternateLinks(pageSlug) {
   return links.join('\n');
 }
 
+function escapeHtml(value) {
+  return value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+}
+
 function buildHtmlPage(page, langObj) {
   const lang = langObj.code;
-  const t = page.translations[lang] || page.translations.en;
-  const pathPrefix = lang === 'en' ? '' : `/${lang}`;
-  const fullSlug = page.slug ? `${page.slug}/` : '';
-  const canonicalUrl = `${DOMAIN}${pathPrefix}/${fullSlug}`;
-  const alternateTags = generateAlternateLinks(page.slug);
-
-  const faqSchema = t.faq.map(item => ({
-    '@type': 'Question',
-    name: item.q,
-    acceptedAnswer: {
-      '@type': 'Answer',
-      text: item.a
-    }
-  }));
-
+  const t = page.translations[lang];
+  const ui = LABELS[lang];
+  const toolPath = `/${page.slug ? `${page.slug}/` : ''}`;
+  const canonicalUrl = `${DOMAIN}/${lang}${toolPath}`;
+  const usesCredits = page.id === 'home' || page.id === 'photo360';
+  const schema = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'SoftwareApplication',
+        '@id': `${canonicalUrl}#software`,
+        name: t.title,
+        description: t.description,
+        applicationCategory: 'MultimediaApplication',
+        operatingSystem: 'Web Browser',
+        url: canonicalUrl,
+        ...(usesCredits ? {} : { offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' } }),
+      },
+      {
+        '@type': 'FAQPage',
+        '@id': `${canonicalUrl}#faq`,
+        mainEntity: t.faq.map(item => ({
+          '@type': 'Question', name: item.q,
+          acceptedAnswer: { '@type': 'Answer', text: item.a },
+        })),
+      },
+    ],
+  };
+  // ponytail: localized guides link to the English tool until its UI is translated.
   return `<!doctype html>
 <html lang="${lang}">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/blog/blog.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-    <!-- Primary Meta Tags -->
-    <title>${t.title}</title>
-    <meta name="title" content="${t.title}" />
-    <meta name="description" content="${t.description}" />
-    <meta name="keywords" content="${t.keywords}" />
-    <meta name="author" content="360 Panorama Viewer" />
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <title>${escapeHtml(t.title)}</title>
+    <meta name="title" content="${escapeHtml(t.title)}" />
+    <meta name="description" content="${escapeHtml(t.description)}" />
+    <meta name="keywords" content="${escapeHtml(t.keywords)}" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
     <link rel="canonical" href="${canonicalUrl}" />
     <meta name="theme-color" content="#040c1a" />
-
-    <!-- Hreflang Alternates -->
-${alternateTags}
-
-    <!-- Open Graph / Facebook -->
+${generateAlternateLinks(page.slug)}
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="${langObj.locale}" />
     <meta property="og:site_name" content="360 Panorama Viewer" />
     <meta property="og:url" content="${canonicalUrl}" />
-    <meta property="og:title" content="${t.title}" />
-    <meta property="og:description" content="${t.description}" />
+    <meta property="og:title" content="${escapeHtml(t.title)}" />
+    <meta property="og:description" content="${escapeHtml(t.description)}" />
     <meta property="og:image" content="${DOMAIN}/og-preview.png" />
-    <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-
-    <!-- Twitter Cards -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@360panoramaviewer" />
-    <meta name="twitter:creator" content="@360panoramaviewer" />
     <meta name="twitter:url" content="${canonicalUrl}" />
-    <meta name="twitter:title" content="${t.title}" />
-    <meta name="twitter:description" content="${t.description}" />
+    <meta name="twitter:title" content="${escapeHtml(t.title)}" />
+    <meta name="twitter:description" content="${escapeHtml(t.description)}" />
     <meta name="twitter:image" content="${DOMAIN}/og-preview.png" />
-
-    <!-- Schema.org JSON-LD Structured Data -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@graph": [
-          {
-            "@type": "SoftwareApplication",
-            "@id": "${canonicalUrl}#software",
-            "name": "${t.title}",
-            "headline": "${t.h1}",
-            "description": "${t.description}",
-            "applicationCategory": "MultimediaApplication",
-            "operatingSystem": "All, Web Browser",
-            "url": "${canonicalUrl}",
-            "offers": {
-              "@type": "Offer",
-              "price": "0",
-              "priceCurrency": "USD",
-              "description": "100% Free online tool"
-            }
-          },
-          {
-            "@type": "BreadcrumbList",
-            "@id": "${canonicalUrl}#breadcrumbs",
-            "itemListElement": [
-              {
-                "@type": "ListItem",
-                "position": 1,
-                "name": "Home",
-                "item": "${DOMAIN}/"
-              },
-              {
-                "@type": "ListItem",
-                "position": 2,
-                "name": "${t.h1}",
-                "item": "${canonicalUrl}"
-              }
-            ]
-          },
-          {
-            "@type": "FAQPage",
-            "@id": "${canonicalUrl}#faq",
-            "mainEntity": ${JSON.stringify(faqSchema, null, 2)}
-          }
-        ]
-      }
-    </script>
+    <script type="application/ld+json">${JSON.stringify(schema).replace(/</g, '\\u003c')}</script>
   </head>
   <body>
-    <div id="root">
-      <header>
-        <h1>${t.h1}</h1>
-        <p>${t.sub}</p>
-      </header>
-      <main>
-        <section>
-          <h2>${lang === 'zh' ? '常见问题与使用指南' : (lang === 'es' ? 'Preguntas Frecuentes' : (lang === 'de' ? 'Häufig gestellte Fragen' : (lang === 'ja' ? 'よくある質問とガイド' : 'Frequently Asked Questions')))}</h2>
-          ${t.faq.map(item => `
-            <h3>${item.q}</h3>
-            <p>${item.a}</p>
-          `).join('')}
-        </section>
-      </main>
-    </div>
-
-    <script type="module" src="/src/main.tsx"></script>
+    <a class="skip-link" href="#content">${ui.skip}</a>
+    <header class="topbar">
+      <div class="wrap">
+        <a class="brand" href="/${lang}/" lang="en">360 Panorama Viewer</a>
+        <nav aria-label="${ui.languages}">
+          ${LANGUAGES.map(l => `<a href="${l.code === 'en' ? '' : `/${l.code}`}${toolPath}" lang="${l.code}" hreflang="${l.code}"${l.code === lang ? ' aria-current="page"' : ''}>${l.name}</a>`).join('\n          ')}
+        </nav>
+      </div>
+    </header>
+    <main class="wrap" id="content">
+      <h1>${escapeHtml(t.h1)}</h1>
+      <p>${escapeHtml(t.sub)}</p>
+      <div class="cta">
+        <p>${ui.notice}</p>
+        <a class="button" href="${toolPath}" hreflang="en">${ui.open}</a>
+      </div>
+      ${usesCredits ? `<p class="callout">${ui.ai}</p>` : ''}
+      <section aria-labelledby="faq">
+        <h2 id="faq">${ui.faq}</h2>
+        ${t.faq.map(item => `<h3>${escapeHtml(item.q)}</h3><p>${escapeHtml(item.a)}</p>`).join('\n        ')}
+      </section>
+      <section aria-labelledby="tools">
+        <h2 id="tools">${ui.tools}</h2>
+        <div class="grid">
+          ${PAGES.filter(p => p.id !== page.id).map(p => `<a class="card" href="/${lang}/${p.slug ? `${p.slug}/` : ''}"><strong>${escapeHtml(p.translations[lang].h1)}</strong><span>${escapeHtml(p.translations[lang].sub)}</span></a>`).join('\n          ')}
+        </div>
+      </section>
+    </main>
+    <footer class="wrap"><a href="/${lang}/">${ui.home}</a></footer>
   </body>
-</html>`;
+</html>`.replace(/^[ \t]+$/gm, '');
 }
 
 export function generateAllI18n() {
@@ -486,6 +463,12 @@ export function generateAllI18n() {
   }
 
   console.log(`Generated ${generatedCount} multilingual i18n landing pages across ${LANGUAGES.length - 1} languages.`);
+  for (const page of PAGES) {
+    const englishPath = path.join(rootDir, page.slug, 'index.html');
+    const html = fs.readFileSync(englishPath, 'utf8').replace(/\n    <!-- Locale alternates -->[\s\S]*?<!-- End locale alternates -->/g, '');
+    const alternates = `\n    <!-- Locale alternates -->\n${generateAlternateLinks(page.slug)}\n    <!-- End locale alternates -->`;
+    fs.writeFileSync(englishPath, html.replace(/<link rel="canonical"[^>]+>/, match => match + alternates), 'utf8');
+  }
   updateSitemapXml();
 }
 

@@ -25,7 +25,6 @@ interface CubemapGeneratorPageProps {
 export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activePanoUrl, onPanoramaChange: setActivePanoUrl }: CubemapGeneratorPageProps) {
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const [activePreset, setActivePreset] = useState<string | null>(null);
-  const isHdriMode = typeof window !== 'undefined' && window.location.pathname.includes('hdri-to-cubemap');
 
   const samplePresets: Array<{ id: string; label: string; style: StylePresetId; desc: string }> = [
     { id: 'space', label: 'Cosmic Nebula', style: 'space', desc: 'Deep space cosmic skybox' },
@@ -58,24 +57,7 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
     reader.readAsDataURL(file);
   };
 
-  const faqs = isHdriMode ? [
-    {
-      q: 'How does HDRI to Cubemap conversion work?',
-      a: 'HDRI to cubemap conversion maps a 2:1 equirectangular high-dynamic-range environment onto the 6 internal faces of a cube (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back). Each face is rendered with an exact 90-degree field of view using tangent ray-casting, eliminating all spherical pinching at the poles.',
-    },
-    {
-      q: 'Which 3D engines and DCC apps support these cubemap faces?',
-      a: 'The output faces are compatible with Unity (6-sided Skybox shader), Unreal Engine (IBL environment probes), Blender (World background and reflection probes), Godot, Three.js, and Babylon.js.',
-    },
-    {
-      q: 'Can I download the 6 cubemap faces as a single ZIP archive?',
-      a: 'Yes. Simply click "Download All (ZIP)" to package posx, negx, posy, negy, posz, and negz into one clean ZIP archive ready for immediate engine import.',
-    },
-    {
-      q: 'Is this HDRI to cubemap converter free and private?',
-      a: 'Yes, 100% free with unlimited conversions. The slicing math runs entirely inside your browser WebGL memory—no environment textures are uploaded to external servers.',
-    },
-  ] : [
+  const faqs = [
     {
       q: 'What is a Cubemap Generator and why do game engines require it?',
       a: 'A Cubemap Generator converts a 2:1 equirectangular spherical panorama into 6 rectilinear 90° field-of-view cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back). Most game engines (Unity, Unreal Engine, Godot, Three.js) rely on cubemaps for skybox rendering and specular reflection probes because GPU texture lookups across cube faces are significantly faster than spherical trigonometry.',
@@ -110,7 +92,7 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
         <span>/</span>
         <span className="text-cyan-300">Tools</span>
         <span>/</span>
-        <span className="text-white font-medium">{isHdriMode ? 'HDRI to Cubemap' : 'Cubemap Generator'}</span>
+        <span className="text-white font-medium">Cubemap Generator</span>
       </nav>
 
       {/* Hero Section */}
@@ -118,20 +100,18 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
         <div className="max-w-4xl space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-400/15 border border-cyan-400/40 text-cyan-300 text-xs font-semibold tracking-wide">
             <Box className="w-3.5 h-3.5 text-cyan-400" />
-            <span>{isHdriMode ? 'HDRI CONVERTER • RADIANCE HDR & EXR TO CUBEMAP • 6 CUBE FACES' : '100% CLIENT-SIDE • 6-FACE CUBIC SLICER • UNITY & UNREAL'}</span>
+            <span>100% CLIENT-SIDE &bull; 6-FACE CUBIC SLICER &bull; UNITY &amp; UNREAL</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
-            {isHdriMode ? 'HDRI to Cubemap: ' : 'Cubemap Generator: '}
+            Cubemap Generator:{' '}
             <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-400 bg-clip-text text-transparent">
-              {isHdriMode ? 'Convert 360° HDR Environments to 6 Cube Faces' : 'Slice 360° Panoramas to 6 Cube Faces'}
+              Slice 360° Panoramas to 6 Cube Faces
             </span>
           </h1>
 
           <p className="text-base sm:text-lg text-cyan-100/80 leading-relaxed max-w-3xl">
-            {isHdriMode
-              ? 'Convert 2:1 equirectangular HDRI environment lighting maps and spherical captures into 6 rectilinear cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back). Export standard engine-ready textures for Unity, Unreal Engine, and Three.js.'
-              : 'Convert 2:1 equirectangular spherical panoramas into 6 rectilinear cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back) with client-side WebGL math. Includes free ready-to-download sample cubemaps and one-click batch ZIP export.'}
+            Convert 2:1 equirectangular spherical panoramas into 6 rectilinear cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back). Includes free sample cubemaps and batch ZIP export.
           </p>
 
           <div className="flex flex-wrap items-center gap-4 pt-2">

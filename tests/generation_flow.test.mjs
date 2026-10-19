@@ -1233,10 +1233,18 @@ for (const backend of ['Node', 'D1']) {
   });
 }
 
-test('cubemap tool uses the studio panorama and returns uploads to shared state', testContext => {
+test('cubemap tool returns uploads and generated presets to shared studio state', testContext => {
   const CubemapTab = () => null;
   const harness = componentHarness('../src/components/landing/CubemapGeneratorPage.tsx', 'CubemapGeneratorPage', {
     '../CubemapTab': { CubemapTab },
+    '../../utils/proceduralPanoramas': {
+      generateProceduralPanorama: (style, prompt, width, height) => {
+        assert.equal(style, 'space');
+        assert.equal(width, 2048);
+        assert.equal(height, 1024);
+        return { toDataURL: () => 'data:image/jpeg;base64,SAMPLE' };
+      },
+    },
   });
   let uploaded;
   setGlobal(testContext, 'FileReader', class {
@@ -1248,6 +1256,27 @@ test('cubemap tool uses the studio panorama and returns uploads to shared state'
   elementsIn(tree).find(element => element.type === 'input' && element.props.type === 'file')
     .props.onChange({ target: { files: [{}] } });
   assert.equal(uploaded, 'data:image/png;base64,UPLOAD');
+  buttonIn(tree, 'Cosmic Nebula').props.onClick();
+  assert.equal(uploaded, 'data:image/jpeg;base64,SAMPLE');
+});
+
+test('showcase video renders the shared panorama at the square default', async testContext => {
+  let request;
+  testContext.mock.method(URL, 'createObjectURL', () => 'blob:showcase');
+  testContext.mock.method(URL, 'revokeObjectURL', () => {});
+  const harness = componentHarness('../src/components/landing/PhotoToVideoPage.tsx', 'PhotoToVideoPage', {
+    '../../utils/videoRecorder': { renderPanoramaToVideoBlob: async (source, options) => {
+      request = { source, options };
+      return new Blob(['video'], { type: 'video/webm' });
+    } },
+  });
+  testContext.after(() => harness.unmount());
+  const tree = harness.render({ showcaseMode: true, currentPanoramaUrl: 'shared-showroom', onLaunchStudio() {}, onPanoramaChange() {} });
+  await buttonIn(tree, 'Start 360° Video Render').props.onClick();
+  assert.equal(request.source, 'shared-showroom');
+  assert.equal(request.options.width, 1080);
+  assert.equal(request.options.height, 1080);
+  assert.match(elementText(tree), /does not reconstruct product angles/);
 });
 
 for (const [exportName, relativePath, renderButton] of [

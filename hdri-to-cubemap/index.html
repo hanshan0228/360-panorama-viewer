@@ -6,9 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Primary Meta Tags -->
-    <title>HDRI to Cubemap Converter — Convert 360 HDR to 6 Cube Faces Online</title>
-    <meta name="title" content="HDRI to Cubemap Converter — Convert 360 HDR to 6 Cube Faces Online" />
-    <meta name="description" content="Free online HDRI to cubemap converter. Slice 360° HDR, EXR, and equirectangular environment lighting maps into 6 rectilinear cube faces for Unity, Unreal Engine, and WebGL." />
+    <title>HDRI to Cubemap Converter — Convert .HDR to 6 PNG Faces</title>
+    <meta name="title" content="HDRI to Cubemap Converter — Convert .HDR to 6 PNG Faces" />
+    <meta name="description" content="Decode a Radiance .hdr panorama, adjust exposure, and export six tone-mapped PNG cube faces as a ZIP. Free, local processing. OpenEXR is not supported." />
     <meta
       name="keywords"
       content="hdri to cubemap, convert hdri to cubemap, hdri to 6 cube faces, radiance hdr cubemap slicer, hdri skybox generator, unity hdri cubemap, unreal engine hdri skybox, 6-sided cubemap from hdri"
@@ -23,8 +23,8 @@
     <meta property="og:locale" content="en_US" />
     <meta property="og:site_name" content="360 Panorama Viewer" />
     <meta property="og:url" content="https://360panoramaviewer.com/hdri-to-cubemap/" />
-    <meta property="og:title" content="HDRI to Cubemap Converter — Convert 360 HDR to 6 Cube Faces Online" />
-    <meta property="og:description" content="Free online HDRI to cubemap converter. Slice 360° HDR, EXR, and equirectangular environment lighting maps into 6 rectilinear cube faces for Unity, Unreal Engine, and WebGL." />
+    <meta property="og:title" content="HDRI to Cubemap Converter — Convert .HDR to 6 PNG Faces" />
+    <meta property="og:description" content="Decode a Radiance .hdr panorama, adjust exposure, and export six tone-mapped PNG cube faces as a ZIP. Free, local processing. OpenEXR is not supported." />
     <meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
@@ -35,8 +35,8 @@
     <meta name="twitter:site" content="@360panoramaviewer" />
     <meta name="twitter:creator" content="@360panoramaviewer" />
     <meta name="twitter:url" content="https://360panoramaviewer.com/hdri-to-cubemap/" />
-    <meta name="twitter:title" content="HDRI to Cubemap Converter — Convert 360 HDR to 6 Cube Faces Online" />
-    <meta name="twitter:description" content="Free online HDRI to cubemap converter. Slice 360° HDR, EXR, and equirectangular environment lighting maps into 6 rectilinear cube faces for Unity, Unreal Engine, and WebGL." />
+    <meta name="twitter:title" content="HDRI to Cubemap Converter — Convert .HDR to 6 PNG Faces" />
+    <meta name="twitter:description" content="Decode a Radiance .hdr panorama, adjust exposure, and export six tone-mapped PNG cube faces as a ZIP. Free, local processing. OpenEXR is not supported." />
     <meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
 
     <!-- Schema.org JSON-LD Structured Data: SoftwareApplication + HowTo + FAQPage + Breadcrumbs -->
@@ -48,8 +48,8 @@
             "@type": "SoftwareApplication",
             "@id": "https://360panoramaviewer.com/hdri-to-cubemap/#software",
             "name": "HDRI to Cubemap Converter",
-            "headline": "360° HDRI and Equirectangular Environment Cubemap Slicer",
-            "description": "Convert 360-degree high dynamic range (HDRI) environments into 6 rectilinear cube faces for Unity, Unreal Engine, and WebGL.",
+            "headline": "HDRI to Cubemap Converter — Convert .HDR to 6 PNG Faces",
+            "description": "Decode a Radiance .hdr panorama, adjust exposure, and export six tone-mapped PNG cube faces as a ZIP. Free, local processing. OpenEXR is not supported.",
             "applicationCategory": "MultimediaApplication",
             "operatingSystem": "All, Web Browser",
             "url": "https://360panoramaviewer.com/hdri-to-cubemap/",
@@ -58,13 +58,6 @@
               "price": "0",
               "priceCurrency": "USD",
               "description": "100% Free online tool"
-            },
-            "aggregateRating": {
-              "@type": "AggregateRating",
-              "ratingValue": "4.9",
-              "ratingCount": "510",
-              "bestRating": "5",
-              "worstRating": "1"
             }
           },
           {
@@ -106,8 +99,8 @@
               {
                 "@type": "HowToStep",
                 "position": 3,
-                "name": "Client-Side Ray Slicing",
-                "text": "Browser WebGL projects inverse tangent rays across the 6 faces (+X, -X, +Y, -Y, +Z, -Z)."
+                "name": "Adjust Exposure and Slice",
+                "text": "Adjust the tone-mapped preview, then click Slice to 6 cube faces. Outputs are 8-bit PNG skybox images; keep the original HDR for lighting."
               },
               {
                 "@type": "HowToStep",
@@ -155,13 +148,13 @@
     <div id="root">
       <header>
         <h1>HDRI to Cubemap Converter: Convert 360 HDR Environments to 6 Cube Faces</h1>
-        <p>Slice 360° HDR, EXR, and equirectangular environment lighting maps into 6 rectilinear cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back) for Unity, Unreal Engine, Blender, and WebGL.</p>
+        <p>Decode a Radiance .hdr panorama, adjust exposure, and export six tone-mapped PNG cube faces as a ZIP. Free, local processing. OpenEXR is not supported.</p>
       </header>
       <main>
         <section>
           <h2>How to Convert HDRI to Cubemap</h2>
           <ol>
-            <li><strong>Upload Your HDRI Environment:</strong> Drag and drop your 2:1 equirectangular HDR capture or choose from our free built-in skybox presets.</li>
+            <li><strong>Upload Your HDRI Environment:</strong> Open a 2:1 Radiance .hdr panorama up to 50 MiB / 8K. PNG, JPEG and WEBP also work. OpenEXR is not supported.</li>
             <li><strong>Select Face Resolution:</strong> Choose 512&times;512, 1024&times;1024, or 2048&times;2048 pixels per face.</li>
             <li><strong>Live 6-Face Preview:</strong> Inspect all 6 rectilinear faces rendered in real-time with zero optical pinch.</li>
             <li><strong>Download Batch ZIP:</strong> Save posx.png, negx.png, posy.png, negy.png, posz.png, and negz.png in one click.</li>
@@ -171,9 +164,9 @@
           <h2>Features of Our Free HDRI Cubemap Slicer</h2>
           <ul>
             <li><strong>Zero Spherical Distortion:</strong> Uses exact tangent-space ray casting to eliminate polar pinching and seam artifacts.</li>
-            <li><strong>Instant Client-Side Processing:</strong> Rendering runs 100% in your browser GPU memory. No textures are uploaded to cloud servers.</li>
+            <li><strong>Instant Client-Side Processing:</strong> Decoding, tone mapping and slicing run locally in your browser. No textures are uploaded to cloud servers.</li>
             <li><strong>Plug-and-Play Unity &amp; Unreal Engine:</strong> Naming matches Unity Skybox / 6 Sided shaders and Three.js CubeTexture loaders directly.</li>
-            <li><strong>Free Skybox Presets Included:</strong> Download ready-to-use cosmic nebula, cyberpunk, sunset, and temple cubemap packs without uploading files.</li>
+            <li><strong>8-bit PNG Output:</strong> Export tone-mapped skybox images. Keep the original .hdr for high dynamic range environment lighting.</li>
           </ul>
         </section>
         <section>
@@ -181,7 +174,7 @@
           <h3>What face naming convention is used in the ZIP archive?</h3>
           <p>The archive packages posx.png (Right +X), negx.png (Left -X), posy.png (Top +Y), negy.png (Bottom -Y), posz.png (Front +Z), and negz.png (Back -Z).</p>
           <h3>Is my HDRI file kept private?</h3>
-          <p>Yes. The entire projection pipeline executes locally in your browser memory using WebGL and HTML5 Canvas. Your 3D assets never leave your workstation.</p>
+          <p>Yes. The entire projection pipeline executes locally in your browser memory using the Radiance decoder and HTML5 Canvas. Your 3D assets never leave your workstation.</p>
         </section>
         <section>
           <h2>Related 360° Panorama &amp; Game Tools</h2>

@@ -63,10 +63,10 @@ function getInitialTabFromLocation(): ActiveTab {
   const hash = window.location.hash.toLowerCase();
 
   if (path.includes('ai-hdri-generator') || hash.includes('ai-hdri-generator')) return 'landing-hdri';
-  if (path.includes('hdri-viewer') || hash.includes('hdri-viewer')) return 'landing-hdri-viewer';
+  if (path.includes('hdri-viewer') || hash.includes('hdri-viewer') || path.includes('hdri-to-cubemap')) return 'landing-hdri-viewer';
   if (path.includes('skybox-generator') || hash.includes('skybox-generator')) return 'landing-skybox';
   if (path.includes('photo-to-360-converter') || hash.includes('photo-to-360-converter')) return 'landing-photo360';
-  if (path.includes('cubemap-generator') || hash.includes('cubemap-generator') || path.includes('hdri-to-cubemap')) return 'landing-cubemap';
+  if (path.includes('cubemap-generator') || hash.includes('cubemap-generator')) return 'landing-cubemap';
   if (path.includes('360-metadata-injector') || hash.includes('360-metadata-injector')) return 'landing-metadata';
   if (path.includes('360-photo-to-video') || hash.includes('360-photo-to-video') || path.includes('360-product-video-generator')) return 'landing-video';
   if (path.includes('cubemap-to-equirectangular') || hash.includes('cubemap-to-equirectangular')) return 'landing-cube2eq';
@@ -331,17 +331,36 @@ export function App() {
     // Special override if current pathname is 360-image-maker
     const isImageMakerPath = currentPath.includes('360-image-maker');
 
-    const target = isImageMakerPath
+    const routeSeoMap: Record<string, { title: string; desc: string; slug: string }> = {
+      '/hdri-to-cubemap/': {
+        title: 'HDRI to Cubemap Converter — Convert .HDR to 6 PNG Faces',
+        desc: 'Decode a Radiance .hdr panorama, adjust exposure, and export six tone-mapped PNG cube faces as a ZIP. Free, local processing. OpenEXR is not supported.',
+        slug: 'hdri-to-cubemap/',
+      },
+      '/360-product-video-generator/': {
+        title: '360 Panorama Showcase Video Generator — Free Browser Export',
+        desc: 'Turn a 2:1 panorama into a panning showcase video for a store, portfolio or social feed. Free local MP4 or WebM export, depending on browser support.',
+        slug: '360-product-video-generator/',
+      },
+    };
+    const routeSeo = routeSeoMap[`${currentPath.replace(/\/$/, '')}/`];
+    const target = routeSeo ?? (isImageMakerPath
       ? {
           title: '360 Image Maker — Free AI 360° Image Creator Online (No Upload)',
           desc: 'Create seamless 360° equirectangular panoramas and VR images from text prompts or 2D photos in seconds. Free online 360 image maker with WebGL preview, harmonic seam healing, and 4K HDR export. No upload needed.',
         }
-      : tabSeoMap[activeTab] || tabSeoMap.generator;
+      : tabSeoMap[activeTab] || tabSeoMap.generator);
 
     document.title = target.title;
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
       metaDesc.setAttribute('content', target.desc);
+    }
+    for (const selector of ['meta[name="title"]', 'meta[property="og:title"]', 'meta[name="twitter:title"]']) {
+      document.querySelector(selector)?.setAttribute('content', target.title);
+    }
+    for (const selector of ['meta[property="og:description"]', 'meta[name="twitter:description"]']) {
+      document.querySelector(selector)?.setAttribute('content', target.desc);
     }
 
     const canonicalLink = document.querySelector('link[rel="canonical"]');
@@ -365,7 +384,10 @@ export function App() {
       if (isImageMakerPath) {
         slug = '360-image-maker/';
       }
-      canonicalLink.setAttribute('href', `https://360panoramaviewer.com/${slug}`);
+      const canonicalUrl = `https://360panoramaviewer.com/${routeSeo?.slug ?? slug}`;
+      canonicalLink.setAttribute('href', canonicalUrl);
+      document.querySelector('meta[property="og:url"]')?.setAttribute('content', canonicalUrl);
+      document.querySelector('meta[name="twitter:url"]')?.setAttribute('content', canonicalUrl);
     }
   }, [activeTab, currentPath]);
 
@@ -992,6 +1014,7 @@ export function App() {
         )}
         {activeTab === 'landing-hdri-viewer' && (
           <HdriViewerPage
+            cubemapMode={currentPath.replace(/\/$/, '') === '/hdri-to-cubemap'}
             onNavigateTab={navigateTo}
             onPanoramaChange={setCurrentPanoramaUrl}
             onLaunchStudio={() => navigateTo('generator', '/360-image-maker/')}
@@ -1063,6 +1086,8 @@ export function App() {
         )}
         {activeTab === 'landing-video' && (
           <PhotoToVideoPage
+            key={currentPath}
+            showcaseMode={currentPath.replace(/\/$/, '') === '/360-product-video-generator'}
             onLaunchStudio={() => navigateTo('generator', '/360-image-maker/')}
             currentPanoramaUrl={currentPanoramaUrl}
             onPanoramaChange={setCurrentPanoramaUrl}
@@ -1218,17 +1243,17 @@ export function App() {
                 <li>
                   <a
                     href="/360-product-video-generator/"
-                    onClick={(e) => { e.preventDefault(); navigateTo('landing-video', '/360-product-video-generator/'); }}
+                    onClick={(e) => handleRouteLink(e, 'landing-video', '/360-product-video-generator/')}
                     className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center justify-between"
                   >
-                    <span>360° Product Video</span>
+                    <span>Panorama Showcase Video</span>
                     <span className="text-[9px] font-mono px-1 rounded bg-emerald-400/20 text-emerald-300">SHOP</span>
                   </a>
                 </li>
                 <li>
                   <a
                     href="/hdri-to-cubemap/"
-                    onClick={(e) => { e.preventDefault(); navigateTo('landing-cubemap', '/hdri-to-cubemap/'); }}
+                    onClick={(e) => handleRouteLink(e, 'landing-hdri-viewer', '/hdri-to-cubemap/')}
                     className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center justify-between"
                   >
                     <span>HDRI to Cubemap</span>

@@ -20,6 +20,7 @@ import { toneMapLinearRgbToRgba } from '../../utils/hdrToneMap';
 import type { ActiveTab, CubemapFace } from '../../types/panorama';
 
 interface HdriViewerPageProps {
+  cubemapMode?: boolean;
   onNavigateTab: (tab: ActiveTab, pushPath?: string) => void;
   onPanoramaChange: (url: string) => void;
   onLaunchStudio: () => void;
@@ -66,7 +67,7 @@ function createDisplayCanvas(width: number, height: number): { canvas: HTMLCanva
   return { canvas, ctx };
 }
 
-export function HdriViewerPage({ onNavigateTab, onPanoramaChange, onLaunchStudio }: HdriViewerPageProps) {
+export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaChange, onLaunchStudio }: HdriViewerPageProps) {
   const linearRef = useRef<Float32Array | null>(null);
   const loadIdRef = useRef(0);
   const previewHostRef = useRef<HTMLDivElement>(null);
@@ -281,7 +282,7 @@ export function HdriViewerPage({ onNavigateTab, onPanoramaChange, onLaunchStudio
       <nav className="flex items-center gap-2 text-xs text-cyan-400/70 pt-2">
         <a href="/" className="hover:text-cyan-300 transition-colors">Home</a>
         <span>/</span>
-        <span className="text-cyan-200">HDRI Viewer</span>
+        <span className="text-cyan-200">{cubemapMode ? 'HDRI to Cubemap' : 'HDRI Viewer'}</span>
       </nav>
 
       {/* Hero */}
@@ -291,7 +292,7 @@ export function HdriViewerPage({ onNavigateTab, onPanoramaChange, onLaunchStudio
           <span>RADIANCE RGBE DECODER &bull; ACES TONE MAPPING &bull; 100% CLIENT-SIDE</span>
         </div>
         <h1 className="text-3xl sm:text-5xl font-black text-white leading-tight">
-          HDRI Viewer &mdash; Open .HDR Files Online and Export Cube Faces
+          {cubemapMode ? 'HDRI to Cubemap — Convert .HDR to 6 PNG Faces' : 'HDRI Viewer — Open .HDR Files Online and Export Cube Faces'}
         </h1>
         <p className="text-sm sm:text-base text-cyan-100/80 leading-relaxed">
           Drop a Radiance .hdr environment map into the browser to see it with real exposure control, download a

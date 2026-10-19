@@ -3,27 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/blog/blog.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-    <!-- Primary Meta Tags -->
     <title>立方体贴图生成器(Cubemap Generator) — 免费360全景切图为6面天空盒</title>
     <meta name="title" content="立方体贴图生成器(Cubemap Generator) — 免费360全景切图为6面天空盒" />
     <meta name="description" content="将2:1等距柱状360全景图快速切片为6个标准立方体面(+X, -X, +Y, -Y, +Z, -Z)。内置免费天空盒素材，一键ZIP打包导出Unity与UE。" />
     <meta name="keywords" content="cubemap generator, 全景转cubemap, 免费cubemap下载, 立方体贴图生成器, 全景切图为6面, unity天空盒贴图切片, unreal cubemap" />
-    <meta name="author" content="360 Panorama Viewer" />
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
     <link rel="canonical" href="https://360panoramaviewer.com/zh/cubemap-generator/" />
     <meta name="theme-color" content="#040c1a" />
-
-    <!-- Hreflang Alternates -->
     <link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/cubemap-generator/" />
     <link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/cubemap-generator/" />
     <link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/cubemap-generator/" />
     <link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/cubemap-generator/" />
     <link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/cubemap-generator/" />
     <link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/cubemap-generator/" />
-
-    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="zh_CN" />
     <meta property="og:site_name" content="360 Panorama Viewer" />
@@ -31,104 +25,50 @@
     <meta property="og:title" content="立方体贴图生成器(Cubemap Generator) — 免费360全景切图为6面天空盒" />
     <meta property="og:description" content="将2:1等距柱状360全景图快速切片为6个标准立方体面(+X, -X, +Y, -Y, +Z, -Z)。内置免费天空盒素材，一键ZIP打包导出Unity与UE。" />
     <meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
-    <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-
-    <!-- Twitter Cards -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@360panoramaviewer" />
-    <meta name="twitter:creator" content="@360panoramaviewer" />
     <meta name="twitter:url" content="https://360panoramaviewer.com/zh/cubemap-generator/" />
     <meta name="twitter:title" content="立方体贴图生成器(Cubemap Generator) — 免费360全景切图为6面天空盒" />
     <meta name="twitter:description" content="将2:1等距柱状360全景图快速切片为6个标准立方体面(+X, -X, +Y, -Y, +Z, -Z)。内置免费天空盒素材，一键ZIP打包导出Unity与UE。" />
     <meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
-
-    <!-- Schema.org JSON-LD Structured Data -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@graph": [
-          {
-            "@type": "SoftwareApplication",
-            "@id": "https://360panoramaviewer.com/zh/cubemap-generator/#software",
-            "name": "立方体贴图生成器(Cubemap Generator) — 免费360全景切图为6面天空盒",
-            "headline": "立方体贴图生成器：将360°全景切为6面天空盒",
-            "description": "将2:1等距柱状360全景图快速切片为6个标准立方体面(+X, -X, +Y, -Y, +Z, -Z)。内置免费天空盒素材，一键ZIP打包导出Unity与UE。",
-            "applicationCategory": "MultimediaApplication",
-            "operatingSystem": "All, Web Browser",
-            "url": "https://360panoramaviewer.com/zh/cubemap-generator/",
-            "offers": {
-              "@type": "Offer",
-              "price": "0",
-              "priceCurrency": "USD",
-              "description": "100% Free online tool"
-            }
-          },
-          {
-            "@type": "BreadcrumbList",
-            "@id": "https://360panoramaviewer.com/zh/cubemap-generator/#breadcrumbs",
-            "itemListElement": [
-              {
-                "@type": "ListItem",
-                "position": 1,
-                "name": "Home",
-                "item": "https://360panoramaviewer.com/"
-              },
-              {
-                "@type": "ListItem",
-                "position": 2,
-                "name": "立方体贴图生成器：将360°全景切为6面天空盒",
-                "item": "https://360panoramaviewer.com/zh/cubemap-generator/"
-              }
-            ]
-          },
-          {
-            "@type": "FAQPage",
-            "@id": "https://360panoramaviewer.com/zh/cubemap-generator/#faq",
-            "mainEntity": [
-  {
-    "@type": "Question",
-    "name": "无需上传可以直接下载免费立方体贴图包吗？",
-    "acceptedAnswer": {
-      "@type": "Answer",
-      "text": "可以！点击切图器上方的免费预设（深空星云、赛博都市、热带落日等），即可直接预览并一键下载完整的6面ZIP压缩包。"
-    }
-  },
-  {
-    "@type": "Question",
-    "name": "支持导入Unity和虚幻引擎吗？",
-    "acceptedAnswer": {
-      "@type": "Answer",
-      "text": "完美支持。文件名与贴图朝向严格按照Unity 6-Sided Skybox与Three.js CubeTexture标准排序。"
-    }
-  }
-]
-          }
-        ]
-      }
-    </script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"SoftwareApplication","@id":"https://360panoramaviewer.com/zh/cubemap-generator/#software","name":"立方体贴图生成器(Cubemap Generator) — 免费360全景切图为6面天空盒","description":"将2:1等距柱状360全景图快速切片为6个标准立方体面(+X, -X, +Y, -Y, +Z, -Z)。内置免费天空盒素材，一键ZIP打包导出Unity与UE。","applicationCategory":"MultimediaApplication","operatingSystem":"Web Browser","url":"https://360panoramaviewer.com/zh/cubemap-generator/","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},{"@type":"FAQPage","@id":"https://360panoramaviewer.com/zh/cubemap-generator/#faq","mainEntity":[{"@type":"Question","name":"无需上传可以直接下载免费立方体贴图包吗？","acceptedAnswer":{"@type":"Answer","text":"可以！点击切图器上方的免费预设（深空星云、赛博都市、热带落日等），即可直接预览并一键下载完整的6面ZIP压缩包。"}},{"@type":"Question","name":"支持导入Unity和虚幻引擎吗？","acceptedAnswer":{"@type":"Answer","text":"完美支持。文件名与贴图朝向严格按照Unity 6-Sided Skybox与Three.js CubeTexture标准排序。"}}]}]}</script>
   </head>
   <body>
-    <div id="root">
-      <header>
-        <h1>立方体贴图生成器：将360°全景切为6面天空盒</h1>
-        <p>基于WebGL精确反向切线投射，消除球极变形，一键打包下载 posx、negx、posy、negy、posz、negz 贴图压缩包。</p>
-      </header>
-      <main>
-        <section>
-          <h2>常见问题与使用指南</h2>
-          
-            <h3>无需上传可以直接下载免费立方体贴图包吗？</h3>
-            <p>可以！点击切图器上方的免费预设（深空星云、赛博都市、热带落日等），即可直接预览并一键下载完整的6面ZIP压缩包。</p>
-          
-            <h3>支持导入Unity和虚幻引擎吗？</h3>
-            <p>完美支持。文件名与贴图朝向严格按照Unity 6-Sided Skybox与Three.js CubeTexture标准排序。</p>
-          
-        </section>
-      </main>
-    </div>
+    <a class="skip-link" href="#content">跳到正文</a>
+    <header class="topbar">
+      <div class="wrap">
+        <a class="brand" href="/zh/" lang="en">360 Panorama Viewer</a>
+        <nav aria-label="语言">
+          <a href="/cubemap-generator/" lang="en" hreflang="en">English</a>
+          <a href="/zh/cubemap-generator/" lang="zh" hreflang="zh" aria-current="page">简体中文</a>
+          <a href="/es/cubemap-generator/" lang="es" hreflang="es">Español</a>
+          <a href="/de/cubemap-generator/" lang="de" hreflang="de">Deutsch</a>
+          <a href="/ja/cubemap-generator/" lang="ja" hreflang="ja">日本語</a>
+        </nav>
+      </div>
+    </header>
+    <main class="wrap" id="content">
+      <h1>立方体贴图生成器：将360°全景切为6面天空盒</h1>
+      <p>基于WebGL精确反向切线投射，消除球极变形，一键打包下载 posx、negx、posy、negy、posz、negz 贴图压缩包。</p>
+      <div class="cta">
+        <p>本页提供中文介绍。交互工具目前使用英文界面。</p>
+        <a class="button" href="/cubemap-generator/" hreflang="en">打开工具（英文界面）</a>
+      </div>
 
-    <script type="module" src="/src/main.tsx"></script>
+      <section aria-labelledby="faq">
+        <h2 id="faq">常见问题</h2>
+        <h3>无需上传可以直接下载免费立方体贴图包吗？</h3><p>可以！点击切图器上方的免费预设（深空星云、赛博都市、热带落日等），即可直接预览并一键下载完整的6面ZIP压缩包。</p>
+        <h3>支持导入Unity和虚幻引擎吗？</h3><p>完美支持。文件名与贴图朝向严格按照Unity 6-Sided Skybox与Three.js CubeTexture标准排序。</p>
+      </section>
+      <section aria-labelledby="tools">
+        <h2 id="tools">相关工具</h2>
+        <div class="grid">
+          <a class="card" href="/zh/"><strong>AI 360全景图生成器与VR天空盒制作工具</strong><span>输入文字提示词或上传2D照片，快速生成无缝2:1等距柱状360度全景图与游戏VR天空盒。</span></a>
+          <a class="card" href="/zh/360-panorama-viewer/"><strong>免费在线 360° 全景图查看器</strong><span>在浏览器中流畅漫游、旋转和检查360度等距柱状全景照片。本地GPU渲染，绝不上传文件。</span></a>
+          <a class="card" href="/zh/photo-to-globe/"><strong>Map to Globe: 2D平面地图转3D旋转球体</strong><span>将世界地图、架空设定图或全景照片即时投射为3D可交互旋转地球仪。纯前端实时计算，免费无限制。</span></a>
+          <a class="card" href="/zh/photo-to-360-converter/"><strong>照片转 360° 全景图 AI 工具</strong><span>将普通的2D宽幅照片、建筑效果图转化为可在VR与全景播放器中环顾漫游的360度球形全景。</span></a>
+        </div>
+      </section>
+    </main>
+    <footer class="wrap"><a href="/zh/">首页</a></footer>
   </body>
 </html>

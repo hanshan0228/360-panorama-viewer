@@ -3,27 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/blog/blog.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-    <!-- Primary Meta Tags -->
     <title>Generador de Cubemaps — Divide Panoramas 360 en 6 Caras</title>
     <meta name="title" content="Generador de Cubemaps — Divide Panoramas 360 en 6 Caras" />
     <meta name="description" content="Convierte panoramas 2:1 en 6 caras de cubo (+X, -X, +Y, -Y, +Z, -Z). Cubemaps gratis para descargar y archivo ZIP para Unity y Unreal Engine." />
     <meta name="keywords" content="generador de cubemaps, panorama a cubemap, cubemaps gratis, equirrectangular a mapa cubico, skybox unity 6 caras" />
-    <meta name="author" content="360 Panorama Viewer" />
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
     <link rel="canonical" href="https://360panoramaviewer.com/es/cubemap-generator/" />
     <meta name="theme-color" content="#040c1a" />
-
-    <!-- Hreflang Alternates -->
     <link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/cubemap-generator/" />
     <link rel="alternate" hreflang="zh" href="https://360panoramaviewer.com/zh/cubemap-generator/" />
     <link rel="alternate" hreflang="es" href="https://360panoramaviewer.com/es/cubemap-generator/" />
     <link rel="alternate" hreflang="de" href="https://360panoramaviewer.com/de/cubemap-generator/" />
     <link rel="alternate" hreflang="ja" href="https://360panoramaviewer.com/ja/cubemap-generator/" />
     <link rel="alternate" hreflang="x-default" href="https://360panoramaviewer.com/cubemap-generator/" />
-
-    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="es_ES" />
     <meta property="og:site_name" content="360 Panorama Viewer" />
@@ -31,104 +25,50 @@
     <meta property="og:title" content="Generador de Cubemaps — Divide Panoramas 360 en 6 Caras" />
     <meta property="og:description" content="Convierte panoramas 2:1 en 6 caras de cubo (+X, -X, +Y, -Y, +Z, -Z). Cubemaps gratis para descargar y archivo ZIP para Unity y Unreal Engine." />
     <meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
-    <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-
-    <!-- Twitter Cards -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@360panoramaviewer" />
-    <meta name="twitter:creator" content="@360panoramaviewer" />
     <meta name="twitter:url" content="https://360panoramaviewer.com/es/cubemap-generator/" />
     <meta name="twitter:title" content="Generador de Cubemaps — Divide Panoramas 360 en 6 Caras" />
     <meta name="twitter:description" content="Convierte panoramas 2:1 en 6 caras de cubo (+X, -X, +Y, -Y, +Z, -Z). Cubemaps gratis para descargar y archivo ZIP para Unity y Unreal Engine." />
     <meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
-
-    <!-- Schema.org JSON-LD Structured Data -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@graph": [
-          {
-            "@type": "SoftwareApplication",
-            "@id": "https://360panoramaviewer.com/es/cubemap-generator/#software",
-            "name": "Generador de Cubemaps — Divide Panoramas 360 en 6 Caras",
-            "headline": "Generador de Cubemaps: Panorama 360 a 6 Caras",
-            "description": "Convierte panoramas 2:1 en 6 caras de cubo (+X, -X, +Y, -Y, +Z, -Z). Cubemaps gratis para descargar y archivo ZIP para Unity y Unreal Engine.",
-            "applicationCategory": "MultimediaApplication",
-            "operatingSystem": "All, Web Browser",
-            "url": "https://360panoramaviewer.com/es/cubemap-generator/",
-            "offers": {
-              "@type": "Offer",
-              "price": "0",
-              "priceCurrency": "USD",
-              "description": "100% Free online tool"
-            }
-          },
-          {
-            "@type": "BreadcrumbList",
-            "@id": "https://360panoramaviewer.com/es/cubemap-generator/#breadcrumbs",
-            "itemListElement": [
-              {
-                "@type": "ListItem",
-                "position": 1,
-                "name": "Home",
-                "item": "https://360panoramaviewer.com/"
-              },
-              {
-                "@type": "ListItem",
-                "position": 2,
-                "name": "Generador de Cubemaps: Panorama 360 a 6 Caras",
-                "item": "https://360panoramaviewer.com/es/cubemap-generator/"
-              }
-            ]
-          },
-          {
-            "@type": "FAQPage",
-            "@id": "https://360panoramaviewer.com/es/cubemap-generator/#faq",
-            "mainEntity": [
-  {
-    "@type": "Question",
-    "name": "¿Puedo descargar cubemaps gratis?",
-    "acceptedAnswer": {
-      "@type": "Answer",
-      "text": "Sí, incluye paquetes de skybox gratuitos listos para descargar en formato ZIP."
-    }
-  },
-  {
-    "@type": "Question",
-    "name": "¿Qué motores son compatibles?",
-    "acceptedAnswer": {
-      "@type": "Answer",
-      "text": "Unity, Unreal Engine, Godot, Three.js y Blender."
-    }
-  }
-]
-          }
-        ]
-      }
-    </script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"SoftwareApplication","@id":"https://360panoramaviewer.com/es/cubemap-generator/#software","name":"Generador de Cubemaps — Divide Panoramas 360 en 6 Caras","description":"Convierte panoramas 2:1 en 6 caras de cubo (+X, -X, +Y, -Y, +Z, -Z). Cubemaps gratis para descargar y archivo ZIP para Unity y Unreal Engine.","applicationCategory":"MultimediaApplication","operatingSystem":"Web Browser","url":"https://360panoramaviewer.com/es/cubemap-generator/","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},{"@type":"FAQPage","@id":"https://360panoramaviewer.com/es/cubemap-generator/#faq","mainEntity":[{"@type":"Question","name":"¿Puedo descargar cubemaps gratis?","acceptedAnswer":{"@type":"Answer","text":"Sí, incluye paquetes de skybox gratuitos listos para descargar en formato ZIP."}},{"@type":"Question","name":"¿Qué motores son compatibles?","acceptedAnswer":{"@type":"Answer","text":"Unity, Unreal Engine, Godot, Three.js y Blender."}}]}]}</script>
   </head>
   <body>
-    <div id="root">
-      <header>
-        <h1>Generador de Cubemaps: Panorama 360 a 6 Caras</h1>
-        <p>Divide panoramas esféricos en 6 texturas rectilíneas sin distorsión para motores de videojuegos.</p>
-      </header>
-      <main>
-        <section>
-          <h2>Preguntas Frecuentes</h2>
-          
-            <h3>¿Puedo descargar cubemaps gratis?</h3>
-            <p>Sí, incluye paquetes de skybox gratuitos listos para descargar en formato ZIP.</p>
-          
-            <h3>¿Qué motores son compatibles?</h3>
-            <p>Unity, Unreal Engine, Godot, Three.js y Blender.</p>
-          
-        </section>
-      </main>
-    </div>
+    <a class="skip-link" href="#content">Ir al contenido</a>
+    <header class="topbar">
+      <div class="wrap">
+        <a class="brand" href="/es/" lang="en">360 Panorama Viewer</a>
+        <nav aria-label="Idiomas">
+          <a href="/cubemap-generator/" lang="en" hreflang="en">English</a>
+          <a href="/zh/cubemap-generator/" lang="zh" hreflang="zh">简体中文</a>
+          <a href="/es/cubemap-generator/" lang="es" hreflang="es" aria-current="page">Español</a>
+          <a href="/de/cubemap-generator/" lang="de" hreflang="de">Deutsch</a>
+          <a href="/ja/cubemap-generator/" lang="ja" hreflang="ja">日本語</a>
+        </nav>
+      </div>
+    </header>
+    <main class="wrap" id="content">
+      <h1>Generador de Cubemaps: Panorama 360 a 6 Caras</h1>
+      <p>Divide panoramas esféricos en 6 texturas rectilíneas sin distorsión para motores de videojuegos.</p>
+      <div class="cta">
+        <p>Esta guía está en español. La interfaz de la herramienta está en inglés.</p>
+        <a class="button" href="/cubemap-generator/" hreflang="en">Abrir herramienta (en inglés)</a>
+      </div>
 
-    <script type="module" src="/src/main.tsx"></script>
+      <section aria-labelledby="faq">
+        <h2 id="faq">Preguntas frecuentes</h2>
+        <h3>¿Puedo descargar cubemaps gratis?</h3><p>Sí, incluye paquetes de skybox gratuitos listos para descargar en formato ZIP.</p>
+        <h3>¿Qué motores son compatibles?</h3><p>Unity, Unreal Engine, Godot, Three.js y Blender.</p>
+      </section>
+      <section aria-labelledby="tools">
+        <h2 id="tools">Herramientas relacionadas</h2>
+        <div class="grid">
+          <a class="card" href="/es/"><strong>Generador de Panoramas 360 con Inteligencia Artificial</strong><span>Crea panoramas 360 equirrectangulares y skyboxes para juegos en segundos con IA.</span></a>
+          <a class="card" href="/es/360-panorama-viewer/"><strong>Visor de Panoramas 360° Online Gratis</strong><span>Gira y navega por fotos panorámicas esféricas 360 al instante en tu navegador. 100% privado y seguro.</span></a>
+          <a class="card" href="/es/photo-to-globe/"><strong>Map to Globe: De Mapa 2D a Globo 3D Giratorio</strong><span>Convierte mapas de mundos fantásticos y texturas en esferas 3D interactivas con WebGL en tiempo real.</span></a>
+          <a class="card" href="/es/photo-to-360-converter/"><strong>Conversor de Foto a Panorama 360° con IA</strong><span>Convierte fotos 2D estándar en experiencias inmersivas 360° listas para visores VR y redes sociales.</span></a>
+        </div>
+      </section>
+    </main>
+    <footer class="wrap"><a href="/es/">Inicio</a></footer>
   </body>
 </html>
