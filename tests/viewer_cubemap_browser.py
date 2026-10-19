@@ -2,6 +2,10 @@
 Run: py -3.13 tests/viewer_cubemap_browser.py
 """
 import re
+import os
+import base64
+import struct
+import zipfile
 import unittest
 from playwright.sync_api import sync_playwright, expect
 
@@ -12,7 +16,7 @@ class BrowserRegression(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.runtime = sync_playwright().start()
-        cls.browser = cls.runtime.chromium.launch(headless=True)
+        cls.browser = cls.runtime.chromium.launch(headless=True, executable_path=os.environ.get('PLAYWRIGHT_CHROMIUM_EXECUTABLE'))
 
     @classmethod
     def tearDownClass(cls):
@@ -49,11 +53,57 @@ class BrowserRegression(unittest.TestCase):
           const url = canvas.toDataURL();
           window.fixtureProps = { currentPanoramaUrl: url, textureUrl: url, className: 'w-full h-full', ...props };
           if (component === 'SphereViewer') window.fixtureProps.onAddHotspot = () => {};
-          window.fixtureRender = extra => window.fixtureRoot.render(React.createElement(module[component], {...window.fixtureProps, ...extra}));
+          window.fixtureRender = extra => window.fixtureRoot.render(React.createElement(module[component.split('/').pop()], {...window.fixtureProps, ...extra}));
           window.fixtureRoot = createRoot(fixture);
           window.fixtureRender({});
         }""", {"component": component, "props": props or {}})
         return self.page.locator('#regression-fixture')
+
+    def test_hdri_exposure_and_cube_download(self):
+        fixture = self.mount('landing/HdriViewerPage')
+        header = b'#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 8 +X 16\n'
+        payload = {'name': 'studio.hdr', 'mimeType': 'image/vnd.radiance', 'buffer': header + bytes([128, 64, 32, 128]) * 128}
+        fixture.locator('input[type=file]').set_input_files(payload)
+        canvas = fixture.locator('canvas')
+        expect(canvas).to_have_attribute('width', '16')
+        baseline = canvas.evaluate("el => el.getContext('2d').getImageData(0, 0, 1, 1).data[0]")
+        self.assertGreater(baseline, 100)
+        fixture.get_by_role('slider', name='Exposure in EV').fill('-2')
+        self.page.wait_for_function("initial => document.querySelector('#regression-fixture canvas').getContext('2d').getImageData(0, 0, 1, 1).data[0] < initial", arg=baseline)
+        fixture.get_by_role('combobox', name='Cube face size').select_option('512')
+        fixture.get_by_role('button', name='Slice to 6 cube faces').click()
+        expect(fixture.locator('img')).to_have_count(6)
+        with self.page.expect_download() as downloaded:
+            fixture.get_by_role('button', name='Download all 6 faces (ZIP)').click()
+        with zipfile.ZipFile(downloaded.value.path()) as archive:
+            self.assertEqual(set(archive.namelist()), {f'{face}.png' for face in ['posx', 'negx', 'posy', 'negy', 'posz', 'negz']})
+            for filename in archive.namelist():
+                self.assertEqual(struct.unpack('>II', archive.read(filename)[16:24]), (512, 512))
+        fixture.get_by_role('combobox', name='Cube face size').select_option('1024')
+        expect(fixture.locator('img')).to_have_count(0)
+
+    def test_hdri_rejects_bad_headers_and_gates_non_spherical_images(self):
+        fixture = self.mount('landing/HdriViewerPage')
+        uploader = fixture.locator('input[type=file]')
+        png = self.page.evaluate("""() => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 3; canvas.height = 2;
+          return canvas.toDataURL().split(',')[1];
+        }""")
+        uploader.set_input_files({'name': 'flat.png', 'mimeType': 'image/png', 'buffer': base64.b64decode(png)})
+        expect(fixture.locator('canvas')).to_have_attribute('width', '3')
+        expect(fixture.get_by_role('status')).to_contain_text('not 2:1')
+        expect(fixture.get_by_role('button', name='Open in 360° viewer')).to_be_disabled()
+        expect(fixture.get_by_role('button', name='Slice to 6 cube faces')).to_be_disabled()
+        expect(fixture.get_by_role('button', name='Download tone-mapped PNG')).to_be_enabled()
+        uploader.set_input_files({'name': 'broken.hdr', 'mimeType': 'image/vnd.radiance', 'buffer': b'not an HDR'})
+        expect(fixture.get_by_role('alert')).to_contain_text('standard -Y +X')
+        expect(fixture.locator('canvas')).to_have_count(0)
+        huge = b'#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 4096 +X 100000\n'
+        uploader.set_input_files({'name': 'oversize.hdr', 'mimeType': 'image/vnd.radiance', 'buffer': huge})
+        expect(fixture.get_by_role('alert')).to_contain_text('8192 pixels')
+        expect(fixture.locator('canvas')).to_have_count(0)
+        self.assertEqual(fixture.get_by_role('slider', name='Exposure in EV').count(), 0)
 
     def test_generator_external_presets_preserve_local_edits(self) -> None:
         fixture = self.mount('GeneratorTab', {'externalPrompt': 'Original scene', 'externalStyle': 'cyberpunk'})

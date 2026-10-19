@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>360 Panorama Guides: Projection, HDRI and Publishing Fixes</title>
+<meta name="description" content="Practical 360 panorama guides: fix flat uploads, understand equirectangular projection, make a panorama without a 360 camera, and compare HDRI with LDR." />
+<meta name="author" content="360 Panorama Viewer" />
+<meta name="robots" content="index, follow, max-image-preview:large" />
+<meta name="theme-color" content="#040c1a" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="canonical" href="https://360panoramaviewer.com/blog/" />
+<link rel="stylesheet" href="/blog/blog.css" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="360 Panorama Viewer" />
+<meta property="og:title" content="360 Panorama Guides: Projection, HDRI and Publishing Fixes" />
+<meta property="og:description" content="Practical 360 panorama guides: fix flat uploads, understand equirectangular projection, make a panorama without a 360 camera, and compare HDRI with LDR." />
+<meta property="og:url" content="https://360panoramaviewer.com/blog/" />
+<meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="360 Panorama Guides: Projection, HDRI and Publishing Fixes" />
+<meta name="twitter:description" content="Practical 360 panorama guides: fix flat uploads, understand equirectangular projection, make a panorama without a 360 camera, and compare HDRI with LDR." />
+<meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "CollectionPage",
+      "@id": "https://360panoramaviewer.com/blog/",
+      "name": "360 Panorama Guides and Fixes",
+      "url": "https://360panoramaviewer.com/blog/",
+      "description": "Practical guides to creating, viewing, converting and publishing 360 panoramas and HDR environments.",
+      "inLanguage": "en",
+      "mainEntity": {
+        "@type": "ItemList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Facebook 360 Photo Not Working? 7 Checks for a Flat Upload",
+            "url": "https://360panoramaviewer.com/blog/facebook-360-photo-not-working/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Equirectangular Projection Explained: 2:1, Poles and Seams",
+            "url": "https://360panoramaviewer.com/blog/equirectangular-projection-explained/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "How to Make a 360 Panorama Without a 360 Camera",
+            "url": "https://360panoramaviewer.com/blog/how-to-make-a-360-panorama-without-a-360-camera/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 4,
+            "name": "HDRI vs LDR Environment Maps: Lighting, Formats and Tone Mapping",
+            "url": "https://360panoramaviewer.com/blog/hdri-vs-ldr-environment-lighting/"
+          }
+        ]
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://360panoramaviewer.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Guides",
+          "item": "https://360panoramaviewer.com/blog/"
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="topbar"><div class="wrap"><a class="brand" href="/">360 Panorama Viewer</a><nav aria-label="Main navigation"><a href="/360-panorama-viewer/">360 Viewer</a><a href="/hdri-viewer/">HDRI Viewer</a><a href="/cubemap-generator/">Cubemap</a><a href="/360-metadata-injector/">Metadata</a><a href="/blog/">Guides</a></nav></div></header>
+<main id="main-content" class="wrap">
+<nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Home</a> / <span aria-current="page">Guides</span></nav>
+<p class="eyebrow">Create / Inspect / Convert / Publish</p>
+<h1>360 Panorama Guides &amp; Fixes</h1>
+<p class="standfirst">Pick a practical answer to the problem in front of you. Each guide connects to a working browser tool, with format limits and export behavior explained.</p>
+<h2>Start with your task</h2>
+<div class="grid"><a class="card" href="/blog/facebook-360-photo-not-working/"><span class="eyebrow">Publishing / Troubleshooting</span><strong>Facebook 360 Photo Not Working? 7 Checks for a Flat Upload</strong><span>Troubleshoot a flat Facebook 360 photo: check projection, GPano tags, export format and upload path, then repair metadata locally in your browser.</span></a><a class="card" href="/blog/equirectangular-projection-explained/"><span class="eyebrow">Formats / Projection</span><strong>Equirectangular Projection Explained: 2:1, Poles and Seams</strong><span>Understand the 2:1 panorama format, pixel-to-angle mapping, pole stretching and wraparound seams. Compare equirectangular images with cube faces.</span></a><a class="card" href="/blog/how-to-make-a-360-panorama-without-a-360-camera/"><span class="eyebrow">Creation / Workflow</span><strong>How to Make a 360 Panorama Without a 360 Camera</strong><span>Compare four ways to make a 360 panorama: AI expansion, phone panoramas, multi-shot stitching and 3D renders. Learn what each captures and how to publish.</span></a><a class="card" href="/blog/hdri-vs-ldr-environment-lighting/"><span class="eyebrow">Lighting / File Formats</span><strong>HDRI vs LDR Environment Maps: Lighting, Formats and Tone Mapping</strong><span>Learn how HDRI and LDR environment maps differ, why a .hdr extension is not proof of captured range, and when to keep linear pixels or export a preview.</span></a></div>
+<h2>Need a tool right now?</h2>
+<p>Open a complete JPEG or PNG in the <a href="/360-panorama-viewer/">360 panorama viewer</a>, inspect a Radiance file in the <a href="/hdri-viewer/">HDRI viewer</a>, or repair panorama tags with the <a href="/360-metadata-injector/">metadata injector</a>. These local tools work without an account.</p>
+<p>For a new environment, try the <a href="/photo-to-360-converter/">photo to 360 converter</a> or <a href="/text-to-panorama-ai/">text to panorama studio</a>. AI generation uses account credits; viewing and local conversion are free.</p>
+<h2>Keep projection and dynamic range separate</h2>
+<p>A 2:1 rectangle describes the usual full-sphere layout. A .hdr extension describes a file container. Neither guarantees a complete, correctly captured HDR environment. The guides explain how to check source coverage, lighting values, metadata and orientation before sending a file to another app.</p>
+
+</main>
+<footer><div class="wrap"><strong>360 Panorama Viewer</strong><p>Browser tools and practical guides for 360 images, skyboxes and environment maps.</p><nav aria-label="Footer navigation"><a href="/">Home</a><a href="/blog/">All guides</a><a href="/360-panorama-viewer/">360 viewer</a><a href="/hdri-viewer/">HDRI viewer</a><a href="/developers/">Developer docs</a></nav></div></footer>
+</body>
+</html>

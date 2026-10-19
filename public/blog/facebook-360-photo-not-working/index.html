@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Facebook 360 Photo Not Working? 7 Checks for a Flat Upload</title>
+<meta name="description" content="Troubleshoot a flat Facebook 360 photo: check projection, GPano tags, export format and upload path, then repair metadata locally in your browser." />
+<meta name="author" content="360 Panorama Viewer" />
+<meta name="robots" content="index, follow, max-image-preview:large" />
+<meta name="theme-color" content="#040c1a" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="canonical" href="https://360panoramaviewer.com/blog/facebook-360-photo-not-working/" />
+<link rel="stylesheet" href="/blog/blog.css" />
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="360 Panorama Viewer" />
+<meta property="og:title" content="Facebook 360 Photo Not Working? 7 Checks for a Flat Upload" />
+<meta property="og:description" content="Troubleshoot a flat Facebook 360 photo: check projection, GPano tags, export format and upload path, then repair metadata locally in your browser." />
+<meta property="og:url" content="https://360panoramaviewer.com/blog/facebook-360-photo-not-working/" />
+<meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Facebook 360 Photo Not Working? 7 Checks for a Flat Upload" />
+<meta name="twitter:description" content="Troubleshoot a flat Facebook 360 photo: check projection, GPano tags, export format and upload path, then repair metadata locally in your browser." />
+<meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://360panoramaviewer.com/blog/facebook-360-photo-not-working/#post",
+      "headline": "Facebook 360 Photo Not Working? 7 Checks for a Flat Upload",
+      "description": "Troubleshoot a flat Facebook 360 photo: check projection, GPano tags, export format and upload path, then repair metadata locally in your browser.",
+      "datePublished": "2026-10-19",
+      "dateModified": "2026-10-19",
+      "inLanguage": "en",
+      "author": {
+        "@type": "Organization",
+        "name": "360 Panorama Viewer",
+        "url": "https://360panoramaviewer.com/"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "360 Panorama Viewer",
+        "url": "https://360panoramaviewer.com/"
+      },
+      "mainEntityOfPage": "https://360panoramaviewer.com/blog/facebook-360-photo-not-working/",
+      "image": "https://360panoramaviewer.com/og-preview.png"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://360panoramaviewer.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Guides",
+          "item": "https://360panoramaviewer.com/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Facebook 360 Photo Not Working? 7 Checks for a Flat Upload",
+          "item": "https://360panoramaviewer.com/blog/facebook-360-photo-not-working/"
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="topbar"><div class="wrap"><a class="brand" href="/">360 Panorama Viewer</a><nav aria-label="Main navigation"><a href="/360-panorama-viewer/">360 Viewer</a><a href="/hdri-viewer/">HDRI Viewer</a><a href="/cubemap-generator/">Cubemap</a><a href="/360-metadata-injector/">Metadata</a><a href="/blog/">Guides</a></nav></div></header>
+<main id="main-content" class="wrap">
+<nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Home</a> / <a href="/blog/">Guides</a> / <span aria-current="page">Facebook 360 Photo Not Working? 7 Checks for a Flat Upload</span></nav>
+<article>
+<p class="eyebrow">Publishing / Troubleshooting</p>
+<h1>Facebook 360 Photo Not Working? 7 Checks for a Flat Upload</h1>
+<p class="standfirst">A flat upload can come from missing metadata, the wrong projection, or the publishing app. Check the source file first so you know which part of the workflow needs fixing.</p>
+<p class="meta">By 360 Panorama Viewer &middot; Updated <time datetime="2026-10-19">19 October 2026</time> &middot; 4 minute read</p>
+
+<h2>First, check that the file actually contains a sphere</h2>
+<p>Open your image in the <a href="/360-panorama-viewer/">free 360 panorama viewer</a>. Look left, right, up and down. A full photo sphere includes the scene behind the camera, the sky overhead and the ground below. If the image is a narrow phone panorama, an ordinary photograph or a screenshot, changing its metadata cannot create the missing views.</p>
+<p>For a complete equirectangular panorama, use the conventional <strong>2:1 canvas</strong>, such as 4096 &times; 2048. The ratio alone does not prove that the projection is correct. A normal photo stretched to 2:1 still has the wrong geometry. Partial panoramas can use crop metadata to describe their position inside a larger sphere; they do not have to be 2:1 themselves.</p>
+<h2>Seven checks before you upload again</h2>
+<ol>
+<li><strong>Check the projection.</strong> Use the equirectangular export from your camera or stitcher, rather than a fisheye frame, cube-face strip or flat screenshot. A screenshot of a 360 viewer records only the direction you were looking.</li>
+<li><strong>Check the panorama dimensions.</strong> For an uncropped full sphere, the image dimensions and full-panorama dimensions should agree. If you resized the file, stale dimension tags can describe a different image.</li>
+<li><strong>Check for GPano XMP metadata.</strong> This describes the projection and crop. Editors and image optimizers may omit it on export. Search for the GPano namespace with a metadata inspector; a plain-text search can provide a quick clue but is not a complete validation.</li>
+<li><strong>Use the downloaded JPEG.</strong> Our metadata tool exports a JPEG with a Photo Sphere XMP packet. Upload that file directly. PNG and WebP inputs are converted to JPEG; that conversion can change pixels.</li>
+<li><strong>Avoid an intermediate image copy.</strong> A messaging app, screenshot or publishing service may recompress the image or strip its metadata. Compare the file immediately before uploading with the original tagged download.</li>
+<li><strong>Try a different upload client.</strong> If a valid file works in a dedicated viewer but is still flat on Facebook, try the desktop uploader or another current client. Recognition can vary by upload surface and account; correct tags do not guarantee platform support.</li>
+<li><strong>Check the resulting post.</strong> Allow processing to finish and reopen it. If you reduce resolution or otherwise re-export the image to troubleshoot an upload, inspect or repair metadata again afterward.</li>
+</ol>
+<h2>What the GPano dimensions mean</h2>
+<p>These values follow <a href="https://developers.google.com/streetview/spherical-metadata">Google's Photo Sphere XMP specification</a>. For an uncropped 4096 &times; 2048 full sphere, the key values are:</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">GPano field</th><th scope="col">Example value</th></tr></thead><tbody>
+<tr><td><code>ProjectionType</code></td><td><code>equirectangular</code></td></tr>
+<tr><td><code>FullPanoWidthPixels</code></td><td>4096</td></tr>
+<tr><td><code>FullPanoHeightPixels</code></td><td>2048</td></tr>
+<tr><td><code>CroppedAreaImageWidthPixels</code></td><td>4096</td></tr>
+<tr><td><code>CroppedAreaImageHeightPixels</code></td><td>2048</td></tr>
+<tr><td><code>CroppedAreaLeftPixels</code></td><td>0</td></tr>
+<tr><td><code>CroppedAreaTopPixels</code></td><td>0</td></tr>
+</tbody></table></div>
+<p><code>UsePanoramaViewer=True</code> requests spherical viewing, but the receiving application decides how to display the file. Initial-view heading and pitch describe a starting direction; support for those optional controls varies between viewers.</p>
+<div class="callout"><p><strong>Do not fix a partial panorama by pretending it is complete.</strong> Cropping or stretching a phone panorama to 2:1 does not add sky, ground or a missing reverse view. Use a stitcher that preserves partial-sphere crop information, capture a full sphere, or generate the missing scene.</p></div>
+<h2>Repair metadata in the browser</h2>
+<ol><li>Finish editing the full equirectangular image.</li><li>Open the <a href="/360-metadata-injector/">360 metadata injector</a> and choose that final file.</li><li>Select <strong>Inject &amp; Download 360 JPEG</strong>.</li><li>Upload the downloaded JPEG directly, without passing it through another editor.</li></ol>
+<p>JPEG inputs keep their original encoded image data while the panorama packet is added. PNG and WebP inputs are encoded as JPEG first. Processing runs locally in your browser. Keep an original copy so you can compare results.</p>
+<h2>When metadata is not the answer</h2>
+<p>A seam, tilted horizon or blurry sky is a pixel problem. Metadata identifies how to display the scene; it does not repair the scene itself. Use the <a href="/blog/equirectangular-projection-explained/">projection guide</a> to check the geometry. If the social upload path still rejects a valid file, a browser viewer link can be a more dependable way to share the result.</p>
+<p>This guide concerns still photos. A panning clip exported by the <a href="/360-photo-to-video/">360 photo to video tool</a> is a conventional video view of the scene; JPEG tags cannot make a video spherical.</p>
+<h2>Tools for this workflow</h2><div class="grid"><a class="card" href="/360-metadata-injector/"><strong>Repair 360 metadata</strong><span>Add a Photo Sphere XMP packet to a final panorama.</span></a><a class="card" href="/360-panorama-viewer/"><strong>Check the source image</strong><span>Inspect the seam, horizon, zenith and nadir locally.</span></a></div>
+<p><a href="/blog/">Browse all 360 panorama guides</a></p>
+</article>
+</main>
+<footer><div class="wrap"><strong>360 Panorama Viewer</strong><p>Browser tools and practical guides for 360 images, skyboxes and environment maps.</p><nav aria-label="Footer navigation"><a href="/">Home</a><a href="/blog/">All guides</a><a href="/360-panorama-viewer/">360 viewer</a><a href="/hdri-viewer/">HDRI viewer</a><a href="/developers/">Developer docs</a></nav></div></footer>
+</body>
+</html>

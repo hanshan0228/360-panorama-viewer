@@ -158,7 +158,7 @@ Checks: `node --test tests/shares.test.mjs` and the account-isolation/public-vie
 
 ### Programmatic SEO landing pages
 
-Competitor analysis of `panoramagenerator.com` (9 月 sitemap 新增 75 个 URL 后搜索流量 549 → 2101) showed that depth per query cluster, gap-filling tool pages and localized long-form content drive the growth. This repo now mirrors the cheap half of that playbook with query-cluster landing pages: `/photo-to-globe/` (map to globe / maptoglobe), `/cubemap-to-equirectangular/` (6 faces back to 2:1 — a real inverse-projection tool, not just copy), `/text-to-panorama-ai/` (prompt library that loads prompts into the studio), and `/developers/` (embed + JSON API, the link magnet AI directories pick up).
+Dedicated tool pages and a guide hub organize distinct panorama workflows. Landing pages include `/photo-to-globe/` (map to globe / maptoglobe), `/cubemap-to-equirectangular/` (six faces back to 2:1), `/text-to-panorama-ai/` (prompt library that loads prompts into the studio), `/developers/` (embed + JSON API), and `/hdri-viewer/` (Radiance RGBE decoding, exposure-controlled preview and tone-mapped PNG/cube-face export).
 
 Adding a landing page touches five places, all required:
 
@@ -169,6 +169,14 @@ Adding a landing page touches five places, all required:
 5. `src/App.tsx` — a `getInitialTabFromLocation()` branch (order matters: specific slugs must be tested before the generic `cubemap`/`viewer` ones), an entry in `tabSeoMap`, an entry in `slugMap`, a `navigateTo()` case, and a footer link so the page is reachable from every route.
 
 The cubemap stitcher is the exact inverse of the slicer, and `tests/cubemap_stitch.test.mjs` proves it with a slice → stitch round trip that must land within a mean absolute error of 12/255 on a longitude/latitude gradient.
+
+The HDRI viewer uses the installed Three.js `HDRLoader`, ACES-style tone mapping and the existing cubemap slicer. Files are capped at 50 MiB and 8192 x 4096 pixels in total, with an 8192-pixel maximum side. Header dimensions are checked before float decoding. Cube export and 360 viewing require a full 2:1 equirectangular image. The PNG downloads are 8-bit display images; the original HDR is needed for HDR lighting. OpenEXR is not supported. Run `node --test tests/hdr_tone_map.test.mjs` for the decoding/tone-mapping checks.
+
+### Static guides (`public/blog/`)
+
+The guide hub and four articles are plain HTML with one shared `blog.css`. Vite copies them to `dist/blog/` without route registration or a new build entry. Each article has its own title, description, canonical, social tags, `BlogPosting` and breadcrumb JSON-LD, visible author/date, and contextual links to tools. The hub uses `CollectionPage`/`ItemList` data and is linked from the app footer. Add a new article to the hub and `public/sitemap.xml`; keep factual format limits and any structured data consistent with the actual tool behavior.
+
+Check guide directory URLs with `npm run build` followed by `npm run preview`; Vite development mode can serve the SPA fallback for `/blog/` instead of the public directory's `index.html`. HDRI upload, exposure, cube ZIP export and invalid-input regressions are covered by the two `test_hdri_*` cases in `tests/viewer_cubemap_browser.py` against the development server. `PLAYWRIGHT_CHROMIUM_EXECUTABLE` optionally selects an installed Chromium binary.
 
 ### Private generated works (Cloudflare)
 Signed-in permanent accounts automatically archive each new model original in private cloud history. Open **My works** in the studio preview toolbar to reopen a panorama, download the exact original, create an explicit public share, or delete the private original. Existing public links are managed separately in Share panorama. Guest results and images generated before this feature are not archived.

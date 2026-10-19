@@ -43,6 +43,7 @@ import {
 import { generateProceduralPanorama } from './utils/proceduralPanoramas';
 import { fetchServerUser, fetchPublicModelsConfig, fetchPublicBillingConfig, initServerGuestUser } from './utils/commercialApi';
 import { AiHdriGeneratorPage } from './components/landing/AiHdriGeneratorPage';
+import { HdriViewerPage } from './components/landing/HdriViewerPage';
 import { SkyboxGeneratorPage } from './components/landing/SkyboxGeneratorPage';
 import { PhotoTo360Page } from './components/landing/PhotoTo360Page';
 import { CubemapGeneratorPage } from './components/landing/CubemapGeneratorPage';
@@ -61,6 +62,7 @@ function getInitialTabFromLocation(): ActiveTab {
   const hash = window.location.hash.toLowerCase();
 
   if (path.includes('ai-hdri-generator') || hash.includes('ai-hdri-generator')) return 'landing-hdri';
+  if (path.includes('hdri-viewer') || hash.includes('hdri-viewer')) return 'landing-hdri-viewer';
   if (path.includes('skybox-generator') || hash.includes('skybox-generator')) return 'landing-skybox';
   if (path.includes('photo-to-360-converter') || hash.includes('photo-to-360-converter')) return 'landing-photo360';
   if (path.includes('cubemap-generator') || hash.includes('cubemap-generator')) return 'landing-cubemap';
@@ -308,6 +310,10 @@ export function App() {
         title: 'Cubemap to Equirectangular Converter — Free 2:1 Panorama Maker',
         desc: 'Turn 6 cube faces (posx, negx, posy, negy, posz, negz) back into one seamless 2:1 equirectangular 360° panorama. Free online, client-side, PNG export up to 4096×2048.',
       },
+      'landing-hdri-viewer': {
+        title: 'HDRI Viewer — Open .HDR Files Online & Export Cubemap Faces',
+        desc: 'Free HDRI viewer: open .hdr files locally, adjust exposure and export a tone-mapped PNG or six cube faces. No account, no upload. Up to 8K.',
+      },
       'landing-text2pano': {
         title: 'Text to Panorama AI — Free 360° Prompt Generator Online',
         desc: 'Describe a scene and get a seamless 2:1 equirectangular 360° panorama. Free text to panorama AI with a copy-ready prompt library, seam healing, cubemap slicing and .HDR export.',
@@ -344,6 +350,7 @@ export function App() {
         'landing-metadata': '360-metadata-injector/',
         'landing-video': '360-photo-to-video/',
         'landing-cube2eq': 'cubemap-to-equirectangular/',
+        'landing-hdri-viewer': 'hdri-viewer/',
         'landing-text2pano': 'text-to-panorama-ai/',
         developers: 'developers/',
         viewer: '360-panorama-viewer/',
@@ -383,6 +390,7 @@ export function App() {
         case 'landing-metadata': return '/360-metadata-injector/';
         case 'landing-video': return '/360-photo-to-video/';
         case 'landing-cube2eq': return '/cubemap-to-equirectangular/';
+        case 'landing-hdri-viewer': return '/hdri-viewer/';
         case 'landing-text2pano': return '/text-to-panorama-ai/';
         case 'developers': return '/developers/';
         case 'generator': return '/';
@@ -968,6 +976,13 @@ export function App() {
             onLaunchStudio={() => navigateTo('generator', '/')}
           />
         )}
+        {activeTab === 'landing-hdri-viewer' && (
+          <HdriViewerPage
+            onNavigateTab={navigateTo}
+            onPanoramaChange={setCurrentPanoramaUrl}
+            onLaunchStudio={() => navigateTo('generator', '/')}
+          />
+        )}
         {activeTab === 'landing-text2pano' && (
           <TextToPanoramaPage
             onUsePrompt={(prompt, style) => {
@@ -1205,6 +1220,16 @@ export function App() {
                     <span className="text-[9px] font-mono px-1 rounded bg-cyan-400/20 text-cyan-300">PROMPT</span>
                   </a>
                 </li>
+                <li>
+                  <a
+                    href="/hdri-viewer/"
+                    onClick={(e) => { e.preventDefault(); navigateTo('landing-hdri-viewer', '/hdri-viewer/'); }}
+                    className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center justify-between"
+                  >
+                    <span>HDRI Viewer &amp; Cube Export</span>
+                    <span className="text-[9px] font-mono px-1 rounded bg-amber-400/20 text-amber-300">.HDR</span>
+                  </a>
+                </li>
               </ul>
             </div>
 
@@ -1246,6 +1271,9 @@ export function App() {
             <div className="space-y-3">
               <h4 className="text-white font-bold text-xs uppercase tracking-wider">Company &amp; Legal</h4>
               <ul className="space-y-2 text-xs">
+                <li>
+                  <a href="/blog/" className="hover:text-cyan-300 transition-colors">360 Panorama Guides &amp; Fixes</a>
+                </li>
                 <li>
                   <button type="button" onClick={() => navigateTo('pricing', '/#pricing')} className="hover:text-cyan-300 transition-colors cursor-pointer">
                     Pricing &amp; API Plans

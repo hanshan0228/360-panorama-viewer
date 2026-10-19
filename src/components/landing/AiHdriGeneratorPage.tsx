@@ -109,6 +109,14 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
               <Box className="w-4 h-4 text-cyan-400" />
               <span>Cubemap 6-Face Slicer</span>
             </button>
+
+            <a
+              href="/hdri-viewer/"
+              className="px-5 py-3.5 rounded-xl font-semibold text-sm bg-cyan-950/60 border border-amber-500/40 text-amber-200 hover:text-white hover:bg-cyan-900/60 transition-all cursor-pointer flex items-center gap-2"
+            >
+              <Sun className="w-4 h-4 text-amber-400" />
+              <span>Open a .HDR File</span>
+            </a>
           </div>
 
           <div className="flex flex-wrap items-center gap-6 pt-4 text-xs text-cyan-300/70 border-t border-cyan-500/15">

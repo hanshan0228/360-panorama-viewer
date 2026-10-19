@@ -1,0 +1,208 @@
+/* Shared shell for the static guide pages. Kept as one small file so the
+   articles stay plain HTML that Cloudflare Pages can serve without a build. */
+:root {
+  --bg: #040c1a;
+  --panel: #05142b;
+  --line: rgba(34, 211, 238, 0.22);
+  --ink: #e6f6ff;
+  --muted: #93b8cc;
+  --cyan: #22d3ee;
+  --teal: #2dd4bf;
+  --amber: #fbbf24;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 15% -10%, rgba(34, 211, 238, 0.16), transparent 45%),
+    radial-gradient(circle at 90% 0%, rgba(251, 191, 36, 0.1), transparent 40%),
+    var(--bg);
+  color: var(--ink);
+  font: 16px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+a { color: var(--cyan); }
+a:focus-visible { outline: 2px solid var(--amber); outline-offset: 4px; }
+.skip-link { position: fixed; top: -5rem; left: 1rem; z-index: 10; padding: 0.6rem 1rem; background: var(--panel); }
+.skip-link:focus { top: 0.5rem; }
+.breadcrumbs { margin: 1.5rem 0; font-size: 0.75rem; color: var(--muted); }
+.breadcrumbs a { text-decoration: none; }
+
+.wrap { max-width: 46rem; margin: 0 auto; padding: 0 1.25rem; }
+
+.topbar {
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+  background: rgba(4, 12, 26, 0.8);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.topbar .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  padding: 0.85rem 1.25rem;
+}
+
+.brand {
+  font-weight: 800;
+  color: var(--ink);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.topbar nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  font-size: 0.8rem;
+}
+
+.topbar nav a { color: var(--muted); text-decoration: none; }
+.topbar nav a:hover { color: var(--cyan); }
+
+main { padding: 2.5rem 0 1rem; }
+
+.eyebrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+
+h1 {
+  font-size: clamp(1.75rem, 4vw, 2.6rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin: 0.6rem 0 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.standfirst { font-size: 1.05rem; color: var(--muted); margin: 0 0 1rem; }
+
+.meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 0.6rem 0;
+  margin-bottom: 2rem;
+}
+
+h2 {
+  font-size: 1.4rem;
+  letter-spacing: -0.01em;
+  margin: 2.5rem 0 0.75rem;
+  padding-top: 0.25rem;
+}
+
+h3 { font-size: 1.08rem; margin: 1.75rem 0 0.4rem; }
+
+p, li { color: #d3ecf8; }
+
+ul, ol { padding-left: 1.2rem; }
+li { margin: 0.4rem 0; }
+
+strong { color: #fff; }
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86em;
+  background: rgba(34, 211, 238, 0.12);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  overflow-wrap: anywhere;
+}
+
+pre { max-width: 100%; overflow-x: auto; padding: 1rem; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+pre code { background: none; border: 0; padding: 0; }
+.table-wrap { overflow-x: auto; }
+
+.callout {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--teal);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin: 1.75rem 0;
+  font-size: 0.94rem;
+}
+
+.callout p:first-child { margin-top: 0; }
+.callout p:last-child { margin-bottom: 0; }
+
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  background: linear-gradient(120deg, #031d42, #042858 55%, #011430);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+  margin: 2.5rem 0;
+}
+
+.cta p { margin: 0; flex: 1 1 16rem; font-size: 0.92rem; color: var(--muted); }
+
+.button {
+  display: inline-block;
+  padding: 0.7rem 1.2rem;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--cyan), var(--teal));
+  color: #04121f;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.button.ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--cyan);
+}
+
+table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.88rem; }
+th, td { text-align: left; padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--line); }
+th { color: var(--teal); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1rem 1.15rem;
+  text-decoration: none;
+  display: block;
+}
+
+.card:hover { border-color: rgba(34, 211, 238, 0.55); }
+.card strong { display: block; color: #fff; font-size: 0.95rem; }
+.card span { display: block; color: var(--muted); font-size: 0.82rem; margin-top: 0.25rem; }
+
+footer {
+  border-top: 1px solid var(--line);
+  margin-top: 3rem;
+  padding: 1.75rem 0 3rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+footer nav { display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem; margin-top: 0.75rem; }
+footer nav a { color: var(--muted); text-decoration: none; }
+footer nav a:hover { color: var(--cyan); }

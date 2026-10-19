@@ -84,6 +84,7 @@ export type ActiveTab =
   | 'pricing'
   | 'admin'
   | 'landing-hdri'
+  | 'landing-hdri-viewer'
   | 'landing-skybox'
   | 'landing-photo360'
   | 'landing-cubemap'

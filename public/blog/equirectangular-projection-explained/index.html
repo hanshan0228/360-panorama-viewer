@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Equirectangular Projection Explained: 2:1, Poles and Seams</title>
+<meta name="description" content="Understand the 2:1 panorama format, pixel-to-angle mapping, pole stretching and wraparound seams. Compare equirectangular images with cube faces." />
+<meta name="author" content="360 Panorama Viewer" />
+<meta name="robots" content="index, follow, max-image-preview:large" />
+<meta name="theme-color" content="#040c1a" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="canonical" href="https://360panoramaviewer.com/blog/equirectangular-projection-explained/" />
+<link rel="stylesheet" href="/blog/blog.css" />
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="360 Panorama Viewer" />
+<meta property="og:title" content="Equirectangular Projection Explained: 2:1, Poles and Seams" />
+<meta property="og:description" content="Understand the 2:1 panorama format, pixel-to-angle mapping, pole stretching and wraparound seams. Compare equirectangular images with cube faces." />
+<meta property="og:url" content="https://360panoramaviewer.com/blog/equirectangular-projection-explained/" />
+<meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Equirectangular Projection Explained: 2:1, Poles and Seams" />
+<meta name="twitter:description" content="Understand the 2:1 panorama format, pixel-to-angle mapping, pole stretching and wraparound seams. Compare equirectangular images with cube faces." />
+<meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://360panoramaviewer.com/blog/equirectangular-projection-explained/#post",
+      "headline": "Equirectangular Projection Explained: 2:1, Poles and Seams",
+      "description": "Understand the 2:1 panorama format, pixel-to-angle mapping, pole stretching and wraparound seams. Compare equirectangular images with cube faces.",
+      "datePublished": "2026-10-19",
+      "dateModified": "2026-10-19",
+      "inLanguage": "en",
+      "author": {
+        "@type": "Organization",
+        "name": "360 Panorama Viewer",
+        "url": "https://360panoramaviewer.com/"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "360 Panorama Viewer",
+        "url": "https://360panoramaviewer.com/"
+      },
+      "mainEntityOfPage": "https://360panoramaviewer.com/blog/equirectangular-projection-explained/",
+      "image": "https://360panoramaviewer.com/og-preview.png"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://360panoramaviewer.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Guides",
+          "item": "https://360panoramaviewer.com/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Equirectangular Projection Explained: 2:1, Poles and Seams",
+          "item": "https://360panoramaviewer.com/blog/equirectangular-projection-explained/"
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="topbar"><div class="wrap"><a class="brand" href="/">360 Panorama Viewer</a><nav aria-label="Main navigation"><a href="/360-panorama-viewer/">360 Viewer</a><a href="/hdri-viewer/">HDRI Viewer</a><a href="/cubemap-generator/">Cubemap</a><a href="/360-metadata-injector/">Metadata</a><a href="/blog/">Guides</a></nav></div></header>
+<main id="main-content" class="wrap">
+<nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Home</a> / <a href="/blog/">Guides</a> / <span aria-current="page">Equirectangular Projection Explained: 2:1, Poles and Seams</span></nav>
+<article>
+<p class="eyebrow">Formats / Projection</p>
+<h1>Equirectangular Projection Explained: 2:1, Poles and Seams</h1>
+<p class="standfirst">Equirectangular projection puts longitude on the horizontal axis and latitude on the vertical axis. Understanding that mapping makes 360 exports, seams and cubemap conversions much easier to diagnose.</p>
+<p class="meta">By 360 Panorama Viewer &middot; Updated <time datetime="2026-10-19">19 October 2026</time> &middot; 4 minute read</p>
+
+<h2>What an equirectangular panorama stores</h2>
+<p>A full equirectangular panorama records every direction around one viewpoint in a rectangle. Moving left or right changes longitude, also called yaw. Moving up or down changes latitude, or pitch. The middle row is the horizon, the top is the zenith and the bottom is the nadir. The left and right boundaries meet when the image wraps around a sphere.</p>
+<p>A flat preview looks distorted because it displays all those directions at once. A <a href="/360-panorama-viewer/">360 panorama viewer</a> samples a smaller field of view from the image and draws a perspective view. You rotate that view to explore the rest of the scene.</p>
+<h2>Why the usual full-sphere image is 2:1</h2>
+<p>A complete sphere spans <strong>360 degrees horizontally and 180 degrees vertically</strong>. With equal angular spacing on both axes, the width is twice the height: 4096 &times; 2048, for example. That is the conventional 2:1 equirectangular export used by many 360 workflows.</p>
+<p>The aspect ratio is a useful check, not a proof of projection. A renderer can map a non-2:1 texture onto a full sphere with unequal angular sampling, while a cropped panorama can legitimately cover less than the full sphere. A normal photograph resized to 2:1 still contains only its original field of view.</p>
+<div class="callout"><p><strong>Full sphere or partial panorama?</strong> A phone's horizontal panorama mode usually captures a band around the horizon. It may omit the sky and ground even if the sweep covers 360 degrees. Use crop-aware metadata for a partial sphere, or capture or generate the missing directions before treating it as a complete one.</p></div>
+<h2>Pixel coordinates become viewing angles</h2>
+<p>For a full sphere with width <code>W</code> and height <code>H</code>, use pixel centers when computing angles:</p>
+<pre><code>u = (x + 0.5) / W
+v = (y + 0.5) / H
+yaw   = 360 * u - 180
+pitch = 90 - 180 * v</code></pre>
+<p>The horizontal coordinate wraps around; the vertical coordinate stops at the poles. The yaw origin and axis signs can vary between applications, so a quarter-turn offset may be a coordinate convention rather than a broken export. At 4096 pixels wide, one pixel covers about 0.088 degrees of longitude. A 90-degree view spans roughly 1024 source pixels along the equator, which explains why a large flat image can still look soft inside a viewer.</p>
+<h2>Why the poles stretch</h2>
+<p>Each row stores a full sweep of longitude. Near a pole, those directions occupy a much smaller ring on the sphere, yet still receive a whole row of pixels in the rectangle. The flat image therefore spreads a small overhead region across its full width. This is projection distortion, and converting it to another format cannot recover detail that was never captured.</p>
+<p>A tripod near the nadir or a cloud overhead can look smeared in the flat image and still look reasonable in a perspective view. Inspect the poles inside a viewer before retouching them. Place text near the horizon if it needs to be readable; a logo painted across the top row will not behave like a flat banner overhead.</p>
+<h2>Why a vertical seam appears</h2>
+<p>The last column and first column are adjacent directions. A visible brightness or color jump between them becomes a vertical seam in the sphere. Stitching errors, exposure changes between shots, ordinary image edits and generated content can all create that mismatch.</p>
+<p>Check the seam by rotating through the wraparound direction in the viewer. Nearby pixels should continue smoothly, but the first and last columns do not need to be identical: their pixel centers sample slightly different directions. Fixing the join should preserve local structure instead of copying a wide strip from one edge onto the other.</p>
+<h2>Equirectangular versus cubemap</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">Property</th><th scope="col">Equirectangular</th><th scope="col">Cubemap</th></tr></thead><tbody>
+<tr><td>Layout</td><td>One rectangle, conventionally 2:1</td><td>Six square perspective faces</td></tr>
+<tr><td>Distortion</td><td>Strong near the poles</td><td>Uneven sampling near face edges and corners</td></tr>
+<tr><td>Boundaries</td><td>Horizontal wrap and two poles</td><td>Joins between all neighboring faces</td></tr>
+<tr><td>Typical workflow</td><td>Panorama sharing and editing</td><td>Skyboxes and cube textures</td></tr>
+<tr><td>Dynamic range</td><td>Depends on pixel format</td><td>Depends on pixel format</td></tr>
+</tbody></table></div>
+<p>A cubemap is a projection, not a guarantee of HDR. Six PNG faces are normally display images; floating-point faces can hold scene-linear lighting values. Likewise, an equirectangular file can be a JPEG, Radiance HDR or OpenEXR. Read the <a href="/blog/hdri-vs-ldr-environment-lighting/">HDRI versus LDR guide</a> before choosing an environment for lighting.</p>
+<h2>A reliable conversion workflow</h2>
+<ol><li>Keep the original file and confirm whether it covers a full sphere.</li><li>Inspect its horizon, poles and wraparound seam in a viewer.</li><li>Use the <a href="/cubemap-generator/">cubemap generator</a> when you need six PNG faces, or the <a href="/cubemap-to-equirectangular/">cubemap to equirectangular converter</a> for the reverse direction.</li><li>Check orientation in the destination engine. Conventions for front, up and face rotation differ.</li><li>Add or update metadata after the final resize or crop, using the <a href="/360-metadata-injector/">metadata injector</a> for a complete panorama.</li></ol>
+<p>For crop and dimension fields, consult <a href="https://developers.google.com/streetview/spherical-metadata">Google's Photo Sphere metadata reference</a>. It includes separate examples for full and partial spheres.</p>
+<h2>Tools for this workflow</h2><div class="grid"><a class="card" href="/cubemap-generator/"><strong>Panorama to cubemap</strong><span>Convert a complete sphere into six PNG faces.</span></a><a class="card" href="/cubemap-to-equirectangular/"><strong>Cubemap to panorama</strong><span>Reproject six cube faces into one 2:1 image.</span></a></div>
+<p><a href="/blog/">Browse all 360 panorama guides</a></p>
+</article>
+</main>
+<footer><div class="wrap"><strong>360 Panorama Viewer</strong><p>Browser tools and practical guides for 360 images, skyboxes and environment maps.</p><nav aria-label="Footer navigation"><a href="/">Home</a><a href="/blog/">All guides</a><a href="/360-panorama-viewer/">360 viewer</a><a href="/hdri-viewer/">HDRI viewer</a><a href="/developers/">Developer docs</a></nav></div></footer>
+</body>
+</html>

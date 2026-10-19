@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Primary Meta Tags -->
+    <title>HDRI Viewer — Open .HDR Files Online &amp; Export Cubemap Faces</title>
+    <meta name="title" content="HDRI Viewer — Open .HDR Files Online &amp; Export Cubemap Faces" />
+    <meta
+      name="description"
+      content="Free HDRI viewer: open .hdr files locally, adjust exposure and export a tone-mapped PNG or six cube faces. No account, no upload. Up to 8K."
+    />
+    <meta name="author" content="360 Panorama Viewer" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <link rel="canonical" href="https://360panoramaviewer.com/hdri-viewer/" />
+    <meta name="theme-color" content="#040c1a" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:site_name" content="360 Panorama Viewer" />
+    <meta property="og:url" content="https://360panoramaviewer.com/hdri-viewer/" />
+    <meta property="og:title" content="HDRI Viewer — Open .HDR Files Online and Export Cube Faces" />
+    <meta
+      property="og:description"
+      content="Decode Radiance .hdr files in the browser with real exposure control, then export a tone-mapped 2:1 PNG or six cube faces for Blender, Unreal Engine and Unity."
+    />
+    <meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://360panoramaviewer.com/hdri-viewer/" />
+    <meta name="twitter:title" content="HDRI Viewer — Open .HDR Files Online and Export Cube Faces" />
+    <meta
+      name="twitter:description"
+      content="A browser HDRI viewer with ACES tone mapping, exposure control and 6-face cubemap export. Client-side, free, no upload."
+    />
+    <meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
+
+    <!-- Schema.org JSON-LD Structured Data -->
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "@id": "https://360panoramaviewer.com/hdri-viewer/#software",
+      "name": "HDRI Viewer",
+      "headline": "Open Radiance .HDR Files in the Browser and Export Cube Faces",
+      "description": "Open Radiance .hdr files locally, inspect with exposure from -10 to +6 EV and ACES-style tone mapping, and export an 8-bit PNG or six tone-mapped PNG cube faces.",
+      "applicationCategory": "DesignApplication",
+      "operatingSystem": "All, Web Browser",
+      "url": "https://360panoramaviewer.com/hdri-viewer/",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "description": "100% Free Client-Side Tool"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://360panoramaviewer.com/hdri-viewer/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://360panoramaviewer.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "HDRI Viewer",
+          "item": "https://360panoramaviewer.com/hdri-viewer/"
+        }
+      ]
+    },
+    {
+      "@type": "HowTo",
+      "@id": "https://360panoramaviewer.com/hdri-viewer/#howto",
+      "name": "How to Open an HDRI in the Browser",
+      "description": "Step-by-step guide to previewing a Radiance .hdr environment map online and exporting it as a PNG or six cube faces.",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "position": 1,
+          "name": "Load the .hdr file",
+          "text": "Drop a Radiance .hdr environment map from Poly Haven, Blender, Unreal Engine, Substance or your own capture into the viewer. PNG, JPEG and WEBP equirectangular images also open."
+        },
+        {
+          "@type": "HowToStep",
+          "position": 2,
+          "name": "Set exposure",
+          "text": "Adjust exposure from -10 to +6 EV before tone mapping to inspect bright lights and shadows in the decoded linear pixels."
+        },
+        {
+          "@type": "HowToStep",
+          "position": 3,
+          "name": "Download the tone-mapped PNG",
+          "text": "Export the ACES tone-mapped 2:1 frame as a PNG for documentation, thumbnails or a 360 viewer that expects an 8-bit image."
+        },
+        {
+          "@type": "HowToStep",
+          "position": 4,
+          "name": "Slice cube faces",
+          "text": "Use a full 2:1 panorama to create 512, 1024 or 2048 pixel PNG cube faces. These are tone-mapped display images; retain the source HDR for lighting."
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://360panoramaviewer.com/hdri-viewer/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What exactly is a Radiance .hdr / HDRI file?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It is the Radiance RGBE picture format: every pixel stores four bytes \u2014 a shared exponent plus three mantissas \u2014 which lets one file hold both a dim interior and a sun disk thousands of times brighter. 360\u00b0 environment versions of those files are called HDRIs, and 3D packages use them for image-based lighting so sky, sun and bounce colour all light the scene at once."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can a normal browser open .hdr files?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Browsers decode PNG, JPEG, WEBP and AVIF but have no Radiance RGBE decoder, so dropping an .hdr into an image tag fails silently. This viewer parses the header, unpacks the run-length encoded RGBE scanlines in JavaScript, and only then hands the pixels to a canvas."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is .hdr the same as .exr?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Both are high dynamic range, but they are different containers. Radiance .hdr (RGBE) is compact, universally readable and stores roughly one shared 8-bit exponent per pixel. OpenEXR stores full 16- or 32-bit floats per channel, supports multiple render passes, and is the format VFX pipelines exchange. This viewer reads .hdr; for .exr, convert to .hdr or to a tone-mapped 2:1 image first."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why do my highlights look flat or the picture look washed out?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Two reasons. First, every HDR preview has to compress a huge range onto an 8-bit screen, so the filmic curve trades some contrast for highlight roll-off: raise or lower exposure until the sun reads correctly. Second, if the file came from an 8-bit source re-wrapped as Radiance (the .HDR download from this site works that way too), it never contained values above 1.0, so there is no extra range to recover."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I turn an HDRI into a cubemap for Unity, Unreal Engine or Blender?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Load a full 2:1 equirectangular .hdr, set the preview exposure, and slice 512, 1024 or 2048 px faces. The ZIP contains posx, negx, posy, negy, posz, negz PNGs. They are tone-mapped 8-bit skybox images, not HDR lighting maps. Check axis orientation in the destination shader; keep the original .hdr for image-based lighting."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my HDRI uploaded to a server?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Decoding, tone mapping, slicing and ZIP packaging all happen in your browser with typed arrays and Canvas pixels. Client work, unreleased environments and camera-scanned panoramas stay on your machine."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What resolution and file size can it handle?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Files must be under 50 MiB, at most 8192 pixels per side and no more than 8192x4096 pixels in total. Float decoding uses much more memory than the compressed file, so start with a 1K or 2K HDRI on a phone. OpenEXR is not supported. The 360 preview and cube export require a full 2:1 equirectangular panorama."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I view Poly Haven or Blender demo HDRIs with it?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Any standard Radiance RGBE file works, including the 1K, 2K, 4K and 8K HDRIs from Poly Haven, Blender Studio, Unreal Marketplace packs and Substance panoramas. Nothing is bundled, re-uploaded or cached by the site."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+  </head>
+  <body>
+    <div id="root">
+      <noscript>
+<main>
+<nav aria-label="Breadcrumb"><a href="/">Home</a> / HDRI Viewer</nav>
+<h1>HDRI Viewer - Open .HDR Files Online and Export Cube Faces</h1>
+<p>Open Radiance RGBE environment maps locally in your browser. The interactive tool requires JavaScript to decode source pixels, adjust exposure and create downloads. Your selected file is processed on your device.</p>
+<h2>View the source, choose a display exposure</h2>
+<p>The decoder reads Radiance .hdr data into floating-point RGB values. Exposure ranges from -10 to +6 EV, applied before an ACES-style filmic approximation and sRGB encoding. Lower exposure to inspect bright areas and raise it to inspect shadows. PNG, JPEG and WebP images can also be previewed, but their display pixels do not recover source lighting values.</p>
+<h2>How to open an HDRI</h2>
+<ol><li>Choose or drop a Radiance .hdr file into the viewer.</li><li>Inspect the flat preview and adjust exposure.</li><li>Download a tone-mapped PNG, or open a complete 2:1 image in the <a href="/360-panorama-viewer/">360 panorama viewer</a>.</li><li>Choose 512, 1024 or 2048 pixels per face, slice a full 2:1 panorama, and download six PNG cube faces in a ZIP.</li></ol>
+<h2>Choose the right export</h2>
+<p>The PNG preview and the six cube-face downloads contain 8-bit tone-mapped display pixels. They can show an environment as a backdrop, but they do not preserve HDR lighting values. Keep the original .hdr for image-based lighting. Check the orientation of posx, negx, posy, negy, posz and negz in the destination application.</p>
+<h2>Formats and limits</h2>
+<p>Supported inputs are standard -Y +X Radiance RGBE .hdr files and browser-readable PNG, JPEG and WebP images. Files are limited to 50 MiB, 8192 pixels per side and 8192 x 4096 pixels in total. Start with a 1K or 2K map on memory-constrained devices. OpenEXR .exr is not supported. Flat previews work for other aspect ratios; 360 viewing and cube export require a full 2:1 equirectangular image.</p>
+<h2>HDRI viewer questions and answers</h2>
+<h3>What exactly is a Radiance .hdr / HDRI file?</h3><p>It is the Radiance RGBE picture format: every pixel stores four bytes — a shared exponent plus three mantissas — which lets one file hold both a dim interior and a sun disk thousands of times brighter. 360° environment versions of those files are called HDRIs, and 3D packages use them for image-based lighting so sky, sun and bounce colour all light the scene at once.</p><h3>Can a normal browser open .hdr files?</h3><p>No. Browsers decode PNG, JPEG, WEBP and AVIF but have no Radiance RGBE decoder, so dropping an .hdr into an image tag fails silently. This viewer parses the header, unpacks the run-length encoded RGBE scanlines in JavaScript, and only then hands the pixels to a canvas.</p><h3>Is .hdr the same as .exr?</h3><p>Both are high dynamic range, but they are different containers. Radiance .hdr (RGBE) is compact, universally readable and stores roughly one shared 8-bit exponent per pixel. OpenEXR stores full 16- or 32-bit floats per channel, supports multiple render passes, and is the format VFX pipelines exchange. This viewer reads .hdr; for .exr, convert to .hdr or to a tone-mapped 2:1 image first.</p><h3>Why do my highlights look flat or the picture look washed out?</h3><p>Two reasons. First, every HDR preview has to compress a huge range onto an 8-bit screen, so the filmic curve trades some contrast for highlight roll-off: raise or lower exposure until the sun reads correctly. Second, if the file came from an 8-bit source re-wrapped as Radiance (the .HDR download from this site works that way too), it never contained values above 1.0, so there is no extra range to recover.</p><h3>How do I turn an HDRI into a cubemap for Unity, Unreal Engine or Blender?</h3><p>Load a full 2:1 equirectangular .hdr, set the preview exposure, and slice 512, 1024 or 2048 px faces. The ZIP contains posx, negx, posy, negy, posz, negz PNGs. They are tone-mapped 8-bit skybox images, not HDR lighting maps. Check axis orientation in the destination shader; keep the original .hdr for image-based lighting.</p><h3>Is my HDRI uploaded to a server?</h3><p>No. Decoding, tone mapping, slicing and ZIP packaging all happen in your browser with typed arrays and Canvas pixels. Client work, unreleased environments and camera-scanned panoramas stay on your machine.</p><h3>What resolution and file size can it handle?</h3><p>Files must be under 50 MiB, at most 8192 pixels per side and no more than 8192x4096 pixels in total. Float decoding uses much more memory than the compressed file, so start with a 1K or 2K HDRI on a phone. OpenEXR is not supported. The 360 preview and cube export require a full 2:1 equirectangular panorama.</p><h3>Can I view Poly Haven or Blender demo HDRIs with it?</h3><p>Yes. Any standard Radiance RGBE file works, including the 1K, 2K, 4K and 8K HDRIs from Poly Haven, Blender Studio, Unreal Marketplace packs and Substance panoramas. Nothing is bundled, re-uploaded or cached by the site.</p>
+<h2>Continue your workflow</h2>
+<p><a href="/blog/hdri-vs-ldr-environment-lighting/">HDRI versus LDR environment lighting</a> explains formats, tone mapping and how to choose a source. Read the <a href="/blog/equirectangular-projection-explained/">equirectangular projection guide</a> for geometry, poles and seams.</p>
+<p>Try the <a href="/ai-hdri-generator/">AI HDRI generator</a> for environment concepts, <a href="/cubemap-generator/">cubemap generator</a> for panorama slicing, <a href="/cubemap-to-equirectangular/">cubemap to equirectangular converter</a> for the reverse direction, and <a href="/blog/">all 360 panorama guides</a> for practical workflow checks.</p>
+</main>
+</noscript>
+    </div>
+
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

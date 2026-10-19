@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HDRI vs LDR Environment Maps: Lighting, Formats and Tone Mapping</title>
+<meta name="description" content="Learn how HDRI and LDR environment maps differ, why a .hdr extension is not proof of captured range, and when to keep linear pixels or export a preview." />
+<meta name="author" content="360 Panorama Viewer" />
+<meta name="robots" content="index, follow, max-image-preview:large" />
+<meta name="theme-color" content="#040c1a" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="canonical" href="https://360panoramaviewer.com/blog/hdri-vs-ldr-environment-lighting/" />
+<link rel="stylesheet" href="/blog/blog.css" />
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="360 Panorama Viewer" />
+<meta property="og:title" content="HDRI vs LDR Environment Maps: Lighting, Formats and Tone Mapping" />
+<meta property="og:description" content="Learn how HDRI and LDR environment maps differ, why a .hdr extension is not proof of captured range, and when to keep linear pixels or export a preview." />
+<meta property="og:url" content="https://360panoramaviewer.com/blog/hdri-vs-ldr-environment-lighting/" />
+<meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="HDRI vs LDR Environment Maps: Lighting, Formats and Tone Mapping" />
+<meta name="twitter:description" content="Learn how HDRI and LDR environment maps differ, why a .hdr extension is not proof of captured range, and when to keep linear pixels or export a preview." />
+<meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://360panoramaviewer.com/blog/hdri-vs-ldr-environment-lighting/#post",
+      "headline": "HDRI vs LDR Environment Maps: Lighting, Formats and Tone Mapping",
+      "description": "Learn how HDRI and LDR environment maps differ, why a .hdr extension is not proof of captured range, and when to keep linear pixels or export a preview.",
+      "datePublished": "2026-10-19",
+      "dateModified": "2026-10-19",
+      "inLanguage": "en",
+      "author": {
+        "@type": "Organization",
+        "name": "360 Panorama Viewer",
+        "url": "https://360panoramaviewer.com/"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "360 Panorama Viewer",
+        "url": "https://360panoramaviewer.com/"
+      },
+      "mainEntityOfPage": "https://360panoramaviewer.com/blog/hdri-vs-ldr-environment-lighting/",
+      "image": "https://360panoramaviewer.com/og-preview.png"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://360panoramaviewer.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Guides",
+          "item": "https://360panoramaviewer.com/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "HDRI vs LDR Environment Maps: Lighting, Formats and Tone Mapping",
+          "item": "https://360panoramaviewer.com/blog/hdri-vs-ldr-environment-lighting/"
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="topbar"><div class="wrap"><a class="brand" href="/">360 Panorama Viewer</a><nav aria-label="Main navigation"><a href="/360-panorama-viewer/">360 Viewer</a><a href="/hdri-viewer/">HDRI Viewer</a><a href="/cubemap-generator/">Cubemap</a><a href="/360-metadata-injector/">Metadata</a><a href="/blog/">Guides</a></nav></div></header>
+<main id="main-content" class="wrap">
+<nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Home</a> / <a href="/blog/">Guides</a> / <span aria-current="page">HDRI vs LDR Environment Maps: Lighting, Formats and Tone Mapping</span></nav>
+<article>
+<p class="eyebrow">Lighting / File Formats</p>
+<h1>HDRI vs LDR Environment Maps: Lighting, Formats and Tone Mapping</h1>
+<p class="standfirst">Two environment maps can look similar in a preview and produce very different lighting. Projection tells you where each pixel points; dynamic range tells you how much light that pixel can represent.</p>
+<p class="meta">By 360 Panorama Viewer &middot; Updated <time datetime="2026-10-19">19 October 2026</time> &middot; 4 minute read</p>
+
+<h2>HDRI and LDR describe pixel values, not projection</h2>
+<p>An environment map records the surrounding scene in all directions. It can be stored as one equirectangular image or six cube faces. Either layout can hold high or low dynamic range pixels. Calling a file a cubemap, skybox or 2:1 panorama does not tell you which range it contains.</p>
+<p>A conventional 8-bit JPEG is a display image. Its highlights have already been fitted into a limited output range. A scene-linear HDR environment can represent a bright window or sun many times brighter than nearby surfaces. A renderer can use those relative values for image-based lighting and reflections.</p>
+<h2>Why range matters for lighting</h2>
+<p>Consider a room where a wall has a linear value of 0.5 and a bright window reaches 50. The ratio is 100:1, or about 6.6 stops. If both are compressed into a display image, their relationship changes. The window may look white in both versions, but its contribution to a rendered scene can be much weaker in the display version.</p>
+<p>Increasing the strength of an LDR environment scales every pixel. It can brighten a render, but it cannot reconstruct the original ratio between a clipped light and its surroundings. An LDR environment can still provide useful ambient color and a visible backdrop; additional scene lights may be needed to achieve the intended illumination.</p>
+<h2>JPEG, Radiance HDR and OpenEXR</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">Format</th><th scope="col">What it commonly stores</th><th scope="col">Use</th></tr></thead><tbody>
+<tr><td>JPEG or an 8-bit PNG</td><td>Display-referred RGB</td><td>Backgrounds, previews and sharing</td></tr>
+<tr><td>Radiance .hdr</td><td>RGBE values with a shared exponent</td><td>HDR environment interchange</td></tr>
+<tr><td>OpenEXR .exr</td><td>Half- or full-float channels, depending on the file</td><td>Scene-linear renders and production interchange</td></tr>
+</tbody></table></div>
+<p>Radiance RGBE packs red, green and blue mantissas with one exponent per pixel. OpenEXR supports several channel types and can carry additional channels or layers. Read the <a href="https://openexr.com/en/latest/TechnicalIntroduction.html">OpenEXR technical introduction</a> for its storage capabilities. The filename extension identifies a container, not how the image was captured or processed.</p>
+<div class="callout"><p><strong>A .hdr export cannot recover lost light.</strong> Saving an 8-bit image in an RGBE container does not restore clipped highlights. This site's current AI HDRI export wraps generated 8-bit panorama pixels in Radiance format; it does not measure or reconstruct the original scene's radiance.</p></div>
+<h2>How to inspect an environment map</h2>
+<ol><li>Open a Radiance file in the <a href="/hdri-viewer/">HDRI viewer</a>. It decodes source RGBE values into floating-point pixels.</li><li>Lower exposure to inspect bright areas, then raise it to inspect shadows. One EV doubles or halves the linear values before the display curve.</li><li>Look for detail that a display preview might conceal. This is a visual check, not a calibration measurement: normalization and previous processing affect absolute values.</li><li>Check coverage and seams. A correct dynamic range does not repair a missing nadir, misaligned horizon or mismatched image edges.</li></ol>
+<p>The viewer applies an ACES-style filmic approximation followed by sRGB encoding. It is a display preview, not a full color-managed match to every renderer. OpenEXR decoding is not supported by this tool; use a compatible desktop application for EXR sources.</p>
+<h2>Tone mapping changes what you export</h2>
+<p>Tone mapping compresses scene values into a range suitable for display. An exposure control selects a brighter or darker view of the source before that compression. A downloadable PNG records the resulting appearance; its 8-bit pixels no longer retain the original radiance values.</p>
+<p>The HDRI viewer's six-face ZIP is also made from that tone-mapped image. Those PNG faces can provide a visible skybox, but they are not floating-point HDR cube faces. Keep the original .hdr when a renderer needs environment lighting. Changing a PNG filename to .hdr does not convert its pixels or restore range.</p>
+<h2>Where to get a suitable source</h2>
+<p>For a real captured location, a bracketed HDR capture workflow combines different exposures before tone mapping. Keep exposure brackets aligned, manage movement between frames, and preserve the scene-linear result. For a virtual environment, render scene-linear HDR from the 3D scene. Neither workflow requires a display export to become the lighting master.</p>
+<p>The <a href="/ai-hdri-generator/">AI HDRI generator</a> is useful for exploring environment concepts and exporting a Radiance-compatible backdrop. Evaluate the actual source range and the result in your renderer before using it for lighting. A generated sky's visual appearance alone cannot establish physically accurate illumination.</p>
+<h2>Choose an export for the job</h2>
+<ul><li><strong>Sharing a panorama:</strong> use a display image and appropriate metadata.</li><li><strong>Building a visible skybox:</strong> use a supported panorama or cube-face layout and verify orientation.</li><li><strong>Lighting a scene:</strong> retain the original scene-linear HDR environment and configure the renderer's color interpretation correctly.</li><li><strong>Reviewing a file:</strong> use an exposure-controlled preview, then compare with a test render.</li></ul>
+<p>The <a href="/blog/equirectangular-projection-explained/">equirectangular projection guide</a> explains the layout separately, so you can check geometry and dynamic range as two independent decisions.</p>
+<h2>Tools for this workflow</h2><div class="grid"><a class="card" href="/hdri-viewer/"><strong>Open a Radiance HDRI</strong><span>Inspect a .hdr and export a tone-mapped preview locally.</span></a><a class="card" href="/ai-hdri-generator/"><strong>Create an environment concept</strong><span>Generate a panorama and export a Radiance-compatible file.</span></a></div>
+<p><a href="/blog/">Browse all 360 panorama guides</a></p>
+</article>
+</main>
+<footer><div class="wrap"><strong>360 Panorama Viewer</strong><p>Browser tools and practical guides for 360 images, skyboxes and environment maps.</p><nav aria-label="Footer navigation"><a href="/">Home</a><a href="/blog/">All guides</a><a href="/360-panorama-viewer/">360 viewer</a><a href="/hdri-viewer/">HDRI viewer</a><a href="/developers/">Developer docs</a></nav></div></footer>
+</body>
+</html>
