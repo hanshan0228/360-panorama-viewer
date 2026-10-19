@@ -1167,6 +1167,14 @@ export function ViewerTab({
               <div className="font-bold text-white">360° Photo to Video</div>
               <p className="text-slate-400 leading-relaxed">Render a rotating MP4 or WebM clip for Reels, Shorts, and product pages.</p>
             </a>
+            <a
+              href="/showcase/"
+              onClick={(e) => { e.preventDefault(); onNavigateTab('showcase'); }}
+              className="glass-card p-4 rounded-2xl space-y-1 hover:border-teal-400/50 transition-all cursor-pointer"
+            >
+              <div className="font-bold text-white">360° Panorama Showcase</div>
+              <p className="text-slate-400 leading-relaxed">See real equirectangular panoramas and VR skies shared by other creators.</p>
+            </a>
           </div>
         </section>
       </div>
