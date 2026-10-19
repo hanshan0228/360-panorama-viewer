@@ -6,12 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Primary Meta Tags -->
-    <title>Developer Docs — 360° Panorama Embed &amp; Free JSON API</title>
-    <meta name="title" content="Developer Docs — 360° Panorama Embed &amp; Free JSON API" />
-    <meta
-      name="description"
-      content="Embed an interactive 360° panorama with one iframe, or use the free JSON API: generate equirectangular panoramas, publish shares, and read images back for galleries, websites, AI agents and MCP tools. No SDK required."
-    />
+    <title>Developers Guide — 360° Panorama Embed &amp; Free API</title>
+    <meta name="title" content="Developers Guide — 360° Panorama Embed &amp; Free API" />
+    <meta name="description" content="Embed interactive 360° panoramas with one iframe line, or use our free REST JSON API to generate, publish, and load equirectangular images. No SDK needed." />
     <meta
       name="keywords"
       content="360 panorama embed, embed 360 photo website, iframe 360 viewer, panorama api, 360 image api, equirectangular api, embed vr viewer, panorama json api, mcp panorama tool, ai agent panorama"
@@ -26,11 +23,8 @@
     <meta property="og:locale" content="en_US" />
     <meta property="og:site_name" content="360 Panorama Viewer" />
     <meta property="og:url" content="https://360panoramaviewer.com/developers/" />
-    <meta property="og:title" content="Developer Docs — 360° Panorama Embed &amp; Free JSON API" />
-    <meta
-      property="og:description"
-      content="One-line iframe embed plus a free JSON API for generating, publishing and reading 360° equirectangular panoramas."
-    />
+    <meta property="og:title" content="Developers Guide — 360° Panorama Embed &amp; Free API" />
+    <meta property="og:description" content="Embed interactive 360° panoramas with one iframe line, or use our free REST JSON API to generate, publish, and load equirectangular images. No SDK needed." />
     <meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
@@ -41,11 +35,8 @@
     <meta name="twitter:site" content="@360panoramaviewer" />
     <meta name="twitter:creator" content="@360panoramaviewer" />
     <meta name="twitter:url" content="https://360panoramaviewer.com/developers/" />
-    <meta name="twitter:title" content="Developer Docs — 360° Panorama Embed &amp; Free JSON API" />
-    <meta
-      name="twitter:description"
-      content="Embed a 360° panorama with one iframe or drive the viewer from your own code with a free JSON API."
-    />
+    <meta name="twitter:title" content="Developers Guide — 360° Panorama Embed &amp; Free API" />
+    <meta name="twitter:description" content="Embed interactive 360° panoramas with one iframe line, or use our free REST JSON API to generate, publish, and load equirectangular images. No SDK needed." />
     <meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
 
     <!-- Schema.org JSON-LD Structured Data -->
@@ -136,7 +127,6 @@
   </head>
   <body>
     <div id="root">
-      <noscript>
         <header>
           <h1>Developer Docs — Embed a 360° Panorama or Call the API</h1>
           <p>
@@ -189,8 +179,35 @@
               other tools as a plain image URL.
             </p>
           </section>
+          <section>
+            <h2>Frequently Asked Developer Questions</h2>
+            <h3>Does the embed viewer support cross-origin embedding?</h3>
+            <p>Yes. The embed viewer allows embedding via iframes on any external domain or blog without X-Frame-Options blocking. All assets and textures are loaded with permissive CORS headers.</p>
+            <h3>Do I need an API key to read public panoramas or use the viewer?</h3>
+            <p>No. All public share reads, viewer embeds, and health checks are open and require no API key or developer registration.</p>
+            <h3>What response formats are returned by the REST endpoints?</h3>
+            <p>Standard JSON for metadata and configuration endpoints, and raw image/png or image/jpeg binary streams for panorama textures and snapshot downloads.</p>
+          </section>
+        
+          <section>
+            <h2>Quick Embed &amp; API Code Examples</h2>
+            <p>Embed an interactive 360 panorama viewer on any HTML website, WordPress blog, or Webflow project with a single responsive iframe line:</p>
+            <pre><code>&lt;iframe src="https://360panoramaviewer.com/?embed=true&amp;pano=https://yoursite.com/equirectangular.jpg&amp;autorotate=1" width="100%" height="500" frameborder="0" allow="fullscreen; xr-spatial-tracking" allowfullscreen&gt;&lt;/iframe&gt;</code></pre>
+            <p>Fetch public community panoramas programmatically using standard cURL or JavaScript Fetch:</p>
+            <pre><code>curl -s https://360panoramaviewer.com/api/shares?public=1 | jq .</code></pre>
+          </section>
+          <section>
+            <h2>Related 360° Panorama Developer Tools</h2>
+            <ul>
+              <li><a href="/360-panorama-viewer/">360 Panorama Viewer</a> — Free online WebGL viewer with no upload required.</li>
+              <li><a href="/cubemap-generator/">Cubemap Generator</a> — Slice 360 panoramas into 6 cube faces (+X, -X, +Y, -Y, +Z, -Z).</li>
+              <li><a href="/cubemap-to-equirectangular/">Cubemap to Equirectangular</a> — Stitch 6 cube faces back into a seamless 2:1 panorama.</li>
+              <li><a href="/ai-hdri-generator/">AI HDRI Generator</a> — Create 32-bit Radiance .HDR environment lighting for Blender.</li>
+              <li><a href="/blog/">360 Panorama Blog &amp; Guides</a> — Technical guides on equirectangular projection and metadata.</li>
+            </ul>
+          </section>
+
         </main>
-      </noscript>
     </div>
 
     <script type="module" src="/src/main.tsx"></script>

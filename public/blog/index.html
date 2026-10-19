@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>360 Panorama Guides: Projection, HDRI and Publishing Fixes</title>
-<meta name="description" content="Practical 360 panorama guides: fix flat uploads, understand equirectangular projection, make a panorama without a 360 camera, and compare HDRI with LDR." />
+<title>360 Panorama Blog &amp; Guides: Projection, HDRI and Fixes</title>
+<meta name="description" content="Practical guides and fixes for 360 panoramas, equirectangular 2:1 projection, HDRI environment lighting, cubemaps, and Facebook 360 metadata." />
 <meta name="author" content="360 Panorama Viewer" />
 <meta name="robots" content="index, follow, max-image-preview:large" />
 <meta name="theme-color" content="#040c1a" />
@@ -13,13 +13,13 @@
 <link rel="stylesheet" href="/blog/blog.css" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="360 Panorama Viewer" />
-<meta property="og:title" content="360 Panorama Guides: Projection, HDRI and Publishing Fixes" />
-<meta property="og:description" content="Practical 360 panorama guides: fix flat uploads, understand equirectangular projection, make a panorama without a 360 camera, and compare HDRI with LDR." />
+<meta property="og:title" content="360 Panorama Blog &amp; Guides: Projection, HDRI and Fixes" />
+<meta property="og:description" content="Practical guides and fixes for 360 panoramas, equirectangular 2:1 projection, HDRI environment lighting, cubemaps, and Facebook 360 metadata." />
 <meta property="og:url" content="https://360panoramaviewer.com/blog/" />
 <meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="360 Panorama Guides: Projection, HDRI and Publishing Fixes" />
-<meta name="twitter:description" content="Practical 360 panorama guides: fix flat uploads, understand equirectangular projection, make a panorama without a 360 camera, and compare HDRI with LDR." />
+<meta name="twitter:title" content="360 Panorama Blog &amp; Guides: Projection, HDRI and Fixes" />
+<meta name="twitter:description" content="Practical guides and fixes for 360 panoramas, equirectangular 2:1 projection, HDRI environment lighting, cubemaps, and Facebook 360 metadata." />
 <meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
 <script type="application/ld+json">
 {
@@ -98,6 +98,20 @@
 <p>For a new environment, try the <a href="/photo-to-360-converter/">photo to 360 converter</a> or <a href="/text-to-panorama-ai/">text to panorama studio</a>. AI generation uses account credits; viewing and local conversion are free.</p>
 <h2>Keep projection and dynamic range separate</h2>
 <p>A 2:1 rectangle describes the usual full-sphere layout. A .hdr extension describes a file container. Neither guarantees a complete, correctly captured HDR environment. The guides explain how to check source coverage, lighting values, metadata and orientation before sending a file to another app.</p>
+
+<h2>360° Panorama Fundamentals: Formats &amp; Workflows</h2>
+<p>A true spherical panorama covers a 360-degree horizontal field of view and a 180-degree vertical field of view, creating a complete environment sphere without blind spots. When stored as a flat image, this sphere is mapped using an equirectangular projection with a strict 2:1 width-to-height aspect ratio (such as 4096&times;2048, 8192&times;4096, or 16384&times;8192 pixels). The top horizontal edge corresponds to the zenith (sky straight up), the bottom edge corresponds to the nadir (ground straight down), and the left and right edges meet seamlessly behind the viewer.</p>
+<p>Standard 8-bit image formats like JPEG, PNG, and WebP encode Low Dynamic Range (LDR) color suitable for direct display on computer screens and mobile browsers. In contrast, 32-bit formats like Radiance RGBE (.hdr) and OpenEXR (.exr) encode High Dynamic Range (HDRI) floating-point luminance values, allowing 3D rendering engines like Blender Cycles, Unreal Engine 5, and Unity to simulate authentic sun glare, realistic shadows, and accurate ambient reflections.</p>
+
+<h2>Frequently Asked Questions</h2>
+<h3>How do I view a 360° photo on my phone or computer without a VR headset?</h3>
+<p>You can open any 2:1 equirectangular photo directly in your web browser using our free online 360 Panorama Viewer. It uses client-side WebGL to wrap the photo inside a virtual sphere, allowing you to click and drag with your mouse, swipe with your finger on a smartphone touchscreen, or pan using keyboard arrow keys. No special apps, accounts, or VR goggles are needed.</p>
+
+<h3>Why did my 360° photo upload as a flat, distorted rectangle on Facebook?</h3>
+<p>Social media platforms like Facebook and Google Street View require specific Google PhotoSphere XMP metadata embedded in the JPEG header to recognize an image as an interactive 360-degree sphere. If this metadata is stripped during export from an image editor or messaging app, the platform treats it as an ordinary 2D photo. Use our free 360 Metadata Injector to restore the missing GPano XMP tags with one click.</p>
+
+<h3>Can 360° equirectangular panoramas be converted into 6-sided cubemaps?</h3>
+<p>Yes. Game developers and 3D artists frequently slice 2:1 spherical panoramas into six rectilinear cube faces (+X, -X, +Y, -Y, +Z, -Z) to use as skyboxes in Unity, Unreal Engine, Godot, or custom Three.js scenes. Our free Cubemap Generator handles this transformation completely in your browser and exports a ready-to-use ZIP archive containing all six cube faces.</p>
 
 </main>
 <footer><div class="wrap"><strong>360 Panorama Viewer</strong><p>Browser tools and practical guides for 360 images, skyboxes and environment maps.</p><nav aria-label="Footer navigation"><a href="/">Home</a><a href="/blog/">All guides</a><a href="/360-panorama-viewer/">360 viewer</a><a href="/hdri-viewer/">HDRI viewer</a><a href="/developers/">Developer docs</a></nav></div></footer>

@@ -8,10 +8,7 @@
     <!-- Primary Meta Tags -->
     <title>Text to Panorama AI — Free 360° Prompt Generator Online</title>
     <meta name="title" content="Text to Panorama AI — Free 360° Prompt Generator Online" />
-    <meta
-      name="description"
-      content="Describe a scene and get a seamless 2:1 equirectangular 360° panorama in seconds. Free text to panorama AI with a copy-ready prompt library, harmonic seam healing, cubemap slicing and Radiance .HDR export."
-    />
+    <meta name="description" content="Type a prompt and generate seamless 2:1 equirectangular 360° panoramas with AI. Free text to panorama maker with prompt presets and cubemap slicing." />
     <meta
       name="keywords"
       content="text to panorama ai, text to 360 panorama, ai panorama generator, panorama ai, text to equirectangular, ai 360 image generator, prompt to skybox, 360 panorama prompt, text to vr panorama, ai environment generator"
@@ -27,10 +24,7 @@
     <meta property="og:site_name" content="360 Panorama Viewer" />
     <meta property="og:url" content="https://360panoramaviewer.com/text-to-panorama-ai/" />
     <meta property="og:title" content="Text to Panorama AI — Free 360° Prompt Generator Online" />
-    <meta
-      property="og:description"
-      content="Write a prompt, get a seamless 360° equirectangular scene. Prompt library included, no camera and no stitching software required."
-    />
+    <meta property="og:description" content="Type a prompt and generate seamless 2:1 equirectangular 360° panoramas with AI. Free text to panorama maker with prompt presets and cubemap slicing." />
     <meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
@@ -42,10 +36,7 @@
     <meta name="twitter:creator" content="@360panoramaviewer" />
     <meta name="twitter:url" content="https://360panoramaviewer.com/text-to-panorama-ai/" />
     <meta name="twitter:title" content="Text to Panorama AI — Free 360° Prompt Generator Online" />
-    <meta
-      name="twitter:description"
-      content="Prompt in, seamless 2:1 equirectangular panorama out. Free prompt library and 360° AI studio."
-    />
+    <meta name="twitter:description" content="Type a prompt and generate seamless 2:1 equirectangular 360° panoramas with AI. Free text to panorama maker with prompt presets and cubemap slicing." />
     <meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
 
     <!-- Schema.org JSON-LD Structured Data -->
@@ -141,7 +132,6 @@
   </head>
   <body>
     <div id="root">
-      <noscript>
         <header>
           <h1>Text to Panorama AI — Write a Prompt, Get a 360° Scene</h1>
           <p>
@@ -189,8 +179,33 @@
               <li>Render a rotating MP4/WebM clip for TikTok, Reels, Shorts and product pages.</li>
             </ul>
           </section>
+        
+          <section>
+            <h2>Frequently Asked Questions</h2>
+            <h3>What makes prompt engineering for 360° panoramas unique?</h3>
+            <p>Unlike standard 2D image prompts that describe a single focused camera perspective, 360 panorama prompts must establish an entire 360-degree environment sphere. Mentioning horizon details, ceiling or sky textures, floor surfaces, and lighting direction ensures the AI model populates every angle cohesively without blank or distorted polar voids.</p>
+
+            <h3>How does the AI ensure the panorama wraps seamlessly?</h3>
+            <p>Our diffusion pipeline incorporates multi-band Poisson harmonic boundary blending that matches edge luminance and color gradients between the 0-degree and 360-degree meridians, producing an undetectable wraparound transition.</p>
+
+            <h3>Can I slice text-generated panoramas into cubemaps or HDRI files?</h3>
+            <p>Yes. Once generated, any panorama can be sliced into 6 rectilinear cube faces for Unity or Unreal Engine, or exported as a 32-bit Radiance .HDR environment map with one click.</p>
+          </section>
+
+          <section>
+            <h2>Explore Related 360° Panorama Tools</h2>
+            <ul>
+              <li><a href="/360-panorama-viewer/">360 Panorama Viewer</a> — Free online WebGL viewer with no upload required.</li>
+              <li><a href="/360-image-maker/">360 Image Maker</a> — Create 360° panoramic photos with AI.</li>
+              <li><a href="/skybox-generator/">AI Skybox Generator</a> — Generate 360° VR skyboxes for Unity and Unreal.</li>
+              <li><a href="/cubemap-generator/">Cubemap Generator</a> — Slice 360 panoramas into 6 cube faces (+X, -X, +Y, -Y, +Z, -Z).</li>
+              <li><a href="/cubemap-to-equirectangular/">Cubemap to Equirectangular</a> — Stitch 6 cube faces back into a seamless 2:1 panorama.</li>
+              <li><a href="/photo-to-globe/">Map to Globe</a> — Project 2D maps and equirectangular images into 3D rotating globes.</li>
+              <li><a href="/ai-hdri-generator/">AI HDRI Generator</a> — Create 32-bit Radiance .HDR environment lighting for Blender.</li>
+            </ul>
+          </section>
+
         </main>
-      </noscript>
     </div>
 
     <script type="module" src="/src/main.tsx"></script>

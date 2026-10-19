@@ -53,6 +53,17 @@ export function buildSharePageHtml(shell, share, origin) {
           <p><a href="/showcase/">Browse more 360° panorama examples in the community showcase</a></p>
         </main>
       </noscript>`;
+  const staticContent = `<div id="seo-static-content">
+        <header>
+          <h1>${title}</h1>
+          <p>360° equirectangular panorama (${Number(share.width)} × ${Number(share.height)}) shared with 360 Panorama Viewer. Drag to look around, or open the full viewer below.</p>
+        </header>
+        <main>
+          <img src="${image}" alt="${title} — full 2:1 equirectangular 360° panorama" />
+          <p><a href="/360-panorama-viewer/">Open this panorama in the free 360° panorama viewer</a> — no upload and no plugin, every photo stays in your browser.</p>
+          <p><a href="/showcase/">Browse more 360° panorama examples in the community showcase</a></p>
+        </main>
+      </div>`;
 
   let html = shell;
   html = swap(html, /<title>[\s\S]*?<\/title>/i, `<title>${pageTitle}</title>`, 'title');
@@ -71,6 +82,9 @@ export function buildSharePageHtml(shell, share, origin) {
   html = swap(html, /<meta\s+(?:name|property)="twitter:image"\s+content="[^"]*"\s*\/?>/i, `<meta name="twitter:image" content="${image}" />`, 'twitter image');
   // Replace the studio's structured data and no-JS copy so the share URL is not a duplicate of the homepage.
   html = swap(html, /<script type="application\/ld\+json">[\s\S]*?<\/script>/i, `<script type="application/ld+json">\n${JSON.stringify(jsonLd, null, 2)}\n    </script>`, 'JSON-LD');
+  if (html.includes('id="seo-static-content"')) {
+    html = swap(html, /<div id="seo-static-content">[\s\S]*?<\/div>/i, staticContent, 'seo static content');
+  }
   html = swap(html, /<noscript>[\s\S]*?<\/noscript>/i, noscript, 'noscript');
   return html;
 }

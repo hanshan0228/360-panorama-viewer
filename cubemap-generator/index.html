@@ -6,12 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Primary Meta Tags -->
-    <title>Free Cubemap Generator — Panorama to 6 Faces Online (No Upload)</title>
-    <meta name="title" content="Free Cubemap Generator — Panorama to 6 Faces Online (No Upload)" />
-    <meta
-      name="description"
-      content="Convert 2:1 equirectangular spherical panoramas into 6 rectilinear cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back) with client-side WebGL math. One-click batch ZIP download for Unity and Unreal. 100% free, no upload needed."
-    />
+    <title>Free Cubemap Generator — Panorama to 6 Faces Online</title>
+    <meta name="title" content="Free Cubemap Generator — Panorama to 6 Faces Online" />
+    <meta name="description" content="Slice 2:1 equirectangular spherical panoramas into 6 cube faces (+X, -X, +Y, -Y, +Z, -Z) in your browser. Free batch ZIP export for Unity and Unreal." />
     <meta
       name="keywords"
       content="cubemap generator, panorama to cubemap, cubemap maker, free cubemaps, hdri to cubemap, equirectangular to cubemap, cubemap slicer, 360 to cube faces, Unity skybox cubemap converter, cross cubemap slicer, cubemap ZIP download, no upload"
@@ -26,11 +23,8 @@
     <meta property="og:locale" content="en_US" />
     <meta property="og:site_name" content="360 Panorama Viewer" />
     <meta property="og:url" content="https://360panoramaviewer.com/cubemap-generator/" />
-    <meta property="og:title" content="Cubemap Generator | Slice 360° Equirectangular to 6 Cube Faces" />
-    <meta
-      property="og:description"
-      content="Convert 2:1 equirectangular spherical panoramas into 6 rectilinear cube faces (+X, -X, +Y, -Y, +Z, -Z) with client-side WebGL math. One-click batch ZIP download."
-    />
+    <meta property="og:title" content="Free Cubemap Generator — Panorama to 6 Faces Online" />
+    <meta property="og:description" content="Slice 2:1 equirectangular spherical panoramas into 6 cube faces (+X, -X, +Y, -Y, +Z, -Z) in your browser. Free batch ZIP export for Unity and Unreal." />
     <meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
@@ -41,11 +35,8 @@
     <meta name="twitter:site" content="@360panoramaviewer" />
     <meta name="twitter:creator" content="@360panoramaviewer" />
     <meta name="twitter:url" content="https://360panoramaviewer.com/cubemap-generator/" />
-    <meta name="twitter:title" content="Free Cubemap Generator — Panorama to 6 Faces Online (No Upload)" />
-    <meta
-      name="twitter:description"
-      content="Convert 2:1 equirectangular spherical panoramas into 6 rectilinear cube faces (+X, -X, +Y, -Y, +Z, -Z) with client-side WebGL math. One-click batch ZIP download."
-    />
+    <meta name="twitter:title" content="Free Cubemap Generator — Panorama to 6 Faces Online" />
+    <meta name="twitter:description" content="Slice 2:1 equirectangular spherical panoramas into 6 cube faces (+X, -X, +Y, -Y, +Z, -Z) in your browser. Free batch ZIP export for Unity and Unreal." />
     <meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
 
     <!-- Schema.org JSON-LD Structured Data: SoftwareApplication + HowTo + FAQPage + Breadcrumbs -->
@@ -162,23 +153,66 @@
   </head>
   <body>
     <div id="root">
-      <noscript>
         <header>
           <h1>Cubemap Generator: Slice 360° Panoramas to 6 Cube Faces</h1>
           <p>Convert 2:1 equirectangular spherical panoramas into 6 rectilinear cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back) with client-side WebGL math. One-click batch ZIP download for Unity Skyboxes, Unreal Engine, and Three.js.</p>
         </header>
         <main>
           <section>
-            <h2>Highlights</h2>
+          <h2>How to Convert an Equirectangular Panorama to a Cubemap</h2>
+          <ol>
+            <li><strong>Upload 2:1 Panorama:</strong> Drag and drop any 2:1 spherical equirectangular JPG, PNG, or WebP photo into the slicer.</li>
+            <li><strong>Select Face Resolution:</strong> Choose your output resolution per face: 512px, 1024px, 2048px, or native 4096px per square face.</li>
+            <li><strong>Mathematical Inverse Tangent Projection:</strong> Our client-side WebGL shader calculates exact spherical-to-planar ray intersections for all six orthogonal directions (+X, -X, +Y, -Y, +Z, -Z) with zero optical distortion.</li>
+            <li><strong>Download Batch ZIP Archive:</strong> Package all six cube faces into an organized ZIP file named according to Unity and Three.js conventions.</li>
+          </ol>
+        </section>
+
+        <section>
+          <h2>Core Cubemap Slicing Capabilities</h2>
             <ul>
-              <li><strong>Zero Distortion:</strong> Exact inverse tangent ray casting preserves geometry.</li>
-              <li><strong>Complete Privacy:</strong> 100% client-side WebGL conversion.</li>
-              <li><strong>Standardized Naming:</strong> posx, negx, posy, negy, posz, negz for Unity.</li>
-              <li><strong>Batch ZIP Export:</strong> Download all 6 cube faces bundled in one archive.</li>
+            <li><strong>Zero Spherical Distortion:</strong> Uses exact 90-degree field of view pinhole projections to prevent edge stretching or pinching along face boundaries.</li>
+            <li><strong>Industry-Standard Axis Orientation:</strong> Generates posx (Right), negx (Left), posy (Up), negy (Down), posz (Front), and negz (Back) matching Unity 6-Sided Skybox, Unreal Engine, Godot, and Three.js CubeTexture.</li>
+            <li><strong>100% Client-Side Privacy:</strong> Image processing runs entirely on your local machine using GPU shaders. Your source panoramas are never uploaded to any remote server.</li>
+            <li><strong>Seamless Reverse Workflow:</strong> Pair with our Cubemap to Equirectangular converter to stitch cube faces back into spherical panoramas anytime.</li>
             </ul>
           </section>
+
+        <section>
+          <h2>Frequently Asked Questions</h2>
+          <h3>What naming convention does the downloaded ZIP file use?</h3>
+          <p>The archive contains six individual PNG images named posx.png (+X Right), negx.png (-X Left), posy.png (+Y Up), negy.png (-Y Down), posz.png (+Z Front), and negz.png (-Z Back), ensuring seamless drag-and-drop into Unity and Three.js asset inspectors.</p>
+
+          <h3>Are my photos uploaded or stored on any server?</h3>
+          <p>No. Slicing is performed locally in your browser memory using HTML5 Canvas and WebGL shader math. No data is sent over the network.</p>
+
+          <h3>What source image formats work best?</h3>
+          <p>Any 2:1 aspect ratio equirectangular panorama in PNG, JPG, JPEG, or WebP format. Standard resolutions include 2048&times;1024, 4096&times;2048, and 8192&times;4096.</p>
+        </section>
+
+        <section>
+          <h2>Related 360° Panorama Tools</h2>
+          <ul>
+            <li><a href="/cubemap-to-equirectangular/">Cubemap to Equirectangular Converter</a> — Stitch 6 cube faces back into a seamless 2:1 panorama.</li>
+            <li><a href="/360-panorama-viewer/">360 Panorama Viewer</a> — Free online WebGL viewer with no upload required.</li>
+            <li><a href="/skybox-generator/">AI Skybox Generator</a> — Generate 360° VR skyboxes for Unity and Unreal Engine.</li>
+            <li><a href="/ai-hdri-generator/">AI HDRI Generator</a> — Create 32-bit Radiance .HDR environment lighting for Blender.</li>
+            <li><a href="/photo-to-globe/">Map to Globe</a> — Project 2D maps and equirectangular images into 3D rotating globes.</li>
+          </ul>
+        </section>
+        
+        <section>
+          <h2>Step-by-Step Game Engine Cubemap Setup</h2>
+          <p>After exporting your six cube faces (+X, -X, +Y, -Y, +Z, -Z) in the ZIP archive, configure them in your preferred 3D engine:</p>
+          <ul>
+            <li><strong>Unity 6-Sided Skybox Material:</strong> Create a new Material in your Assets folder. Set the Shader to <em>Skybox &gt; 6 Sided</em>. Drag <code>posz.png</code> to Front (+Z), <code>negz.png</code> to Back (-Z), <code>negx.png</code> to Left (-X), <code>posx.png</code> to Right (+X), <code>posy.png</code> to Up (+Y), and <code>negy.png</code> to Down (-Y).</li>
+            <li><strong>Unreal Engine 5 SkyAtmosphere &amp; CubeTexture:</strong> Import the six faces, create a CubeTexture asset, and assign it to your Skylight or custom post-process skybox volume.</li>
+            <li><strong>Three.js CubeTextureLoader:</strong> Load the six faces with <code>new THREE.CubeTextureLoader().load(['posx.png', 'negx.png', 'posy.png', 'negy.png', 'posz.png', 'negz.png'])</code> and assign to <code>scene.background</code>.</li>
+            <li><strong>Godot 4 PanoramaSkyMaterial:</strong> Godot supports direct cubemap and panorama textures in WorldEnvironment for instant 360-degree ambient illumination.</li>
+          </ul>
+        </section>
+
         </main>
-      </noscript>
     </div>
 
     <script type="module" src="/src/main.tsx"></script>

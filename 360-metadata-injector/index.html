@@ -6,12 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Primary Meta Tags -->
-    <title>Free 360° Photo Metadata Injector | Facebook &amp; Google Street View Ready</title>
-    <meta name="title" content="Free 360° Photo Metadata Injector | Facebook &amp; Google Street View Ready" />
-    <meta
-      name="description"
-      content="Embed official Google PhotoSphere XMP and EXIF metadata into any equirectangular JPG image directly in your browser. Fix flat panorama upload issues on Facebook, Google Street View, and VR headsets."
-    />
+    <title>360 Photo Metadata Injector — Facebook &amp; Street View</title>
+    <meta name="title" content="360 Photo Metadata Injector — Facebook &amp; Street View" />
+    <meta name="description" content="Inject official Google PhotoSphere XMP and EXIF metadata into 360° photos directly in your browser. Fix flat panorama uploads on Facebook and Street View." />
     <meta
       name="keywords"
       content="360 metadata injector, PhotoSphere XMP injector, Facebook 360 photo tool, Google Street View 360 metadata, inject 360 EXIF, equirectangular XMP tagger, fix flat 360 photo"
@@ -26,11 +23,8 @@
     <meta property="og:locale" content="en_US" />
     <meta property="og:site_name" content="360 Panorama Viewer" />
     <meta property="og:url" content="https://360panoramaviewer.com/360-metadata-injector/" />
-    <meta property="og:title" content="Free 360° Photo Metadata Injector | Facebook &amp; Google Street View Ready" />
-    <meta
-      property="og:description"
-      content="Embed official Google PhotoSphere XMP and EXIF metadata into any equirectangular JPG image directly in your browser. Fix flat panorama upload issues on Facebook."
-    />
+    <meta property="og:title" content="360 Photo Metadata Injector — Facebook &amp; Street View" />
+    <meta property="og:description" content="Inject official Google PhotoSphere XMP and EXIF metadata into 360° photos directly in your browser. Fix flat panorama uploads on Facebook and Street View." />
     <meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
@@ -41,11 +35,8 @@
     <meta name="twitter:site" content="@360panoramaviewer" />
     <meta name="twitter:creator" content="@360panoramaviewer" />
     <meta name="twitter:url" content="https://360panoramaviewer.com/360-metadata-injector/" />
-    <meta name="twitter:title" content="Free 360° Photo Metadata Injector | Facebook &amp; Google Street View Ready" />
-    <meta
-      name="twitter:description"
-      content="Embed official Google PhotoSphere XMP and EXIF metadata into any equirectangular JPG image directly in your browser."
-    />
+    <meta name="twitter:title" content="360 Photo Metadata Injector — Facebook &amp; Street View" />
+    <meta name="twitter:description" content="Inject official Google PhotoSphere XMP and EXIF metadata into 360° photos directly in your browser. Fix flat panorama uploads on Facebook and Street View." />
     <meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
 
     <!-- Schema.org JSON-LD Structured Data: SoftwareApplication + HowTo + FAQPage + Breadcrumbs -->
@@ -156,23 +147,67 @@
   </head>
   <body>
     <div id="root">
-      <noscript>
         <header>
           <h1>Free 360° Photo Metadata Injector: Facebook &amp; Street View Ready</h1>
           <p>Embed official Google PhotoSphere XMP and EXIF metadata into any equirectangular JPG image directly in your browser. Fix flat panorama upload issues on Facebook, Google Street View, and VR headsets.</p>
         </header>
         <main>
           <section>
-            <h2>Highlights</h2>
+          <h2>How to Inject 360° Metadata in 3 Steps</h2>
+          <ol>
+            <li><strong>Select or Drop Your Panorama:</strong> Open any 2:1 aspect ratio equirectangular JPG, JPEG, or PNG image exported from Blender, Unreal Engine, Midjourney, or Photoshop.</li>
+            <li><strong>Automatic Binary XMP Header Injection:</strong> The tool scans the JPEG APP1 markers and embeds the official Adobe XMP Google PhotoSphere namespace (GPano:UsePanoramaViewer="True", GPano:ProjectionType="equirectangular", GPano:CroppedAreaImageWidthPixels, and GPano:FullPanoWidthPixels).</li>
+            <li><strong>Download Ready-to-Publish 360 File:</strong> Download your tagged JPEG and post it directly to Facebook, upload to Google Street View, or share with Oculus Meta Quest headsets.</li>
+          </ol>
+        </section>
+
+        <section>
+          <h2>Core Technical Capabilities</h2>
             <ul>
-              <li><strong>Official Adobe XMP Schema:</strong> Injects GPano:ProjectionType="equirectangular".</li>
-              <li><strong>Fixes Facebook 360:</strong> Restores spherical interactive rotation on feeds.</li>
-              <li><strong>Zero Quality Loss:</strong> Binary injection into APP1 header without re-compression.</li>
-              <li><strong>100% Client-Side:</strong> Private and secure, runs in browser memory.</li>
+            <li><strong>Lossless Binary Insertion:</strong> Injects metadata packets directly into the JPEG segment stream without decoding and re-compressing pixel arrays, guaranteeing 100% fidelity.</li>
+            <li><strong>Full Adobe XMP PhotoSphere Compliance:</strong> Embeds standard GPano namespaces recognized by Meta Facebook, Google Maps, Kuula, Momento360, and SteamVR.</li>
+            <li><strong>Automatic 2:1 Aspect Ratio Validation:</strong> Verifies spherical dimensions and calculates exact cropped area bounds for seamless horizon alignment.</li>
+            <li><strong>Complete Client-Side Privacy:</strong> Executes entirely inside your local browser via TypedArrays. No files or personal data are ever uploaded to remote servers.</li>
             </ul>
           </section>
+
+        <section>
+          <h2>Frequently Asked Questions</h2>
+          <h3>Why does Facebook display my 360 photo as a flat, distorted rectangle?</h3>
+          <p>Facebook uses automated metadata scanners to detect whether an uploaded photo is an interactive 360 sphere. It searches specifically for the Google PhotoSphere XMP schema embedded in the JPEG APP1 marker. If your 360 render was created in Blender, 3ds Max, Midjourney, or edited in Photoshop, this metadata is often missing or stripped. Injecting the official GPano tags restores immediate spherical recognition on Facebook feeds.</p>
+
+          <h3>Does injecting XMP metadata lower image quality or change colors?</h3>
+          <p>No. Unlike ordinary image converters, this tool performs binary byte insertion into the JPEG container header. The compressed image scan data is left completely untouched, meaning zero pixel degradation, zero color shifts, and zero artifact generation.</p>
+
+          <h3>What software and cameras are compatible with this metadata injector?</h3>
+          <p>It works with panoramas exported from Blender Cycles/EEVEE, Unreal Engine 5, Unity, Cinema 4D, V-Ray, AI image generators, and stitched camera outputs from Ricoh Theta, Insta360, and GoPro MAX.</p>
+        </section>
+
+        <section>
+          <h2>Related 360° Panorama Tools</h2>
+          <ul>
+            <li><a href="/360-panorama-viewer/">360 Panorama Viewer</a> — Free online WebGL viewer with no upload required.</li>
+            <li><a href="/360-image-maker/">360 Image Maker</a> — Create 360° panoramic photos with AI.</li>
+            <li><a href="/cubemap-generator/">Cubemap Generator</a> — Slice 360 panoramas into 6 cube faces (+X, -X, +Y, -Y, +Z, -Z).</li>
+            <li><a href="/photo-to-globe/">Map to Globe</a> — Project 2D maps and equirectangular images into 3D rotating globes.</li>
+            <li><a href="/ai-hdri-generator/">AI HDRI Generator</a> — Create 32-bit Radiance .HDR environment lighting for Blender.</li>
+            <li><a href="/360-photo-to-video/">360 Photo to Video</a> — Convert 360 panoramas into smooth orbital rotating MP4 clips.</li>
+          </ul>
+        </section>
+        
+        <section>
+          <h2>Understanding PhotoSphere GPano XMP Tags</h2>
+          <p>Google developed the Photo Sphere XMP metadata specification to allow standard JPEG image files to encapsulate complete 360-degree spherical metadata. Platforms like Facebook, Google Maps, Kuula, and VR photo viewers parse these specific XML tags inside the APP1 segment to determine projection math, field of view, and crop bounds:</p>
+          <ul>
+            <li><strong>UsePanoramaViewer=True:</strong> Signals to social feed algorithms that the photo should be initialized in an interactive 3D WebGL spherical panorama viewer instead of a standard 2D flat image view.</li>
+            <li><strong>ProjectionType=equirectangular:</strong> Instructs the 3D graphics engine to wrap the pixel rectangular plane using spherical longitude-latitude geometry.</li>
+            <li><strong>FullPanoWidthPixels &amp; FullPanoHeightPixels:</strong> Defines the dimensions of the full theoretical sphere (standard 2:1 ratio, such as 4096&times;2048 or 8192&times;4096).</li>
+            <li><strong>CroppedAreaImageWidthPixels &amp; HeightPixels:</strong> Specifies the active pixel canvas dimensions if the image was cropped or captured as a partial cylindrical panorama.</li>
+            <li><strong>CroppedAreaLeftPixels &amp; TopPixels:</strong> Sets positional offsets ensuring horizons remain level and the center point is accurately oriented.</li>
+          </ul>
+        </section>
+
         </main>
-      </noscript>
     </div>
 
     <script type="module" src="/src/main.tsx"></script>
