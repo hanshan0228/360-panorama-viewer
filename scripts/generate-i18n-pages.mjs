@@ -39,44 +39,44 @@ const PAGES = [
         ]
       },
       zh: {
-        title: 'AI 360全景图生成器与VR天空盒工作室',
-        description: '使用AI一键生成无缝2:1等距柱状360度全景图、立方体贴图与VR天空盒。免安装纯前端360全景查看器与图片转360全景工具。',
+        title: '360全景图查看器与AI全景工作室',
+        description: '免费在浏览器中查看2:1全景图，无需上传。也可使用AI从文字或参考照片创建360全景，AI生成需要积分。',
         keywords: 'AI全景图生成器, 360全景制作, VR天空盒AI, 文本生成全景图, 360全景查看器, 等距柱状投影全景, 图片转全景',
-        h1: 'AI 360全景图生成器与VR天空盒制作工具',
-        sub: '输入文字提示词或上传2D照片，快速生成无缝2:1等距柱状360度全景图与游戏VR天空盒。',
+        h1: '360°全景图查看器与AI工作室',
+        sub: '免费在浏览器中查看2:1全景图，也可使用文字或参考照片通过AI创建全景。查看器无需上传；AI生成需要积分。',
         faq: [
           { q: '什么是AI 360全景图生成器？', a: '这是一款基于前沿深度学习的在线工具，能够根据自然语言描述或参考图片，生成标准的2:1等距柱状360度全景照片和VR游戏天空盒。' },
           { q: '是否包含免费的360全景查看器？', a: '是的。支持直接拖拽、粘贴(Ctrl+V)本地全景图在浏览器中平移漫游，完全在本地GPU渲染，绝不上传您的私人照片。' }
         ]
       },
       es: {
-        title: 'Generador de Panoramas 360 con IA y Estudio de Skybox VR',
-        description: 'Genera panoramas 360° equirrectangulares 2:1 continuos, mapas cúbicos y skyboxes VR con IA. Visor 360 online gratuito y conversor de fotos a 360.',
+        title: 'Visor de Panoramas 360 y Estudio de IA',
+        description: 'Visor gratuito de panoramas 360° en el navegador sin subir archivos. Crea panoramas 2:1 con texto o fotos mediante IA; la generación requiere créditos.',
         keywords: 'generador de panorama con ia, generador 360 panorama, skybox vr ia, texto a panorama, visor 360, foto a 360',
-        h1: 'Generador de Panoramas 360 con Inteligencia Artificial',
-        sub: 'Crea panoramas 360 equirrectangulares y skyboxes para juegos en segundos con IA.',
+        h1: 'Visor de Panoramas 360° y Estudio de IA',
+        sub: 'Visualiza panoramas 2:1 gratis en el navegador o crea uno con texto e imágenes de referencia mediante IA. El visor no sube archivos; la generación requiere créditos.',
         faq: [
           { q: '¿Qué es un generador de panoramas 360 con IA?', a: 'Es una herramienta web que crea imágenes panorámicas esféricas 2:1 y skyboxes de realidad virtual a partir de texto o fotos normales.' },
           { q: '¿Incluye un visor 360 gratuito?', a: 'Sí. Puedes abrir e inspeccionar cualquier panorama directamente en el navegador con WebGL sin subir tus archivos a ningún servidor.' }
         ]
       },
       de: {
-        title: 'KI 360 Panorama Generator & VR Skybox Studio Online',
-        description: 'Erstelle nahtlose 2:1 equirektanguläre 360° Panoramen, Cubemaps und VR-Skyboxes mit KI. Kostenloser Online 360 Viewer und Foto-zu-360 Konverter.',
+        title: '360° Panorama Viewer und KI-Studio Online',
+        description: 'Kostenloser 360° Panorama Viewer im Browser ohne Upload. Erstelle 2:1-Panoramen mit KI aus Text oder Referenzfotos; die Generierung benötigt Guthaben.',
         keywords: 'ki panorama generator, 360 panorama generator, vr skybox ki, text zu panorama ki, 360 bild betrachter, foto in 360 umwandeln',
-        h1: 'KI 360 Panorama Generator & Skybox Creator',
-        sub: 'Erzeuge nahtlose 360° Panoramen und VR Skyboxes für Spiele und WebGL in Sekunden.',
+        h1: '360° Panorama Viewer und KI-Studio',
+        sub: 'Betrachte 2:1-Panoramen kostenlos im Browser oder erstelle sie mit KI aus Text und Referenzbildern. Der Viewer arbeitet ohne Upload; KI-Generierung benötigt Guthaben.',
         faq: [
           { q: 'Was ist ein KI 360 Panorama Generator?', a: 'Ein Webtool, das aus Textprompts oder 2D-Fotos nahtlose 2:1 Kugelpanoramen und 3D-Skyboxes erzeugt.' },
           { q: 'Ist ein kostenloser 360 Viewer enthalten?', a: 'Ja, unser WebGL-Viewer läuft zu 100% lokal im Browser ohne Server-Uploads.' }
         ]
       },
       ja: {
-        title: 'AI 360度パノラマ生成器 & VRスカイボックス スタジオ',
-        description: 'AIでシームレスな2:1正距円筒図法360度パノラマ画像、キューブマップ、VRスカイボックスを生成。無料のオンライン360ビューアー搭載。',
+        title: '360度パノラマビューアーとAIスタジオ',
+        description: '2:1パノラマをブラウザで無料表示。表示はアップロード不要です。テキストや参照写真からのAIパノラマ生成にはクレジットが必要です。',
         keywords: 'aiパノラマ生成器, 360度パノラマ作成, vrスカイボックス生成, テキストからパノラマ, 360写真ビューア, 画像360変換',
-        h1: 'AI 360度パノラマ生成器 & VRスカイボックス スタジオ',
-        sub: 'テキスト入力や写真から、継ぎ目のない2:1パノラマ画像とゲーム用スカイボックスを瞬時に生成。',
+        h1: '360度パノラマビューアーとAIスタジオ',
+        sub: '2:1パノラマをブラウザで無料表示し、テキストや参照写真からAIで新しいパノラマを作成できます。表示はアップロード不要、AI生成にはクレジットが必要です。',
         faq: [
           { q: 'AI 360度パノラマ生成器とは何ですか？', a: 'テキストの説明や2D写真から、VRや3Dゲームエンジンで使用できる完全な360度正距円筒画像を生成するツールです。' },
           { q: '無料の360度ビューアーは付属していますか？', a: 'はい。ローカル表示では写真をアップロードせず閲覧できます。AI生成の参照写真はサービスに送信されます。' }
@@ -123,7 +123,7 @@ const PAGES = [
       },
       de: {
         title: 'Kostenloser 360° Panorama Viewer Online — Ohne Upload',
-        description: '360 Grad Kugelpanoramen direkt im Browser ansehen. Echzeit WebGL-Rendering, Little Planet Modus und Strg+V Zwischenablage-Unterstützung.',
+        description: '360 Grad Kugelpanoramen direkt im Browser ansehen. Echtzeit-WebGL-Rendering, Little Planet Modus und Strg+V Zwischenablage-Unterstützung.',
         keywords: '360 panorama viewer, panorama betrachter, 360 grad fotos ansehen, kugelpanorama viewer, photo sphere betrachter, equirektangulaer viewer',
         h1: 'Kostenloser 360° Panorama Betrachter',
         sub: 'Navigiere und erkunde equirektanguläre 360° Panoramen ohne Installation und ohne Server-Upload.',
@@ -223,46 +223,46 @@ const PAGES = [
       },
       zh: {
         title: '立方体贴图生成器(Cubemap Generator) — 免费360全景切图为6面天空盒',
-        description: '将2:1等距柱状360全景图快速切片为6个标准立方体面(+X, -X, +Y, -Y, +Z, -Z)。内置免费天空盒素材，一键ZIP打包导出Unity与UE。',
+        description: '将2:1全景图在浏览器本地转换为6张PNG立方体贴图，支持256、512或1024像素分辨率和ZIP下载。含示例与Unity天空盒设置说明。',
         keywords: 'cubemap generator, 全景转cubemap, 免费cubemap下载, 立方体贴图生成器, 全景切图为6面, unity天空盒贴图切片, unreal cubemap',
         h1: '立方体贴图生成器：将360°全景切为6面天空盒',
-        sub: '基于WebGL精确反向切线投射，消除球极变形，一键打包下载 posx、negx、posy、negy、posz、negz 贴图压缩包。',
+        sub: '在浏览器本地将2:1全景图转换为6张PNG，按256、512或1024像素导出ZIP；切图无需上传、登录或AI积分。',
         faq: [
-          { q: '无需上传可以直接下载免费立方体贴图包吗？', a: '可以！点击切图器上方的免费预设（深空星云、赛博都市、热带落日等），即可直接预览并一键下载完整的6面ZIP压缩包。' },
-          { q: '支持导入Unity和虚幻引擎吗？', a: '完美支持。文件名与贴图朝向严格按照Unity 6-Sided Skybox与Three.js CubeTexture标准排序。' }
+          { q: '无需上传可以直接下载免费立方体贴图包吗？', a: '可以。先打开英文工具，选择示例，即可对照原图与6面预览并下载ZIP，无需上传自己的照片。' },
+          { q: '支持导入Unity和虚幻引擎吗？', a: 'PNG可按坐标轴分配给Unity的6 Sided天空盒。ZIP不是Unreal的TextureCube资产；HDRI Backdrop应使用受支持的原始.hdr文件，PNG不保留HDR照明数值。' }
         ]
       },
       es: {
         title: 'Generador de Cubemaps — Divide Panoramas 360 en 6 Caras',
-        description: 'Convierte panoramas 2:1 en 6 caras de cubo (+X, -X, +Y, -Y, +Z, -Z). Cubemaps gratis para descargar y archivo ZIP para Unity y Unreal Engine.',
+        description: 'Convierte panoramas 2:1 en seis PNG de 256, 512 o 1024 píxeles por cara. Conversión local gratuita, ejemplos, descarga ZIP y guía de skybox para Unity.',
         keywords: 'generador de cubemaps, panorama a cubemap, cubemaps gratis, equirrectangular a mapa cubico, skybox unity 6 caras',
         h1: 'Generador de Cubemaps: Panorama 360 a 6 Caras',
-        sub: 'Divide panoramas esféricos en 6 texturas rectilíneas sin distorsión para motores de videojuegos.',
+        sub: 'Convierte un panorama 2:1 en seis PNG de 256, 512 o 1024 píxeles por cara. Descarga el ZIP sin subir archivos ni iniciar sesión.',
         faq: [
-          { q: '¿Puedo descargar cubemaps gratis?', a: 'Sí, incluye paquetes de skybox gratuitos listos para descargar en formato ZIP.' },
-          { q: '¿Qué motores son compatibles?', a: 'Unity, Unreal Engine, Godot, Three.js y Blender.' }
+          { q: '¿Puedo descargar cubemaps gratis?', a: 'Sí. Abre primero la herramienta en inglés y elige un ejemplo para comparar el panorama con las seis caras y descargar el ZIP sin subir fotos.' },
+          { q: '¿Qué motores son compatibles?', a: 'Asigna los PNG por eje en el skybox 6 Sided de Unity. El ZIP no es un recurso TextureCube de Unreal; HDRI Backdrop requiere un archivo .hdr compatible. Los PNG no conservan los valores de iluminación HDR.' }
         ]
       },
       de: {
         title: 'Cubemap Generator — 360° Panoramen in 6 Würfelflächen Aufteilen',
-        description: 'Wandle 2:1 Panoramen in 6 rechtwinklige Cubemap-Texturen um (+X, -X, +Y, -Y, +Z, -Z). Kostenlose Cubemaps zum Download und ZIP-Export für Unity.',
+        description: 'Wandle 2:1-Panoramen lokal in sechs PNGs mit 256, 512 oder 1024 Pixeln pro Fläche um. Kostenlos mit Beispielen, ZIP-Download und Unity-Anleitung.',
         keywords: 'cubemap generator, panorama zu cubemap, kostenlose cubemaps, equirektangulaer zu cubemap, unity skybox slicer',
         h1: 'Cubemap Generator: 360° Panorama zu 6 Würfelflächen',
-        sub: 'Erstelle verzerrungsfreie 90°-Würfelflächen für Unity Skyboxen und Unreal Engine Spielewelten.',
+        sub: 'Wandle ein vollständiges 2:1-Panorama lokal in sechs PNGs mit 256, 512 oder 1024 Pixeln pro Fläche um. ZIP-Download ohne Upload oder Anmeldung.',
         faq: [
-          { q: 'Gibt es kostenlose Cubemaps zum Download?', a: 'Ja! Wählen Sie eine unserer kostenlosen Vorlagen (z. B. Weltraum-Nebel oder Sonnenuntergang) für den sofortigen ZIP-Download.' },
-          { q: 'Wie lauten die Dateinamen?', a: 'Die 6 Dateien heißen posx, negx, posy, negy, posz und negz passend zu Standard-Shadern.' }
+          { q: 'Gibt es kostenlose Cubemaps zum Download?', a: 'Ja. Öffnen Sie das englische Werkzeug und wählen Sie ein Beispiel. Vergleichen Sie das Panorama mit den sechs Flächen und laden Sie das ZIP ohne eigene Fotos herunter.' },
+          { q: 'Wie lauten die Dateinamen?', a: 'Die Dateien heißen posx.png, negx.png, posy.png, negy.png, posz.png und negz.png. Ordnen Sie sie nach Achsen zu. Das ZIP ist kein Unreal-TextureCube; HDRI Backdrop benötigt eine unterstützte .hdr-Datei. PNGs erhalten keine HDR-Lichtwerte.' }
         ]
       },
       ja: {
         title: 'キューブマップ生成器 — 360度パノラマを6面スカイボックスに分割',
-        description: '2:1正距円筒パノラマ画像を6枚の立方体テクスチャ(+X, -X, +Y, -Y, +Z, -Z)に変換。無料キューブマップの即時ZIPダウンロード対応。',
+        description: '2:1パノラマをブラウザ内で6枚のPNGに変換。各面256・512・1024ピクセル、無料サンプル、ZIP出力、Unity設定ガイドに対応。',
         keywords: 'キューブマップ生成器, パノラマからキューブマップ, 無料キューブマップ, スカイボックス分割, unityキューブマップ作成, unrealスカイボックス',
         h1: 'キューブマップ生成器：360°パノラマを6面に分割',
-        sub: '歪みのない90度画角で6面にスライス。Unityの6-sidedスカイボックスやUnreal Engine用ZIPを一括出力。',
+        sub: '完全な2:1パノラマを各面256・512・1024ピクセルの6枚のPNGに変換します。アップロードやログインなしでZIPを保存できます。',
         faq: [
-          { q: '画像をアップロードせずに無料キューブマップを入手できますか？', a: 'はい！宇宙ネビュラやサイバーパンク都市などの無料プリセットを選んで、すぐに6面ZIPファイルをダウンロードできます。' },
-          { q: 'UnityやThree.jsに対応していますか？', a: 'はい。posx、negx、posy、negy、posz、negzの標準ファイル名で出力されます。' }
+          { q: '画像をアップロードせずに無料キューブマップを入手できますか？', a: 'はい。英語のツールを開いてサンプルを選ぶと、元のパノラマと6面を比較し、写真をアップロードせずにZIPを保存できます。' },
+          { q: 'UnityやThree.jsに対応していますか？', a: 'PNGを軸に合わせてUnityの6 Sidedスカイボックスに割り当てます。ZIPはUnrealのTextureCubeではありません。HDRI Backdropには対応する元の.hdrを使用してください。PNGはHDR照明値を保持しません。' }
         ]
       }
     }
@@ -444,6 +444,7 @@ ${generateAlternateLinks(page.slug)}
 
 export function generateAllI18n() {
   let generatedCount = 0;
+  const updatedUrls = new Set();
 
   // Generate for non-English languages (English has existing main templates)
   for (const lang of LANGUAGES) {
@@ -457,7 +458,10 @@ export function generateAllI18n() {
       fs.mkdirSync(targetDir, { recursive: true });
       const targetFile = path.join(targetDir, 'index.html');
       const content = buildHtmlPage(page, lang);
-      fs.writeFileSync(targetFile, content, 'utf8');
+      if (!fs.existsSync(targetFile) || fs.readFileSync(targetFile, 'utf8') !== content) {
+        fs.writeFileSync(targetFile, content, 'utf8');
+        updatedUrls.add(`${DOMAIN}/${lang.code}/${page.slug ? `${page.slug}/` : ''}`);
+      }
       generatedCount++;
     }
   }
@@ -467,14 +471,21 @@ export function generateAllI18n() {
     const englishPath = path.join(rootDir, page.slug, 'index.html');
     const html = fs.readFileSync(englishPath, 'utf8').replace(/\n    <!-- Locale alternates -->[\s\S]*?<!-- End locale alternates -->/g, '');
     const alternates = `\n    <!-- Locale alternates -->\n${generateAlternateLinks(page.slug)}\n    <!-- End locale alternates -->`;
-    fs.writeFileSync(englishPath, html.replace(/<link rel="canonical"[^>]+>/, match => match + alternates), 'utf8');
+    const content = html.replace(/<link rel="canonical"[^>]+>/, match => match + alternates);
+    if (fs.readFileSync(englishPath, 'utf8') !== content) {
+      fs.writeFileSync(englishPath, content, 'utf8');
+      updatedUrls.add(`${DOMAIN}/${page.slug ? `${page.slug}/` : ''}`);
+    }
   }
-  updateSitemapXml();
+  updateSitemapXml(updatedUrls);
 }
 
-function updateSitemapXml() {
+function updateSitemapXml(updatedUrls) {
   const sitemapPath = path.join(rootDir, 'public', 'sitemap.xml');
-  const today = new Date().toISOString().split('T')[0];
+  const modifiedAt = new Date().toISOString();
+  const previousXml = fs.readFileSync(sitemapPath, 'utf8');
+  const previousDates = new Map([...previousXml.matchAll(/<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/g)].map(match => [match[1], match[2]]));
+  const lastmod = url => updatedUrls.has(url) ? modifiedAt : previousDates.get(url) ?? modifiedAt;
 
   // All canonical pages including our new product-video and hdri-to-cubemap
   const canonicalUrls = [
@@ -514,7 +525,7 @@ function updateSitemapXml() {
 
     xml += `  <url>\n`;
     xml += `    <loc>${loc}</loc>\n`;
-    xml += `    <lastmod>${today}</lastmod>\n`;
+    xml += `    <lastmod>${lastmod(loc)}</lastmod>\n`;
     xml += `    <changefreq>${item.change}</changefreq>\n`;
     xml += `    <priority>${item.prio}</priority>\n`;
 
@@ -535,7 +546,7 @@ function updateSitemapXml() {
         const langLoc = `${DOMAIN}/${lang.code}/${slugPart}`;
         xml += `  <url>\n`;
         xml += `    <loc>${langLoc}</loc>\n`;
-        xml += `    <lastmod>${today}</lastmod>\n`;
+        xml += `    <lastmod>${lastmod(langLoc)}</lastmod>\n`;
         xml += `    <changefreq>${item.change}</changefreq>\n`;
         xml += `    <priority>${item.prio}</priority>\n`;
         for (const l of LANGUAGES) {

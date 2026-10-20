@@ -13,6 +13,7 @@ import { createCommercialServer, hashPassword, readStore, writeStore } from '../
 import * as commercialApi from '../src/utils/commercialApi.ts';
 import * as adminStorage from '../src/utils/adminStorage.ts';
 import { inspectImageResolution } from '../src/utils/imageModelRequest.mjs';
+import { combineAbortSignals } from '../src/utils/abortSignal.ts';
 
 const adminPassword = 'isolated-generation-password';
 const imageResponse = () => Response.json({ data: [{ b64_json: 'AA==' }] });
@@ -419,7 +420,8 @@ function loadTsModule(relativePath, overrides = {}) {
   const nativeRequire = createRequire(new URL(relativePath, import.meta.url));
   const module = { exports: {} };
   new Function('require', 'exports', 'module', output)(specifier => (
-    Object.hasOwn(overrides, specifier) ? overrides[specifier] : nativeRequire(specifier)
+    Object.hasOwn(overrides, specifier) ? overrides[specifier]
+      : specifier.endsWith('/abortSignal') ? { combineAbortSignals } : nativeRequire(specifier)
   ), module.exports, module);
   return module.exports;
 }
@@ -501,6 +503,33 @@ function memoryStorage() {
   return { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)), removeItem: key => values.delete(key) };
 }
 
+test('viewport snapshots bake tone filters and support canvases without native filters', () => {
+  for (const supportsFilter of [true, false]) {
+    const source = { width: 1, height: 1 };
+    const pixels = new Uint8ClampedArray([200, 100, 50, 255]);
+    let downloaded = false;
+    const context = {
+      ...(supportsFilter ? { filter: 'none' } : {}),
+      drawImage(value) { assert.equal(value, source); },
+      getImageData() { return { data: pixels }; },
+      putImageData(frame) { assert.equal(frame.data, pixels); },
+    };
+    const canvas = { getContext: () => context, toDataURL: () => 'data:image/png;base64,test' };
+    const anchor = { click() { downloaded = true; } };
+    const snapshot = callbackWithContext(sourceCallback('../src/components/SphereViewer.tsx', 'handleTakeSnapshot'), {
+      rendererRef: { current: { domElement: source } }, contrast: 100, saturation: 0,
+      document: { createElement: name => name === 'canvas' ? canvas : anchor },
+    });
+    snapshot();
+    assert.equal(downloaded, true);
+    assert.equal(anchor.href, 'data:image/png;base64,test');
+    assert.equal(canvas.width, source.width);
+    assert.equal(canvas.height, source.height);
+    if (supportsFilter) assert.equal(context.filter, 'contrast(100%) saturate(0%)');
+    else assert.deepEqual([...pixels], [118, 118, 118, 255]);
+  }
+});
+
 const accountFixture = (id = 'usr_account') => ({ id, name: 'Test Account', email: 'test@example.com', plan: 'free',
   creditsBalance: 4, creditsTotal: 4, apiCallsCount: 0, status: 'active' });
 const flushPromises = () => new Promise(resolve => setImmediate(resolve));
@@ -575,7 +604,7 @@ test('navigation from pricing to Studio clears the pricing hash instead of reope
   assert.deepEqual(paths, ['/']);
 });
 
-test('public source copy stays English while allowing Chinese comments and the private admin console', () => {
+test('public source copy stays English while allowing language names, Chinese comments and the private admin console', () => {
   const directory = new URL('../src/', import.meta.url);
   const files = [];
   const walk = root => {
@@ -590,7 +619,12 @@ test('public source copy stays English while allowing Chinese comments and the p
     const source = ts.createSourceFile(file.pathname, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, file.pathname.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
     const visit = node => {
       if (ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node) || ts.isJsxText(node)) {
-        assert.equal(/\p{Script=Han}/u.test(node.text), false, `${file.pathname}: ${node.text}`);
+        const declaration = node.parent?.parent?.parent?.parent;
+        const isLanguageName = file.pathname.endsWith('/src/App.tsx') && ts.isStringLiteral(node)
+          && ts.isPropertyAssignment(node.parent) && node.parent.name.getText(source) === 'name'
+          && declaration && ts.isVariableDeclaration(declaration) && declaration.name.getText(source) === 'GUIDE_LANGUAGES'
+          && ['简体中文', '日本語'].includes(node.text);
+        assert.ok(isLanguageName || !/\p{Script=Han}/u.test(node.text), `${file.pathname}: ${node.text}`);
       }
       ts.forEachChild(node, visit);
     };
@@ -2245,7 +2279,7 @@ test('share modal initializes title with current prompt and distinguishes new sh
   const harness = componentHarness('../src/components/commercial/SharePanorama.tsx', 'SharePanoramaModal', { '../SphereViewer': { SphereViewer() {} }, '../../utils/imageOptimizer': {} });
   const attach = tree => { const node = elementsIn(tree).find(e => e.type === 'dialog'); if (node) node.props.ref.current = { showModal() {}, close() {} }; };
   const props = { isOpen: true, accountId: 'acc-1', imageUrl: 'data:image/png;base64,AA==', prompt: 'Cyberpunk Neon Alley at Dusk', onClose() {} };
-  const tree = harness.render(props, attach);
+  harness.render(props, attach);
   await flushPromises();
   const rendered = harness.render(props, attach);
   const text = elementText(rendered);

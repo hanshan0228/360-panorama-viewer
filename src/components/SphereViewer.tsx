@@ -683,7 +683,30 @@ export const SphereViewer = memo(function SphereViewer({
   const handleTakeSnapshot = () => {
     const renderer = rendererRef.current;
     if (!renderer) return;
-    const dataUrl = renderer.domElement.toDataURL('image/png');
+    const source = renderer.domElement;
+    const canvas = document.createElement('canvas');
+    canvas.width = source.width;
+    canvas.height = source.height;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    const supportsFilter = typeof context.filter === 'string';
+    if (supportsFilter) context.filter = `contrast(${contrast}%) saturate(${saturation}%)`;
+    context.drawImage(source, 0, 0);
+    if (!supportsFilter) {
+      const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+      const c = contrast / 100;
+      const s = saturation / 100;
+      const channel = (value: number) => Math.max(0, Math.min(255, (value - 127.5) * c + 127.5));
+      for (let i = 0; i < frame.data.length; i += 4) {
+        const r = channel(frame.data[i]), g = channel(frame.data[i + 1]), b = channel(frame.data[i + 2]);
+        const luminance = 0.213 * r + 0.715 * g + 0.072 * b;
+        frame.data[i] = luminance + (r - luminance) * s;
+        frame.data[i + 1] = luminance + (g - luminance) * s;
+        frame.data[i + 2] = luminance + (b - luminance) * s;
+      }
+      context.putImageData(frame, 0, 0);
+    }
+    const dataUrl = canvas.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = dataUrl;
     a.download = `360-view-snapshot-${Date.now()}.png`;

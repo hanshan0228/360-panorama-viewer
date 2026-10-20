@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>キューブマップ生成器 — 360度パノラマを6面スカイボックスに分割</title>
     <meta name="title" content="キューブマップ生成器 — 360度パノラマを6面スカイボックスに分割" />
-    <meta name="description" content="2:1正距円筒パノラマ画像を6枚の立方体テクスチャ(+X, -X, +Y, -Y, +Z, -Z)に変換。無料キューブマップの即時ZIPダウンロード対応。" />
+    <meta name="description" content="2:1パノラマをブラウザ内で6枚のPNGに変換。各面256・512・1024ピクセル、無料サンプル、ZIP出力、Unity設定ガイドに対応。" />
     <meta name="keywords" content="キューブマップ生成器, パノラマからキューブマップ, 無料キューブマップ, スカイボックス分割, unityキューブマップ作成, unrealスカイボックス" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <link rel="canonical" href="https://360panoramaviewer.com/ja/cubemap-generator/" />
@@ -23,14 +23,14 @@
     <meta property="og:site_name" content="360 Panorama Viewer" />
     <meta property="og:url" content="https://360panoramaviewer.com/ja/cubemap-generator/" />
     <meta property="og:title" content="キューブマップ生成器 — 360度パノラマを6面スカイボックスに分割" />
-    <meta property="og:description" content="2:1正距円筒パノラマ画像を6枚の立方体テクスチャ(+X, -X, +Y, -Y, +Z, -Z)に変換。無料キューブマップの即時ZIPダウンロード対応。" />
+    <meta property="og:description" content="2:1パノラマをブラウザ内で6枚のPNGに変換。各面256・512・1024ピクセル、無料サンプル、ZIP出力、Unity設定ガイドに対応。" />
     <meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:url" content="https://360panoramaviewer.com/ja/cubemap-generator/" />
     <meta name="twitter:title" content="キューブマップ生成器 — 360度パノラマを6面スカイボックスに分割" />
-    <meta name="twitter:description" content="2:1正距円筒パノラマ画像を6枚の立方体テクスチャ(+X, -X, +Y, -Y, +Z, -Z)に変換。無料キューブマップの即時ZIPダウンロード対応。" />
+    <meta name="twitter:description" content="2:1パノラマをブラウザ内で6枚のPNGに変換。各面256・512・1024ピクセル、無料サンプル、ZIP出力、Unity設定ガイドに対応。" />
     <meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
-    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"SoftwareApplication","@id":"https://360panoramaviewer.com/ja/cubemap-generator/#software","name":"キューブマップ生成器 — 360度パノラマを6面スカイボックスに分割","description":"2:1正距円筒パノラマ画像を6枚の立方体テクスチャ(+X, -X, +Y, -Y, +Z, -Z)に変換。無料キューブマップの即時ZIPダウンロード対応。","applicationCategory":"MultimediaApplication","operatingSystem":"Web Browser","url":"https://360panoramaviewer.com/ja/cubemap-generator/","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},{"@type":"FAQPage","@id":"https://360panoramaviewer.com/ja/cubemap-generator/#faq","mainEntity":[{"@type":"Question","name":"画像をアップロードせずに無料キューブマップを入手できますか？","acceptedAnswer":{"@type":"Answer","text":"はい！宇宙ネビュラやサイバーパンク都市などの無料プリセットを選んで、すぐに6面ZIPファイルをダウンロードできます。"}},{"@type":"Question","name":"UnityやThree.jsに対応していますか？","acceptedAnswer":{"@type":"Answer","text":"はい。posx、negx、posy、negy、posz、negzの標準ファイル名で出力されます。"}}]}]}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"SoftwareApplication","@id":"https://360panoramaviewer.com/ja/cubemap-generator/#software","name":"キューブマップ生成器 — 360度パノラマを6面スカイボックスに分割","description":"2:1パノラマをブラウザ内で6枚のPNGに変換。各面256・512・1024ピクセル、無料サンプル、ZIP出力、Unity設定ガイドに対応。","applicationCategory":"MultimediaApplication","operatingSystem":"Web Browser","url":"https://360panoramaviewer.com/ja/cubemap-generator/","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},{"@type":"FAQPage","@id":"https://360panoramaviewer.com/ja/cubemap-generator/#faq","mainEntity":[{"@type":"Question","name":"画像をアップロードせずに無料キューブマップを入手できますか？","acceptedAnswer":{"@type":"Answer","text":"はい。英語のツールを開いてサンプルを選ぶと、元のパノラマと6面を比較し、写真をアップロードせずにZIPを保存できます。"}},{"@type":"Question","name":"UnityやThree.jsに対応していますか？","acceptedAnswer":{"@type":"Answer","text":"PNGを軸に合わせてUnityの6 Sidedスカイボックスに割り当てます。ZIPはUnrealのTextureCubeではありません。HDRI Backdropには対応する元の.hdrを使用してください。PNGはHDR照明値を保持しません。"}}]}]}</script>
   </head>
   <body>
     <a class="skip-link" href="#content">本文へ</a>
@@ -48,7 +48,7 @@
     </header>
     <main class="wrap" id="content">
       <h1>キューブマップ生成器：360°パノラマを6面に分割</h1>
-      <p>歪みのない90度画角で6面にスライス。Unityの6-sidedスカイボックスやUnreal Engine用ZIPを一括出力。</p>
+      <p>完全な2:1パノラマを各面256・512・1024ピクセルの6枚のPNGに変換します。アップロードやログインなしでZIPを保存できます。</p>
       <div class="cta">
         <p>このページは日本語のガイドです。ツールの操作画面は英語です。</p>
         <a class="button" href="/cubemap-generator/" hreflang="en">ツールを開く（英語の画面）</a>
@@ -56,13 +56,13 @@
 
       <section aria-labelledby="faq">
         <h2 id="faq">よくある質問</h2>
-        <h3>画像をアップロードせずに無料キューブマップを入手できますか？</h3><p>はい！宇宙ネビュラやサイバーパンク都市などの無料プリセットを選んで、すぐに6面ZIPファイルをダウンロードできます。</p>
-        <h3>UnityやThree.jsに対応していますか？</h3><p>はい。posx、negx、posy、negy、posz、negzの標準ファイル名で出力されます。</p>
+        <h3>画像をアップロードせずに無料キューブマップを入手できますか？</h3><p>はい。英語のツールを開いてサンプルを選ぶと、元のパノラマと6面を比較し、写真をアップロードせずにZIPを保存できます。</p>
+        <h3>UnityやThree.jsに対応していますか？</h3><p>PNGを軸に合わせてUnityの6 Sidedスカイボックスに割り当てます。ZIPはUnrealのTextureCubeではありません。HDRI Backdropには対応する元の.hdrを使用してください。PNGはHDR照明値を保持しません。</p>
       </section>
       <section aria-labelledby="tools">
         <h2 id="tools">関連ツール</h2>
         <div class="grid">
-          <a class="card" href="/ja/"><strong>AI 360度パノラマ生成器 &amp; VRスカイボックス スタジオ</strong><span>テキスト入力や写真から、継ぎ目のない2:1パノラマ画像とゲーム用スカイボックスを瞬時に生成。</span></a>
+          <a class="card" href="/ja/"><strong>360度パノラマビューアーとAIスタジオ</strong><span>2:1パノラマをブラウザで無料表示し、テキストや参照写真からAIで新しいパノラマを作成できます。表示はアップロード不要、AI生成にはクレジットが必要です。</span></a>
           <a class="card" href="/ja/360-panorama-viewer/"><strong>無料オンライン 360° パノラマビューアー</strong><span>アップロード不要。ブラウザ内で直接360度パノラマ写真を回転・拡大・探索できます。</span></a>
           <a class="card" href="/ja/photo-to-globe/"><strong>Map to Globe: 2D地図から3D回転球体へ</strong><span>ファンタジー世界の地図やパノラマ写真を、ブラウザ上で瞬時に3D地球儀として立体化・回転表示。</span></a>
           <a class="card" href="/ja/photo-to-360-converter/"><strong>写真から 360° パノラマ変換 AI</strong><span>スマートな球体投影と境界ブレンドにより、手持ちの2D写真を全方位見渡せるパノラマ空間に変換。</span></a>

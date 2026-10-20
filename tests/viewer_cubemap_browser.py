@@ -7,6 +7,7 @@ import base64
 import struct
 import zipfile
 import unittest
+import json
 from playwright.sync_api import sync_playwright, expect
 
 BASE_URL = "http://localhost:5173"
@@ -231,6 +232,209 @@ class BrowserRegression(unittest.TestCase):
         expect(slider).to_have_value('0.6')
         self.assertEqual(fixture.locator('canvas').evaluate('(el) => el.toDataURL()'), before)
 
+    def test_cubemap_navigation_and_reload_keep_the_same_page(self):
+        self.page.goto(BASE_URL + '/360-panorama-viewer/')
+        self.page.get_by_role('button', name=re.compile('Slice to 6-Face Cubemap')).click()
+        expect(self.page).to_have_url(BASE_URL + '/cubemap-generator/')
+        expect(self.page.locator('link[rel=canonical]')).to_have_attribute('href', 'https://360panoramaviewer.com/cubemap-generator/')
+        expect(self.page.locator('h1')).to_contain_text('Cubemap Generator')
+        expect(self.page.get_by_role('button', name=re.compile('Cosmic Nebula'))).to_be_visible()
+        self.page.reload()
+        expect(self.page.locator('h1')).to_contain_text('Cubemap Generator')
+        self.page.goto(BASE_URL + '/#cubemap')
+        expect(self.page.locator('link[rel=canonical]')).to_have_attribute('href', 'https://360panoramaviewer.com/cubemap-generator/')
+        expect(self.page.locator('h1')).to_contain_text('Cubemap Generator')
+
+    def test_shared_viewing_and_processing_work_without_abort_signal_any(self):
+        png = self.page.evaluate("""() => {
+          const canvas = document.createElement('canvas'); canvas.width = 4; canvas.height = 2;
+          const ctx = canvas.getContext('2d'); ctx.fillStyle = '#cc5533'; ctx.fillRect(0, 0, 4, 2);
+          return canvas.toDataURL().split(',')[1];
+        }""")
+        share_id = 'a' * 32
+        self.context.route('**/api/shares/' + share_id, lambda route: route.fulfill(json={'share': {'id': share_id, 'title': 'Compatibility panorama', 'width': 4, 'height': 2, 'allowDownload': False}}))
+        self.context.route('**/api/shares/' + share_id + '/image', lambda route: route.fulfill(content_type='image/png', body=base64.b64decode(png)))
+        errors = []
+        self.page.on('pageerror', lambda error: errors.append(str(error)))
+        self.page.add_init_script('AbortSignal.any = undefined')
+        self.page.goto(BASE_URL + '/s/' + share_id)
+        expect(self.page.get_by_role('heading', name='Compatibility panorama', exact=True)).to_be_visible()
+        expect(self.page.locator('canvas')).to_be_visible()
+        result = self.page.evaluate("""async png => {
+          const {processPanoramaImage} = await import('/src/utils/panoramaProcessor.ts');
+          return processPanoramaImage('data:image/png;base64,' + png, {preserveNative:true}, false);
+        }""", png)
+        self.assertTrue(result.startswith('data:image/png;base64,'))
+        self.assertEqual(errors, [])
+
+    def test_snapshot_download_includes_contrast_and_saturation(self):
+        fixture = self.mount('SphereViewer')
+        self.page.wait_for_function("document.querySelector('#regression-fixture canvas')?.width > 0")
+        fixture.locator('button[title="Tone adjustments, exposure & ambient audio"]').click()
+        fixture.locator('input[type=range]').nth(1).fill('150')
+        fixture.locator('input[type=range]').nth(2).fill('70')
+        self.page.evaluate("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
+        original = fixture.locator('canvas').evaluate('(el) => el.toDataURL()')
+        with self.page.expect_download() as download:
+            fixture.locator('button[title="Capture high-resolution viewport snapshot (PNG)"]').click()
+        with open(download.value.path(), 'rb') as file:
+            exported = file.read()
+        self.assertNotEqual(exported, base64.b64decode(original.split(',')[1]))
+        self.assertEqual(struct.unpack('>II', exported[16:24]), tuple(fixture.locator('canvas').evaluate('(el) => [el.width, el.height]')))
+        pixels = self.page.evaluate("""async encoded => {
+          const source = document.querySelector('#regression-fixture canvas');
+          const canvas = document.createElement('canvas'); canvas.width = source.width; canvas.height = source.height;
+          const ctx = canvas.getContext('2d'); const x = Math.floor(canvas.width/2), y = Math.floor(canvas.height/2);
+          ctx.drawImage(source,0,0); const original = [...ctx.getImageData(x,y,1,1).data];
+          ctx.filter = 'contrast(150%) saturate(70%)'; ctx.drawImage(source,0,0);
+          const expected = [...ctx.getImageData(x,y,1,1).data];
+          const image = new Image(); image.src = 'data:image/png;base64,' + encoded; await image.decode();
+          ctx.filter = 'none'; ctx.drawImage(image,0,0);
+          return {original,expected,actual:[...ctx.getImageData(x,y,1,1).data]};
+        }""", base64.b64encode(exported).decode())
+        self.assertNotEqual(pixels['original'], pixels['actual'])
+        for actual, expected in zip(pixels['actual'], pixels['expected']):
+            self.assertLessEqual(abs(actual - expected), 2)
+
+    def test_cooperative_cubemap_conversion_accepts_cancellation_between_batches(self):
+        result = self.page.evaluate("""async () => {
+          const {sliceEquirectangularToCubemapAsync} = await import('/src/utils/cubemapSlicer.ts');
+          const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 64;
+          const controller = new AbortController(); let timerRan = false;
+          setTimeout(() => { timerRan = true; controller.abort(); }, 0);
+          try { await sliceEquirectangularToCubemapAsync(canvas, 1024, controller.signal); return {cancelled:false}; }
+          catch (error) { return {cancelled: error.name === 'AbortError', timerRan}; }
+        }""")
+        self.assertEqual(result, {'cancelled': True, 'timerRan': True})
+
+    def test_cubemap_stitch_rejects_a_replaced_output_size(self):
+        fixture = self.mount('landing/CubemapToEquirectPage')
+        png = self.page.evaluate("""() => {
+          const canvas = document.createElement('canvas'); canvas.width = canvas.height = 16;
+          const ctx = canvas.getContext('2d'); ctx.fillStyle = '#118844'; ctx.fillRect(0,0,16,16);
+          return canvas.toDataURL().split(',')[1];
+        }""")
+        fixture.locator('input[type=file]').first.set_input_files({'name':'posx.png','mimeType':'image/png','buffer':base64.b64decode(png)})
+        expect(fixture.get_by_role('img', name='Right cube face preview')).to_be_visible()
+        fixture.get_by_role('button', name='4096 × 2048', exact=True).click()
+        fixture.get_by_role('button', name='Stitch to 2:1 Panorama', exact=True).click()
+        expect(fixture.get_by_role('button', name='Stitching panorama...', exact=True)).to_be_disabled()
+        fixture.get_by_role('button', name='1024 × 512', exact=True).click()
+        start = fixture.get_by_role('button', name='Stitch to 2:1 Panorama', exact=True)
+        expect(start).to_be_enabled()
+        start.click()
+        result = fixture.get_by_role('img', name='Stitched equirectangular 360 panorama preview')
+        expect(result).to_be_visible()
+        self.assertEqual(result.evaluate('(el) => [el.naturalWidth, el.naturalHeight]'), [1024,512])
+        expect(start).to_be_enabled()
+
+    def test_cubemap_samples_update_source_faces_and_zip(self):
+        self.page.goto(BASE_URL + '/cubemap-generator/')
+        expect(self.page.locator('h1')).to_have_count(1)
+        source = self.page.get_by_role('img', name='Source equirectangular panorama used for the six cube faces below')
+        download = self.page.get_by_role('button', name='Download All 6 Faces (ZIP)', exact=True)
+        first = self.page.get_by_role('button', name=re.compile('Cosmic Nebula'))
+        first.click()
+        expect(first).to_have_attribute('aria-pressed', 'true')
+        expect(download).to_be_enabled(timeout=20000)
+        source_before = source.get_attribute('src')
+        face = self.page.get_by_role('img', name='Front (+Z)', exact=True).first
+        face_before = face.get_attribute('src')
+        second = self.page.get_by_role('button', name=re.compile('Tropical Sunset'))
+        second.click()
+        expect(second).to_have_attribute('aria-pressed', 'true')
+        expect(first).to_have_attribute('aria-pressed', 'false')
+        expect(source).not_to_have_attribute('src', source_before)
+        expect(download).to_be_enabled(timeout=20000)
+        expect(face).not_to_have_attribute('src', face_before)
+        self.page.get_by_role('button', name='256 × 256', exact=True).click()
+        expect(download).to_be_enabled(timeout=20000)
+        with self.page.expect_download() as event:
+            download.click()
+        with zipfile.ZipFile(event.value.path()) as archive:
+            self.assertEqual(set(archive.namelist()), {'posx.png', 'negx.png', 'posy.png', 'negy.png', 'posz.png', 'negz.png'})
+            for filename in archive.namelist():
+                self.assertEqual(struct.unpack('>II', archive.read(filename)[16:24]), (256, 256))
+        png = self.page.evaluate("""() => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 32; canvas.height = 16;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#118844'; ctx.fillRect(0, 0, 32, 16);
+          return canvas.toDataURL().split(',')[1];
+        }""")
+        self.page.locator('input[type=file]').set_input_files({'name': 'local.png', 'mimeType': 'image/png', 'buffer': base64.b64decode(png)})
+        expect(source).to_have_attribute('src', 'data:image/png;base64,' + png)
+        expect(second).to_have_attribute('aria-pressed', 'false')
+        expect(download).to_be_enabled(timeout=20000)
+        faq = self.page.get_by_role('button', name='What face resolutions are supported for ZIP download?', exact=True)
+        faq.focus()
+        self.page.keyboard.press('Enter')
+        expect(faq).to_have_attribute('aria-expanded', 'true')
+        expect(self.page.locator('#' + faq.get_attribute('aria-controls'))).to_contain_text('1024x1024')
+
+    def test_cubemap_fallback_contains_guides_and_matches_faq_schema(self):
+        context = self.browser.new_context(java_script_enabled=False)
+        try:
+            page = context.new_page()
+            page.goto(BASE_URL + '/cubemap-generator/')
+            expect(page.get_by_role('heading', name='Fix seams, rotated faces and blurry cubemaps')).to_be_visible()
+            expect(page.get_by_role('heading', name='Unreal Engine: retain the original HDR environment')).to_be_visible()
+            graph = json.loads(page.locator('script[type="application/ld+json"]').text_content())['@graph']
+            software = next(item for item in graph if item['@type'] == 'SoftwareApplication')
+            self.assertNotIn('aggregateRating', software)
+            faqs = next(item for item in graph if item['@type'] == 'FAQPage')['mainEntity']
+            for faq in faqs:
+                expect(page.get_by_role('heading', name=faq['name'], exact=True)).to_be_visible()
+                expect(page.get_by_text(faq['acceptedAnswer']['text'], exact=True)).to_be_visible()
+            page_text = page.locator('main').inner_text()
+            self.assertNotIn('4096px per square face', page_text)
+            self.assertIn('256, 512 or 1024 px per face', page_text)
+        finally:
+            context.close()
+
+    def test_language_guides_keep_their_language_and_reach_the_matching_tool(self):
+        for lang in ['zh', 'es', 'de', 'ja']:
+            for slug in ['', '360-panorama-viewer', 'photo-to-globe', 'cubemap-generator', 'photo-to-360-converter']:
+                route = '/' + lang + '/' + (slug + '/' if slug else '')
+                with self.subTest(route=route):
+                    response = self.page.goto(BASE_URL + route)
+                    self.assertEqual(response.status, 200)
+                    expect(self.page.locator('html')).to_have_attribute('lang', lang)
+                    expect(self.page.locator('h1')).to_have_count(1)
+                    expect(self.page.locator('link[rel=canonical]')).to_have_attribute('href', 'https://360panoramaviewer.com' + route)
+                    expect(self.page.locator('nav [aria-current=page]')).to_have_attribute('hreflang', lang)
+                    tool_path = '/' + (slug + '/' if slug else '')
+                    expect(self.page.locator('a.button')).to_have_attribute('href', tool_path)
+                    self.page.wait_for_load_state('networkidle')
+                    expect(self.page.locator('html')).to_have_attribute('lang', lang)
+                    self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
+        self.page.goto(BASE_URL + '/cubemap-generator/')
+        guides = self.page.get_by_role('navigation', name='Language guides')
+        guides.get_by_role('link', name='简体中文', exact=True).click()
+        expect(self.page).to_have_url(BASE_URL + '/zh/cubemap-generator/')
+        self.page.get_by_role('link', name='日本語', exact=True).click()
+        expect(self.page).to_have_url(BASE_URL + '/ja/cubemap-generator/')
+        self.page.locator('a.button').click()
+        expect(self.page).to_have_url(BASE_URL + '/cubemap-generator/')
+        expect(self.page.locator('html')).to_have_attribute('lang', 'en')
+        expect(self.page.locator('h1')).to_contain_text('Cubemap Generator')
+
+    def test_hash_tools_link_to_the_matching_language_guide(self):
+        for tab, tool_path in [('cubemap', '/cubemap-generator/'), ('viewer', '/360-panorama-viewer/'), ('globe', '/photo-to-globe/')]:
+            with self.subTest(tab=tab):
+                self.page.goto(BASE_URL + '/#' + tab)
+                self.page.wait_for_load_state('networkidle')
+                guides = self.page.get_by_role('navigation', name='Language guides')
+                expect(guides.get_by_role('link', name='简体中文', exact=True)).to_have_attribute('href', '/zh' + tool_path)
+                expect(self.page.get_by_role('heading', level=1)).to_have_count(1)
+                guides.get_by_role('link', name='简体中文', exact=True).click()
+                expect(self.page).to_have_url(BASE_URL + '/zh' + tool_path)
+                self.page.locator('a.button').click()
+                expect(self.page).to_have_url(BASE_URL + tool_path)
+                expect(self.page.get_by_role('heading', level=1)).to_have_count(1)
+        self.page.goto(BASE_URL + '/#pricing')
+        expect(self.page.get_by_role('navigation', name='Language guides')).to_have_count(0)
+
     def test_cubemap_load_failure_invalidates_previous_results(self):
         fixture = self.mount('CubemapTab')
         download = fixture.get_by_role('button', name='Download All 6 Faces (ZIP)', exact=True)
@@ -309,6 +513,35 @@ class BrowserRegression(unittest.TestCase):
         self.page.evaluate('globeAngles = []')
         self.page.wait_for_function('globeAngles.length > 10')
         self.assertAlmostEqual(self.page.evaluate('globeAngles.at(-1) - globeAngles.at(-2)'), 0.02, places=5)
+
+    def test_globe_zoom_is_bounded_and_survives_wireframe_change(self):
+        self.page.evaluate(r"""async () => {
+          const source = await (await fetch('/src/components/GlobeViewer.tsx')).text();
+          const path = source.match(/from\s+["']([^"']*\/three\.js[^"']*)["']/)[1];
+          const THREE = await import(path); const original = THREE.PerspectiveCamera.prototype.updateProjectionMatrix;
+          THREE.PerspectiveCamera.prototype.updateProjectionMatrix = function() {
+            if (this.fov === 45 && this.far === 1000) window.globeCamera = this;
+            return original.call(this);
+          };
+        }""")
+        fixture = self.mount('GlobeViewer')
+        self.page.wait_for_function('window.globeCamera?.position.z === 320')
+        fixture.get_by_role('button', name='Zoom in on globe').click()
+        self.page.wait_for_function('globeCamera.position.z < 320')
+        fixture.locator('canvas').dispatch_event('wheel', {'deltaY': -10000, 'deltaMode': 0})
+        self.page.wait_for_function('globeCamera.position.z === 150')
+        fixture.get_by_role('button', name='Wireframe', exact=True).click()
+        expect(fixture.get_by_role('button', name='Solid Surface', exact=True)).to_be_visible()
+        self.page.wait_for_function('globeCamera.position.z === 150')
+        for _ in range(3):
+            fixture.locator('canvas').dispatch_event('wheel', {'deltaY': 10000, 'deltaMode': 1})
+        self.page.wait_for_function('globeCamera.position.z === 650')
+        self.page.set_viewport_size({'width':390,'height':844})
+        fixture.evaluate("el => {el.style.width = '360px';}")
+        for control in fixture.locator('button').all():
+            box = control.bounding_box()
+            self.assertGreaterEqual(box['x'], 0)
+            self.assertLessEqual(box['x'] + box['width'], 390)
 
     def test_sphere_rotation_play_pause(self):
         fixture = self.mount('SphereViewer')

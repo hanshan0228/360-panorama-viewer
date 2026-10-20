@@ -145,14 +145,43 @@ function clientIp(request: Request): string {
   return request.headers.get('CF-Connecting-IP') || 'unknown';
 }
 
-// Auto-bootstrap D1 database tables if they do not exist
-async function ensureDbInitialized(db: D1Database): Promise<void> {
+const dbInitializations = new WeakMap<D1Database, Promise<void>>();
+const dbMaintenance = new WeakMap<D1Database, { nextAt: number; pending: Promise<void> }>();
+
+function ensureDbInitialized(db: D1Database): Promise<void> {
+  let pending = dbInitializations.get(db);
+  if (!pending) {
+    pending = initializeDb(db).catch(error => {
+      dbInitializations.delete(db);
+      throw error;
+    });
+    dbInitializations.set(db, pending);
+  }
+  return pending;
+}
+
+function maintainDb(db: D1Database): Promise<void> {
+  const now = Date.now();
+  const previous = dbMaintenance.get(db);
+  if (previous && previous.nextAt > now) return previous.pending;
+  const pending = db.batch([
+    db.prepare('DELETE FROM risk_counters WHERE key IN (SELECT key FROM risk_counters WHERE expires_at <= ? LIMIT 100)').bind(now),
+    db.prepare('DELETE FROM user_sessions WHERE token IN (SELECT token FROM user_sessions WHERE expires_at <= ? LIMIT 100)').bind(now),
+  ]).then(() => {}).catch(error => {
+    dbMaintenance.delete(db);
+    throw error;
+  });
+  // ponytail: bounded cleanup runs once a minute per binding/isolate; use scheduled maintenance at higher traffic.
+  dbMaintenance.set(db, { nextAt: now + 60000, pending });
+  return pending;
+}
+
+async function initializeDb(db: D1Database): Promise<void> {
   await db.batch([
     ...paypalSchema.map((sql: string) => db.prepare(sql)),
     ...riskSchema.map((sql: string) => db.prepare(sql)),
     db.prepare(workSchema),
     db.prepare(shareSchema),
-    db.prepare('DELETE FROM risk_counters WHERE key IN (SELECT key FROM risk_counters WHERE expires_at <= ? LIMIT 100)').bind(Date.now()),
     db.prepare(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
@@ -228,14 +257,18 @@ async function ensureDbInitialized(db: D1Database): Promise<void> {
         processed_at TEXT NOT NULL
       );
     `),
-    db.prepare('DELETE FROM user_sessions WHERE token IN (SELECT token FROM user_sessions WHERE expires_at <= ? LIMIT 100)').bind(Date.now()),
+    db.prepare('CREATE INDEX IF NOT EXISTS user_sessions_expiry ON user_sessions(expires_at)'),
   ]);
 
-  // Idempotent table migration: ensure password_hash column exists on pre-existing users tables
-  try {
-    await db.prepare('ALTER TABLE users ADD COLUMN password_hash TEXT').run();
-  } catch {
-    // Column already present, safe to ignore
+  const columns = await db.prepare('PRAGMA table_info(users)').all<{ name: string }>();
+  if (!columns.results.some(column => column.name === 'password_hash')) {
+    try {
+      await db.prepare('ALTER TABLE users ADD COLUMN password_hash TEXT').run();
+    } catch (error) {
+      // Another isolate may have completed the same migration after our check.
+      const current = await db.prepare('PRAGMA table_info(users)').all<{ name: string }>();
+      if (!current.results.some(column => column.name === 'password_hash')) throw error;
+    }
   }
 }
 
@@ -263,7 +296,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         status: 'online',
         server: 'cloudflare-pages-edge',
         databaseReady: Boolean(env.DB),
-        paymentsReady: Boolean(env.DB) && (paypalConfigured(env) || Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET)),
+        paymentsReady: Boolean(env.DB) && paypalConfigured(env),
         gateways: {
           stripeConfigured: Boolean(env.STRIPE_SECRET_KEY),
           stripeWebhookConfigured: Boolean(env.STRIPE_WEBHOOK_SECRET),
@@ -275,6 +308,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
     if (env.DB) {
       await ensureDbInitialized(env.DB);
+      await maintainDb(env.DB);
     }
 
     if (pathname === '/api/works' || pathname.startsWith('/api/works/')) {

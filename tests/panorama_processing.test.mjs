@@ -11,17 +11,17 @@ function load(file, globals = {}, modules = {}) {
     target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.CommonJS,
   } }).outputText;
   const exports = {};
-  vm.runInNewContext(code, { exports, Blob, URL, AbortSignal, Error, Uint8ClampedArray,
-    require: name => modules[name], ...globals });
+  vm.runInNewContext(code, { exports, Blob, URL, AbortSignal, AbortController, Error, Uint8ClampedArray,
+    require: name => modules[name] ?? (name === './abortSignal' ? load('abortSignal.ts', globals) : undefined), ...globals });
   return exports;
 }
 
-function processorFixture({ reply = 'success', fallback = false, encoding = 'success' } = {}) {
+function processorFixture({ reply = 'success', fallback = false, encoding = 'success', legacySignals = false } = {}) {
   const state = { terminated: 0, revoked: 0, reads: 0, posted: [] };
   const deadline = new AbortController();
   const canvas = { toBlob: callback => queueMicrotask(() => callback(encoding === 'empty' ? null : new Blob(['processed']))) };
   const globals = {
-    AbortSignal: { any: AbortSignal.any, timeout: () => deadline.signal },
+    AbortSignal: { any: legacySignals ? undefined : AbortSignal.any, timeout: () => deadline.signal },
     fetch: async () => new Response(new Blob(['source'])),
     document: { createElement: () => assert.fail('Worker path must not process canvas on the main thread') },
     OffscreenCanvas: fallback ? undefined : class {}, createImageBitmap() {},
@@ -115,6 +115,18 @@ test('modern processing delegates pixels and encoding to a module Worker, then r
   assert.ok(fixture.state.posted[0].image instanceof Blob);
   assert.equal(fixture.state.terminated, 1);
   assert.equal(fixture.state.reads, 1);
+});
+
+test('processing without AbortSignal.any still supports success and cancellation', async () => {
+  const working = processorFixture({ legacySignals: true });
+  assert.match(await working.process(), /^data:image\/png;base64,/);
+  const cancelled = processorFixture({ legacySignals: true, reply: 'hang' });
+  const pending = cancelled.process();
+  while (!cancelled.state.posted.length) await new Promise(resolve => setImmediate(resolve));
+  const rejected = assert.rejects(pending, /deadline/);
+  cancelled.deadline.abort(new Error('deadline'));
+  await rejected;
+  assert.equal(cancelled.state.terminated, 1);
 });
 
 for (const reply of ['error', 'empty', 'runtime', 'messageerror', 'throw']) {

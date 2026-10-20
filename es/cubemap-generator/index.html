@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Generador de Cubemaps — Divide Panoramas 360 en 6 Caras</title>
     <meta name="title" content="Generador de Cubemaps — Divide Panoramas 360 en 6 Caras" />
-    <meta name="description" content="Convierte panoramas 2:1 en 6 caras de cubo (+X, -X, +Y, -Y, +Z, -Z). Cubemaps gratis para descargar y archivo ZIP para Unity y Unreal Engine." />
+    <meta name="description" content="Convierte panoramas 2:1 en seis PNG de 256, 512 o 1024 píxeles por cara. Conversión local gratuita, ejemplos, descarga ZIP y guía de skybox para Unity." />
     <meta name="keywords" content="generador de cubemaps, panorama a cubemap, cubemaps gratis, equirrectangular a mapa cubico, skybox unity 6 caras" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <link rel="canonical" href="https://360panoramaviewer.com/es/cubemap-generator/" />
@@ -23,14 +23,14 @@
     <meta property="og:site_name" content="360 Panorama Viewer" />
     <meta property="og:url" content="https://360panoramaviewer.com/es/cubemap-generator/" />
     <meta property="og:title" content="Generador de Cubemaps — Divide Panoramas 360 en 6 Caras" />
-    <meta property="og:description" content="Convierte panoramas 2:1 en 6 caras de cubo (+X, -X, +Y, -Y, +Z, -Z). Cubemaps gratis para descargar y archivo ZIP para Unity y Unreal Engine." />
+    <meta property="og:description" content="Convierte panoramas 2:1 en seis PNG de 256, 512 o 1024 píxeles por cara. Conversión local gratuita, ejemplos, descarga ZIP y guía de skybox para Unity." />
     <meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:url" content="https://360panoramaviewer.com/es/cubemap-generator/" />
     <meta name="twitter:title" content="Generador de Cubemaps — Divide Panoramas 360 en 6 Caras" />
-    <meta name="twitter:description" content="Convierte panoramas 2:1 en 6 caras de cubo (+X, -X, +Y, -Y, +Z, -Z). Cubemaps gratis para descargar y archivo ZIP para Unity y Unreal Engine." />
+    <meta name="twitter:description" content="Convierte panoramas 2:1 en seis PNG de 256, 512 o 1024 píxeles por cara. Conversión local gratuita, ejemplos, descarga ZIP y guía de skybox para Unity." />
     <meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
-    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"SoftwareApplication","@id":"https://360panoramaviewer.com/es/cubemap-generator/#software","name":"Generador de Cubemaps — Divide Panoramas 360 en 6 Caras","description":"Convierte panoramas 2:1 en 6 caras de cubo (+X, -X, +Y, -Y, +Z, -Z). Cubemaps gratis para descargar y archivo ZIP para Unity y Unreal Engine.","applicationCategory":"MultimediaApplication","operatingSystem":"Web Browser","url":"https://360panoramaviewer.com/es/cubemap-generator/","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},{"@type":"FAQPage","@id":"https://360panoramaviewer.com/es/cubemap-generator/#faq","mainEntity":[{"@type":"Question","name":"¿Puedo descargar cubemaps gratis?","acceptedAnswer":{"@type":"Answer","text":"Sí, incluye paquetes de skybox gratuitos listos para descargar en formato ZIP."}},{"@type":"Question","name":"¿Qué motores son compatibles?","acceptedAnswer":{"@type":"Answer","text":"Unity, Unreal Engine, Godot, Three.js y Blender."}}]}]}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"SoftwareApplication","@id":"https://360panoramaviewer.com/es/cubemap-generator/#software","name":"Generador de Cubemaps — Divide Panoramas 360 en 6 Caras","description":"Convierte panoramas 2:1 en seis PNG de 256, 512 o 1024 píxeles por cara. Conversión local gratuita, ejemplos, descarga ZIP y guía de skybox para Unity.","applicationCategory":"MultimediaApplication","operatingSystem":"Web Browser","url":"https://360panoramaviewer.com/es/cubemap-generator/","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},{"@type":"FAQPage","@id":"https://360panoramaviewer.com/es/cubemap-generator/#faq","mainEntity":[{"@type":"Question","name":"¿Puedo descargar cubemaps gratis?","acceptedAnswer":{"@type":"Answer","text":"Sí. Abre primero la herramienta en inglés y elige un ejemplo para comparar el panorama con las seis caras y descargar el ZIP sin subir fotos."}},{"@type":"Question","name":"¿Qué motores son compatibles?","acceptedAnswer":{"@type":"Answer","text":"Asigna los PNG por eje en el skybox 6 Sided de Unity. El ZIP no es un recurso TextureCube de Unreal; HDRI Backdrop requiere un archivo .hdr compatible. Los PNG no conservan los valores de iluminación HDR."}}]}]}</script>
   </head>
   <body>
     <a class="skip-link" href="#content">Ir al contenido</a>
@@ -48,7 +48,7 @@
     </header>
     <main class="wrap" id="content">
       <h1>Generador de Cubemaps: Panorama 360 a 6 Caras</h1>
-      <p>Divide panoramas esféricos en 6 texturas rectilíneas sin distorsión para motores de videojuegos.</p>
+      <p>Convierte un panorama 2:1 en seis PNG de 256, 512 o 1024 píxeles por cara. Descarga el ZIP sin subir archivos ni iniciar sesión.</p>
       <div class="cta">
         <p>Esta guía está en español. La interfaz de la herramienta está en inglés.</p>
         <a class="button" href="/cubemap-generator/" hreflang="en">Abrir herramienta (en inglés)</a>
@@ -56,13 +56,13 @@
 
       <section aria-labelledby="faq">
         <h2 id="faq">Preguntas frecuentes</h2>
-        <h3>¿Puedo descargar cubemaps gratis?</h3><p>Sí, incluye paquetes de skybox gratuitos listos para descargar en formato ZIP.</p>
-        <h3>¿Qué motores son compatibles?</h3><p>Unity, Unreal Engine, Godot, Three.js y Blender.</p>
+        <h3>¿Puedo descargar cubemaps gratis?</h3><p>Sí. Abre primero la herramienta en inglés y elige un ejemplo para comparar el panorama con las seis caras y descargar el ZIP sin subir fotos.</p>
+        <h3>¿Qué motores son compatibles?</h3><p>Asigna los PNG por eje en el skybox 6 Sided de Unity. El ZIP no es un recurso TextureCube de Unreal; HDRI Backdrop requiere un archivo .hdr compatible. Los PNG no conservan los valores de iluminación HDR.</p>
       </section>
       <section aria-labelledby="tools">
         <h2 id="tools">Herramientas relacionadas</h2>
         <div class="grid">
-          <a class="card" href="/es/"><strong>Generador de Panoramas 360 con Inteligencia Artificial</strong><span>Crea panoramas 360 equirrectangulares y skyboxes para juegos en segundos con IA.</span></a>
+          <a class="card" href="/es/"><strong>Visor de Panoramas 360° y Estudio de IA</strong><span>Visualiza panoramas 2:1 gratis en el navegador o crea uno con texto e imágenes de referencia mediante IA. El visor no sube archivos; la generación requiere créditos.</span></a>
           <a class="card" href="/es/360-panorama-viewer/"><strong>Visor de Panoramas 360° Online Gratis</strong><span>Gira y navega por fotos panorámicas esféricas 360 al instante en tu navegador. 100% privado y seguro.</span></a>
           <a class="card" href="/es/photo-to-globe/"><strong>Map to Globe: De Mapa 2D a Globo 3D Giratorio</strong><span>Convierte mapas de mundos fantásticos y texturas en esferas 3D interactivas con WebGL en tiempo real.</span></a>
           <a class="card" href="/es/photo-to-360-converter/"><strong>Conversor de Foto a Panorama 360° con IA</strong><span>Convierte fotos 2D estándar en experiencias inmersivas 360° listas para visores VR y redes sociales.</span></a>

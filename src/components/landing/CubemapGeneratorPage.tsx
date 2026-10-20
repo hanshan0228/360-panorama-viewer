@@ -51,6 +51,7 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
     const reader = new FileReader();
     reader.onload = (event) => {
       if (typeof event.target?.result === 'string') {
+        setActivePreset(null);
         setActivePanoUrl(event.target.result);
       }
     };
@@ -59,20 +60,24 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
 
   const faqs = [
     {
-      q: 'What is a Cubemap Generator and why do game engines require it?',
-      a: 'A Cubemap Generator converts a 2:1 equirectangular spherical panorama into 6 rectilinear 90° field-of-view cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back). Most game engines (Unity, Unreal Engine, Godot, Three.js) rely on cubemaps for skybox rendering and specular reflection probes because GPU texture lookups across cube faces are significantly faster than spherical trigonometry.',
+      q: 'What does this panorama to cubemap converter export?',
+      a: 'It reprojects a full 2:1 equirectangular panorama into six square PNG images, each covering a 90° view. The ZIP contains posx, negx, posy, negy, posz and negz faces. These are display images for a visible skybox, not floating-point HDR lighting maps or a DDS cubemap file.',
     },
     {
       q: 'Are files uploaded to a remote server during cubemap slicing?',
-      a: 'No. 360 Panorama Viewer operates 100% client-side using WebGL and HTML5 Canvas ray-sphere projection algorithms. Your images never leave your computer, guaranteeing maximum privacy and instant conversion speed.',
+      a: 'No. Cubemap slicing runs locally using HTML5 Canvas. Selecting a local image or a sample does not upload it to a server. AI panorama generation is a separate online feature.',
     },
     {
       q: 'What face resolutions are supported for ZIP download?',
-      a: 'You can choose between 256x256, 512x512, 1024x1024, or 2048x2048 pixels per cube face. Clicking "Download All (ZIP)" packages all 6 faces into a single compressed archive with standard engine naming conventions.',
+      a: 'You can choose between 256x256, 512x512, or 1024x1024 pixels per cube face. Clicking "Download All (ZIP)" packages all 6 faces into a single compressed archive with the filenames listed in the orientation table below.',
     },
     {
       q: 'How are the cube faces named in the downloaded ZIP?',
-      a: 'The archive contains posx.png (Right), negx.png (Left), posy.png (Top / Up), negy.png (Bottom / Down), posz.png (Front), and negz.png (Back). This naming convention matches Unity Skybox / 6 Sided shaders and Three.js CubeTexture loaders directly.',
+      a: 'The archive contains posx.png (Right), negx.png (Left), posy.png (Top / Up), negy.png (Bottom / Down), posz.png (Front), and negz.png (Back). Assign files by axis using the table below, then check orientation in your target engine; filenames alone do not determine face rotation.',
+    },
+    {
+      q: 'Can I convert an HDR or EXR file here?',
+      a: 'This slicer opens browser-readable PNG, JPEG and WebP panoramas. For a Radiance .hdr file, use the HDRI viewer linked below; its PNG cube exports are tone-mapped display images. OpenEXR is not supported. Keep your original HDR file for environment lighting.',
     },
     {
       q: 'Can I download free cubemaps directly without uploading?',
@@ -100,7 +105,7 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
         <div className="max-w-4xl space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-400/15 border border-cyan-400/40 text-cyan-300 text-xs font-semibold tracking-wide">
             <Box className="w-3.5 h-3.5 text-cyan-400" />
-            <span>100% CLIENT-SIDE &bull; 6-FACE CUBIC SLICER &bull; UNITY &amp; UNREAL</span>
+            <span>100% CLIENT-SIDE &bull; PNG CUBE FACES &bull; NO SIGNUP</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
@@ -111,18 +116,18 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
           </h1>
 
           <p className="text-base sm:text-lg text-cyan-100/80 leading-relaxed max-w-3xl">
-            Convert 2:1 equirectangular spherical panoramas into 6 rectilinear cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back). Includes free sample cubemaps and batch ZIP export.
+            Convert a full 2:1 equirectangular panorama to cubemap faces in your browser. Open a PNG, JPEG or WebP image, or try a free sample, then download six square PNG faces in a ZIP. No upload or signup required.
           </p>
 
           <div className="flex flex-wrap items-center gap-4 pt-2">
-            <label className="px-6 py-3.5 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 shadow-lg shadow-cyan-400/30 hover:shadow-cyan-400/60 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2">
+            <label className="px-6 py-3.5 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 shadow-lg shadow-cyan-400/30 hover:shadow-cyan-400/60 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2 focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-cyan-300">
               <Upload className="w-4 h-4 text-slate-950" />
               <span>Upload Custom 360 Photo</span>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp"
                 onChange={handleCustomUpload}
-                className="hidden"
+                className="sr-only"
               />
             </label>
 
@@ -147,7 +152,7 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
             </span>
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-teal-400" />
-              <span>Zero Ray Optical Distortion</span>
+              <span>256, 512 or 1024 px per Face</span>
             </span>
           </div>
         </div>
@@ -165,7 +170,7 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
             </h2>
           </div>
           <div className="text-xs text-cyan-300/80">
-            Powered by Browser WebGL
+            Local Canvas Processing
           </div>
         </div>
 
@@ -185,6 +190,7 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
                 <button
                   key={preset.id}
                   type="button"
+                  aria-pressed={isSelected}
                   onClick={() => handleSelectSample(preset)}
                   className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1 ${
                     isSelected
@@ -203,16 +209,41 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
           </div>
         </div>
 
+        <figure className="space-y-2 rounded-2xl border border-cyan-500/25 bg-[#030e20] p-4">
+          <img
+            src={activePanoUrl}
+            alt="Source equirectangular panorama used for the six cube faces below"
+            className="w-full aspect-[2/1] object-contain rounded-lg bg-slate-950"
+            width={2048}
+            height={1024}
+          />
+          <figcaption className="text-sm text-cyan-100/80">
+            Before: the source panorama. After: the same image reprojected into the six labeled faces below.
+            Choose a sample above to compare its horizon, poles and wraparound seam.
+          </figcaption>
+        </figure>
+
         <div className="rounded-2xl border border-cyan-500/30 bg-[#020b18] p-4 sm:p-6 shadow-2xl">
-          <CubemapTab currentPanoramaUrl={activePanoUrl} />
+          <CubemapTab currentPanoramaUrl={activePanoUrl} headingLevel={2} />
         </div>
+      </section>
+
+      <section aria-labelledby="conversion-steps" className="space-y-4 text-sm text-cyan-100/80">
+        <h2 id="conversion-steps" className="text-2xl font-bold text-white">How to convert an equirectangular panorama to a cubemap</h2>
+        <ol className="list-decimal pl-6 space-y-3">
+          <li><strong>Choose a complete sphere.</strong> Use a 2:1 PNG, JPEG or WebP panorama, such as 2048 × 1024 or 4096 × 2048. A cropped photograph or a stretched flat image will not become a full 360° scene.</li>
+          <li><strong>Try a sample or open your image.</strong> Compare the source above with the six-face preview. The front view comes from the center of the source panorama; the back view crosses its left/right seam.</li>
+          <li><strong>Select 256, 512 or 1024 px per face.</strong> Start at 512 for a quick check. Larger output cannot recover detail missing from the original.</li>
+          <li><strong>Download all six faces as a ZIP.</strong> Extract the archive before assigning the PNGs to skybox slots. Individual face downloads use a cubemap- filename prefix; ZIP entries use the names in the table below.</li>
+        </ol>
+        <p>Need help checking your source? Read the <a className="text-cyan-300 underline" href="/blog/equirectangular-projection-explained/">equirectangular projection guide</a>. For a Radiance .hdr source, use the <a className="text-cyan-300 underline" href="/hdri-to-cubemap/">HDRI to cubemap converter</a>.</p>
       </section>
 
       {/* Technical Highlights Grid */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Mathematical Precision
+            Panorama to Cubemap
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
             Why Use Our Free Cubemap Slicer
@@ -224,9 +255,9 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
             <div className="p-2.5 rounded-xl bg-cyan-500/15 text-cyan-400 w-fit">
               <Cpu className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">Zero Optical Distortion</h3>
+            <h3 className="font-bold text-white text-base">90° Face Projection</h3>
             <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Uses exact inverse tangent ray casting to map spherical equirectangular coordinates (u, v) into planar cartesian cube normals.
+              Each square face covers a 90° view. Perspective stretching near its edges is expected; the six faces reconstruct the surrounding sphere.
             </p>
           </div>
 
@@ -236,7 +267,7 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
             </div>
             <h3 className="font-bold text-white text-base">Complete Privacy</h3>
             <p className="text-xs text-cyan-200/70 leading-relaxed">
-              No files are uploaded to any server. All processing runs in memory on your browser using HTML5 Canvas &amp; WebGL.
+              Slicing your image runs locally in browser memory using HTML5 Canvas. Conversion needs no account or AI credits.
             </p>
           </div>
 
@@ -254,9 +285,9 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
             <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-400 w-fit">
               <Code2 className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">Universal Engine Support</h3>
+            <h3 className="font-bold text-white text-base">Explicit Face Mapping</h3>
             <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Plug-and-play compatibility with Unity, Unreal Engine 5, Three.js, Babylon.js, Godot, and PlayCanvas.
+              Use the axis table for Unity 6 Sided skyboxes or a cube-texture loader. Other engines may need a different layout or the original panorama.
             </p>
           </div>
         </div>
@@ -275,12 +306,13 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
 
         <div className="overflow-x-auto rounded-2xl border border-cyan-500/25 bg-[#030e20]">
           <table className="w-full text-left text-xs">
+            <caption className="text-left px-5 py-3 text-cyan-100/80">ZIP filenames and axis assignments. Verify face rotation in your destination engine.</caption>
             <thead className="bg-[#051733] text-cyan-200 border-b border-cyan-500/30 font-semibold uppercase tracking-wider">
               <tr>
-                <th className="py-4 px-5">Face Label</th>
-                <th className="py-4 px-5 text-cyan-400">Output Filename</th>
-                <th className="py-4 px-5 text-slate-300">Unity Skybox Slot</th>
-                <th className="py-4 px-5 text-slate-300">Three.js Order</th>
+                <th scope="col" className="py-4 px-5">Face Label</th>
+                <th scope="col" className="py-4 px-5 text-cyan-400">Output Filename</th>
+                <th scope="col" className="py-4 px-5 text-slate-300">Unity Skybox Slot</th>
+                <th scope="col" className="py-4 px-5 text-slate-300">Three.js Order</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cyan-500/15 text-cyan-100/90">
@@ -325,6 +357,32 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
         </div>
       </section>
 
+      <section id="engine-setup" aria-labelledby="engine-heading" className="space-y-5 text-sm text-cyan-100/80 scroll-mt-24">
+        <h2 id="engine-heading" className="text-2xl font-bold text-white">Use your cubemap in Unity, Three.js or Unreal Engine</h2>
+        <h3 className="text-lg font-semibold text-white">Unity: six PNG faces with Skybox / 6 Sided</h3>
+        <ol className="list-decimal pl-6 space-y-2">
+          <li>Extract the ZIP into your Assets folder. Select the six textures and set Wrap Mode to Clamp to avoid repeating the opposite edge.</li>
+          <li>Create a Material with the Skybox / 6 Sided shader. Assign each PNG using the axis table above.</li>
+          <li>Assign that material as the scene Skybox Material in the Lighting environment settings. Check the horizon and top/bottom faces in the scene.</li>
+        </ol>
+        <p>This shader works with Built-in and URP, not HDRP. See <a className="text-cyan-300 underline" href="https://docs.unity3d.com/Manual/shader-skybox-6sided.html">Unity’s 6 Sided skybox reference</a> for pipeline compatibility.</p>
+        <h3 className="text-lg font-semibold text-white">Three.js: load faces in axis order</h3>
+        <p>Place the extracted PNGs in one public folder and pass URLs in +X, −X, +Y, −Y, +Z, −Z order to CubeTextureLoader. Three.js uses a different handedness convention for cube backgrounds, so check left/right landmarks against the source panorama. See the <a className="text-cyan-300 underline" href="https://threejs.org/docs/pages/CubeTextureLoader.html">CubeTextureLoader reference</a> before adjusting orientation.</p>
+        <h3 className="text-lg font-semibold text-white">Unreal Engine: retain the original HDR environment</h3>
+        <p>The ZIP contains six ordinary PNG textures, not an Unreal TextureCube asset. For an HDRI Backdrop, enable the HDRI Backdrop plugin, import a supported .hdr environment, add an HDRI Backdrop actor, and select the imported cubemap in its Cubemap property. The PNG ZIP is not a direct substitute.</p>
+        <p>Follow <a className="text-cyan-300 underline" href="https://dev.epicgames.com/documentation/en-us/unreal-engine/hdri-backdrop-visualization-tool-in-unreal-engine">Epic’s HDRI Backdrop setup</a>. Exported PNGs do not preserve HDR radiance for lighting.</p>
+      </section>
+
+      <section aria-labelledby="troubleshooting-heading" className="space-y-4 text-sm text-cyan-100/80">
+        <h2 id="troubleshooting-heading" className="text-2xl font-bold text-white">Fix seams, rotated faces and blurry cubemaps</h2>
+        <dl className="space-y-4">
+          <div><dt className="font-semibold text-white">A seam appears behind the camera</dt><dd>Inspect the source’s left and right edges in the <a className="text-cyan-300 underline" href="/360-panorama-viewer/">360 panorama viewer</a>. Slicing cannot repair a mismatched source seam. If only the engine shows an edge line, check Clamp wrapping, filtering and mipmaps.</dd></div>
+          <div><dt className="font-semibold text-white">The sky is upside down or faces are swapped</dt><dd>Use the filename-to-axis table rather than alphabetical file order. Compare a recognizable landmark and the horizon; engine conventions can differ in handedness and face rotation.</dd></div>
+          <div><dt className="font-semibold text-white">The output looks blurry or stretched</dt><dd>Start with a complete, sharp 2:1 panorama. Increasing face resolution cannot restore missing detail. A normal flat photo or a cropped panorama is not a complete sphere, even if resized to 2:1.</dd></div>
+          <div><dt className="font-semibold text-white">PNG faces do not light the scene like the HDR original</dt><dd>These are display images. Use the original scene-linear HDR file for lighting; see <a className="text-cyan-300 underline" href="/blog/hdri-vs-ldr-environment-lighting/">HDRI versus LDR environment lighting</a>. To rebuild a 2:1 display panorama from faces, use the <a className="text-cyan-300 underline" href="/cubemap-to-equirectangular/">cubemap to equirectangular converter</a>.</dd></div>
+        </dl>
+      </section>
+
       {/* FAQ Accordion Section */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
@@ -346,6 +404,8 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
               >
                 <button
                   type="button"
+                  aria-expanded={isOpen}
+                  aria-controls={`cubemap-faq-${idx}`}
                   onClick={() => setActiveFaq(isOpen ? null : idx)}
                   className="w-full py-4 px-5 text-left flex items-center justify-between gap-4 font-semibold text-sm text-white hover:text-cyan-300 cursor-pointer transition-colors"
                 >
@@ -356,11 +416,9 @@ export function CubemapGeneratorPage({ onLaunchStudio, currentPanoramaUrl: activ
                     }`}
                   />
                 </button>
-                {isOpen && (
-                  <div className="px-5 pb-4 text-xs text-cyan-100/80 leading-relaxed border-t border-cyan-500/15 pt-3">
-                    {faq.a}
-                  </div>
-                )}
+                <div id={`cubemap-faq-${idx}`} hidden={!isOpen} className="px-5 pb-4 text-xs text-cyan-100/80 leading-relaxed border-t border-cyan-500/15 pt-3">
+                  {faq.a}
+                </div>
               </div>
             );
           })}

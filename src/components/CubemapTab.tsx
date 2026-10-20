@@ -9,10 +9,11 @@ import {
 } from 'lucide-react';
 import JSZip from 'jszip';
 import type { CubemapFace } from '../types/panorama';
-import { sliceEquirectangularToCubemap } from '../utils/cubemapSlicer';
+import { sliceEquirectangularToCubemapAsync } from '../utils/cubemapSlicer';
 
 interface CubemapTabProps {
   currentPanoramaUrl: string;
+  headingLevel?: 1 | 2;
 }
 
 interface SliceResult {
@@ -22,7 +23,8 @@ interface SliceResult {
   error: string | null;
 }
 
-export function CubemapTab({ currentPanoramaUrl }: CubemapTabProps) {
+export function CubemapTab({ currentPanoramaUrl, headingLevel = 1 }: CubemapTabProps) {
+  const Heading = headingLevel === 1 ? 'h1' : 'h2';
   const [faceSize, setFaceSize] = useState<number>(512);
   const [result, setResult] = useState<SliceResult | null>(null);
   const [downloadSuccess, setDownloadSuccess] = useState<boolean>(false);
@@ -34,6 +36,7 @@ export function CubemapTab({ currentPanoramaUrl }: CubemapTabProps) {
   // Results belong to one source and resolution; stale results cannot be downloaded.
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     const img = new Image();
     img.crossOrigin = 'anonymous';
     const fail = (error: unknown) => {
@@ -42,7 +45,7 @@ export function CubemapTab({ currentPanoramaUrl }: CubemapTabProps) {
       console.error('Cubemap slicing failed:', error);
       setResult({ sourceUrl: currentPanoramaUrl, faceSize, faces: [], error: message });
     };
-    img.onload = () => {
+    img.onload = async () => {
       if (!active) return;
       try {
         const canvas = document.createElement('canvas');
@@ -51,7 +54,8 @@ export function CubemapTab({ currentPanoramaUrl }: CubemapTabProps) {
         const ctx = canvas.getContext('2d');
         if (!ctx) throw new Error('Canvas context is unavailable. Please try again.');
         ctx.drawImage(img, 0, 0);
-        const sliced = sliceEquirectangularToCubemap(canvas, faceSize);
+        const sliced = await sliceEquirectangularToCubemapAsync(canvas, faceSize, controller.signal);
+        if (!active) return;
         if (sliced.length !== 6) throw new Error('Could not create all six cubemap faces.');
         setResult({ sourceUrl: currentPanoramaUrl, faceSize, faces: sliced, error: null });
       } catch (error: unknown) {
@@ -66,6 +70,7 @@ export function CubemapTab({ currentPanoramaUrl }: CubemapTabProps) {
     }
     return () => {
       active = false;
+      controller.abort();
       img.onload = null;
       img.onerror = null;
     };
@@ -111,11 +116,11 @@ export function CubemapTab({ currentPanoramaUrl }: CubemapTabProps) {
           <Box className="w-3.5 h-3.5" />
           <span>Raycasting 3D Unfolding Engine</span>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
+        <Heading className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
           Equirectangular to Cubemap Skybox Slicer
-        </h1>
+        </Heading>
         <p className="text-sm text-slate-400">
-          Quickly extract 2:1 equirectangular panoramas into standard 6-sided cubemaps (+X, -X, +Y, -Y, +Z, -Z), natively ready for Unity, Unreal Engine 5, Godot, and WebGL skyboxes.
+          Convert a full 2:1 equirectangular panorama into six PNG cube faces (+X, -X, +Y, -Y, +Z, -Z). Use the axis labels to assign a visible skybox; PNG exports do not preserve HDR lighting values.
         </p>
       </div>
 
@@ -254,11 +259,11 @@ export function CubemapTab({ currentPanoramaUrl }: CubemapTabProps) {
             </p>
           </div>
           <div className="glass-card p-4 rounded-2xl space-y-1.5">
-            <div className="font-semibold text-slate-200">Unreal Engine & Godot 4</div>
+            <div className="font-semibold text-slate-200">Unreal Engine &amp; Godot: choose the right source</div>
             <p className="text-[11px] leading-relaxed">
-              1. In Unreal Engine, import the textures and create a `Cube Texture` asset.<br />
-              2. Assign it to a Post Process Volume or Sky Light in your scene.<br />
-              3. In Godot 4, use a `PanoramaSkyMaterial` or assign directly to a `Sky` resource.
+              For Unreal HDRI Backdrop, import a supported original .hdr environment; the six PNGs are not a TextureCube asset.<br />
+              For Godot PanoramaSkyMaterial, use the original equirectangular panorama.<br />
+              <a href="/cubemap-generator/#engine-setup" className="text-cyan-300 underline">Read the cubemap engine setup guide</a>.
             </p>
           </div>
         </div>

@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS user_sessions (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE INDEX IF NOT EXISTS user_sessions_expiry ON user_sessions(expires_at);
+
 CREATE TABLE IF NOT EXISTS admin_config (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL

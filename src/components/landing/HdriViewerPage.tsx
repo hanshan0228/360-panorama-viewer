@@ -15,7 +15,7 @@ import {
 import JSZip from 'jszip';
 import { FloatType } from 'three';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
-import { sliceEquirectangularToCubemap } from '../../utils/cubemapSlicer';
+import { sliceEquirectangularToCubemapAsync } from '../../utils/cubemapSlicer';
 import { toneMapLinearRgbToRgba } from '../../utils/hdrToneMap';
 import type { ActiveTab, CubemapFace } from '../../types/panorama';
 
@@ -70,15 +70,23 @@ function createDisplayCanvas(width: number, height: number): { canvas: HTMLCanva
 export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaChange, onLaunchStudio }: HdriViewerPageProps) {
   const linearRef = useRef<Float32Array | null>(null);
   const loadIdRef = useRef(0);
+  const sliceControllerRef = useRef<AbortController | null>(null);
   const previewHostRef = useRef<HTMLDivElement>(null);
   const [fileInfo, setFileInfo] = useState<{ name: string; width: number; height: number; hdr: boolean } | null>(null);
   const [preview, setPreview] = useState<HTMLCanvasElement | null>(null);
   const [exposure, setExposure] = useState(0);
-  const [faces, setFaces] = useState<CubemapFace[]>([]);
+  const [faceResult, setFaceResult] = useState<{ preview: HTMLCanvasElement; size: number; exposure: number; faces: CubemapFace[] } | null>(null);
   const [faceSize, setFaceSize] = useState(1024);
   const [busy, setBusy] = useState(false);
+  const [slicingSource, setSlicingSource] = useState<{ preview: HTMLCanvasElement; size: number; exposure: number; controller: AbortController } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
+  const faces = faceResult?.preview === preview && faceResult.size === faceSize && faceResult.exposure === exposure ? faceResult.faces : [];
+  const isSlicing = !!slicingSource && slicingSource.preview === preview && slicingSource.size === faceSize && slicingSource.exposure === exposure && !slicingSource.controller.signal.aborted;
+
+  useEffect(() => {
+    return () => { sliceControllerRef.current?.abort(); };
+  }, [preview, faceSize, exposure]);
 
   // The canvas itself is mounted instead of a data URL: re-encoding a 4K-8K
   // panorama to a base64 string on every exposure tick would stall the UI.
@@ -104,7 +112,7 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
     const timer = setTimeout(() => {
       try {
         setPreview(renderLinear(linear, fileInfo.width, fileInfo.height, 2 ** exposure));
-        setFaces([]);
+        setFaceResult(null);
         setError(null);
       } catch (renderError) {
         setError(renderError instanceof Error ? renderError.message : 'Tone mapping failed on this file.');
@@ -118,7 +126,7 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
     const loadId = ++loadIdRef.current;
     setBusy(true);
     setError(null);
-    setFaces([]);
+    setFaceResult(null);
     setFileInfo(null);
     setPreview(null);
     linearRef.current = null;
@@ -191,15 +199,22 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
     }
   };
 
-  const handleSliceFaces = () => {
-    if (!preview) return;
+  const handleSliceFaces = async () => {
+    if (!preview || isSlicing) return;
+    const controller = new AbortController();
+    sliceControllerRef.current?.abort();
+    sliceControllerRef.current = controller;
+    setSlicingSource({ preview, size: faceSize, exposure, controller });
     try {
-      const sliced = sliceEquirectangularToCubemap(preview, faceSize);
+      const sliced = await sliceEquirectangularToCubemapAsync(preview, faceSize, controller.signal);
+      if (controller.signal.aborted) return;
       if (sliced.length !== 6) throw new Error('Could not build all six cube faces from this image.');
-      setFaces(sliced);
+      setFaceResult({ preview, size: faceSize, exposure, faces: sliced });
       setError(null);
     } catch (sliceError) {
-      setError(sliceError instanceof Error ? sliceError.message : 'Slicing failed. Try a smaller face size.');
+      if (!controller.signal.aborted) setError(sliceError instanceof Error ? sliceError.message : 'Slicing failed. Try a smaller face size.');
+    } finally {
+      if (!controller.signal.aborted) setSlicingSource(null);
     }
   };
 
@@ -301,6 +316,10 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
         </p>
       </section>
 
+      <p className="text-sm text-cyan-100/80">
+        Already have a PNG, JPEG or WebP panorama? Use the <a href="/cubemap-generator/" className="text-cyan-300 underline">panorama to cubemap generator</a> for six-face previews, sample panoramas and a filename-to-axis setup guide.
+      </p>
+
       {/* Tool */}
       <section className="max-w-4xl mx-auto space-y-6">
         <div
@@ -399,7 +418,7 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
               <div className="flex items-center gap-2">
                 <select
                   value={faceSize}
-                  onChange={(event) => { setFaceSize(Number(event.target.value)); setFaces([]); }}
+                  onChange={(event) => { setFaceSize(Number(event.target.value)); setFaceResult(null); }}
                   className="px-3 py-3 rounded-xl text-xs bg-[#05142b] border border-cyan-500/30 text-cyan-100 cursor-pointer"
                   aria-label="Cube face size"
                 >
@@ -408,11 +427,11 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
                 <button
                   type="button"
                   onClick={handleSliceFaces}
-                  disabled={fileInfo?.width !== (fileInfo?.height ?? 0) * 2}
+                  disabled={isSlicing || fileInfo?.width !== (fileInfo?.height ?? 0) * 2}
                   className="px-5 py-3 rounded-xl font-bold text-xs border border-amber-400/40 text-amber-200 hover:border-amber-300 hover:text-white transition-all cursor-pointer inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Box className="w-3.5 h-3.5" />
-                  <span>Slice to 6 cube faces</span>
+                  <span>{isSlicing ? 'Slicing cube faces...' : 'Slice to 6 cube faces'}</span>
                 </button>
               </div>
             </div>

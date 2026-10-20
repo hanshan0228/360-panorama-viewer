@@ -12,10 +12,10 @@ const FACES: Array<{ name: CubemapFaceName; label: string }> = [
 /**
  * Converts a 2:1 equirectangular image into 6 cubemap faces using 3D ray-casting.
  */
-export function sliceEquirectangularToCubemap(
+function* sliceCubemapSteps(
   sourceCanvas: HTMLCanvasElement,
   faceSize = 512
-): CubemapFace[] {
+): Generator<void, CubemapFace[]> {
   const eqWidth = sourceCanvas.width;
   const eqHeight = sourceCanvas.height;
 
@@ -40,6 +40,7 @@ export function sliceEquirectangularToCubemap(
     const facePixels = faceImgData.data;
 
     for (let j = 0; j < faceSize; j++) {
+      if (j % 64 === 0) yield;
       // Normalized v in [-1, 1]
       const v = 1 - (2 * (j + 0.5)) / faceSize;
 
@@ -124,6 +125,30 @@ export function sliceEquirectangularToCubemap(
   return cubemapFaces;
 }
 
+function finishSteps<T>(steps: Generator<void, T>): T {
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
+}
+
+async function finishStepsAsync<T>(steps: Generator<void, T>, signal?: AbortSignal): Promise<T> {
+  // ponytail: row batches keep input responsive on the main thread; use a Worker if larger images need parallel computation.
+  while (true) {
+    signal?.throwIfAborted();
+    const step = steps.next();
+    if (step.done) return step.value;
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+  }
+}
+
+export function sliceEquirectangularToCubemap(sourceCanvas: HTMLCanvasElement, faceSize = 512): CubemapFace[] {
+  return finishSteps(sliceCubemapSteps(sourceCanvas, faceSize));
+}
+
+export function sliceEquirectangularToCubemapAsync(sourceCanvas: HTMLCanvasElement, faceSize = 512, signal?: AbortSignal): Promise<CubemapFace[]> {
+  return finishStepsAsync(sliceCubemapSteps(sourceCanvas, faceSize), signal);
+}
+
 export interface CubemapFacePixels {
   name: CubemapFaceName;
   width: number;
@@ -146,15 +171,16 @@ function projectToFace(nx: number, ny: number, nz: number): [CubemapFaceName, nu
  * output pixel to its source face. Splitting the pure pixel math out keeps it testable
  * without a DOM; `stitchCubemapToEquirectangular` is the canvas wrapper.
  */
-export function stitchCubemapPixelsToEquirectangular(
+function* stitchCubemapPixelSteps(
   faces: CubemapFacePixels[],
   eqWidth: number,
   eqHeight: number
-): Uint8ClampedArray {
+): Generator<void, Uint8ClampedArray> {
   const byName = new Map(faces.map(face => [face.name, face]));
   const out = new Uint8ClampedArray(eqWidth * eqHeight * 4);
 
   for (let y = 0; y < eqHeight; y++) {
+    if (y % 64 === 0) yield;
     const lat = (0.5 - y / Math.max(1, eqHeight - 1)) * Math.PI;
     const cosLat = Math.cos(lat);
     const ny = Math.sin(lat);
@@ -188,14 +214,18 @@ export function stitchCubemapPixelsToEquirectangular(
   return out;
 }
 
+export function stitchCubemapPixelsToEquirectangular(faces: CubemapFacePixels[], eqWidth: number, eqHeight: number): Uint8ClampedArray {
+  return finishSteps(stitchCubemapPixelSteps(faces, eqWidth, eqHeight));
+}
+
 /**
  * Canvas wrapper used by the Cubemap to Equirectangular page. `faces` may be a partial
  * set: missing faces are left transparent so a 5-of-6 import still previews.
  */
-export function stitchCubemapToEquirectangular(
+function* stitchCubemapSteps(
   faces: CubemapFace[],
   eqWidth = 2048
-): HTMLCanvasElement {
+): Generator<void, HTMLCanvasElement> {
   const eqHeight = Math.round(eqWidth / 2);
   const pixels: CubemapFacePixels[] = [];
   for (const face of faces) {
@@ -205,7 +235,7 @@ export function stitchCubemapToEquirectangular(
     pixels.push({ name: face.name, width: face.canvas.width, height: face.canvas.height, data: image.data });
   }
 
-  const out = stitchCubemapPixelsToEquirectangular(pixels, eqWidth, eqHeight);
+  const out = yield* stitchCubemapPixelSteps(pixels, eqWidth, eqHeight);
   const canvas = document.createElement('canvas');
   canvas.width = eqWidth;
   canvas.height = eqHeight;
@@ -215,4 +245,12 @@ export function stitchCubemapToEquirectangular(
   image.data.set(out);
   outCtx.putImageData(image, 0, 0);
   return canvas;
+}
+
+export function stitchCubemapToEquirectangular(faces: CubemapFace[], eqWidth = 2048): HTMLCanvasElement {
+  return finishSteps(stitchCubemapSteps(faces, eqWidth));
+}
+
+export function stitchCubemapToEquirectangularAsync(faces: CubemapFace[], eqWidth = 2048, signal?: AbortSignal): Promise<HTMLCanvasElement> {
+  return finishStepsAsync(stitchCubemapSteps(faces, eqWidth), signal);
 }

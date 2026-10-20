@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { combineAbortSignals } from '../../utils/abortSignal';
 
 type Work = { id: string; prompt: string; model: string; width: number; height: number; mime: string; created_at: number };
 const button = 'rounded-xl border border-cyan-400/30 px-3 py-2 text-sm text-cyan-100 hover:bg-cyan-400/20 disabled:opacity-40';
@@ -12,7 +13,7 @@ export function MyWorks({ isOpen, accountId, onClose, onOpen }: { isOpen: boolea
   const token = localStorage.getItem('panorama_server_user_token');
   const api = async (path: string, init: RequestInit = {}, signal?: AbortSignal) => {
     if (localStorage.getItem('panorama_server_user_token') !== token) throw new Error('Account changed. Reopen My works.');
-    const response = await fetch(`/api/works${path}`, { ...init, headers: { Authorization: `Bearer ${token || ''}` }, signal: AbortSignal.any([AbortSignal.timeout(90000), ...(signal ? [signal] : [])]) });
+    const response = await fetch(`/api/works${path}`, { ...init, headers: { Authorization: `Bearer ${token || ''}` }, signal: combineAbortSignals([AbortSignal.timeout(90000), ...(signal ? [signal] : [])]) });
     const data = await response.json().catch(() => ({}));
     signal?.throwIfAborted();
     if (localStorage.getItem('panorama_server_user_token') !== token) throw new Error('Account changed.');

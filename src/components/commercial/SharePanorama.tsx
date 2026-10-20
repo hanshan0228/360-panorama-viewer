@@ -1,6 +1,7 @@
 import { preparePanoramaShare } from "../../utils/imageOptimizer";
 import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 import { SphereViewer } from "../SphereViewer";
+import { combineAbortSignals } from "../../utils/abortSignal";
 
 type Share = { id: string; title: string; width: number; height: number; allowDownload: boolean; listed?: boolean; createdAt: number; revoked?: boolean };
 const getSubpath = () => {
@@ -18,7 +19,7 @@ const button = "rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 te
 async function shareApi(token: string | null, path = "", init: RequestInit = {}, signal?: AbortSignal) {
   if (localStorage.getItem("panorama_server_user_token") !== token) throw new Error("Account changed. Reopen sharing.");
   const response = await fetch(`/api/shares${path}`, { ...init,
-    signal: AbortSignal.any([AbortSignal.timeout(90000), ...(signal ? [signal] : [])]),
+    signal: combineAbortSignals([AbortSignal.timeout(90000), ...(signal ? [signal] : [])]),
     headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init.headers } });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "Sharing request failed");
@@ -82,7 +83,7 @@ export function SharePanoramaModal({
 
   const upload = () => run(async signal => {
     if (!title.trim() || title.trim().length > 100) throw new Error("Enter a title up to 100 characters.");
-    const response = await fetch(imageUrl, { signal: AbortSignal.any([signal, AbortSignal.timeout(45000)]) });
+    const response = await fetch(imageUrl, { signal: combineAbortSignals([signal, AbortSignal.timeout(45000)]) });
     if (!response.ok) throw new Error("The panorama could not be loaded.");
     const prepared = await preparePanoramaShare(await response.blob(), signal);
     const { blob } = prepared;
@@ -273,7 +274,7 @@ export function SharedPanorama({ id }: { id: string }) {
   const homeHref = `${getSubpath()}/`;
   useEffect(() => {
     const abort = new AbortController(); let localUrl = "";
-    const signal = AbortSignal.any([abort.signal, AbortSignal.timeout(45000)]);
+    const signal = combineAbortSignals([abort.signal, AbortSignal.timeout(45000)]);
     // oxlint-disable-next-line react/set-state-in-effect
     setError(""); setShare(null); setImageUrl("");
     const load = async () => {

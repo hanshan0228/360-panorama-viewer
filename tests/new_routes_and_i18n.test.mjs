@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import vm from 'node:vm';
 import ts from 'typescript';
 
@@ -41,6 +44,7 @@ test('mounted route metadata keeps new URLs independent and restores older route
     ['/360-product-video-generator', 'landing-video', '360 Panorama Showcase Video Generator'],
     ['/hdri-viewer/', 'landing-hdri-viewer', 'HDRI Viewer'],
     ['/cubemap-generator/', 'landing-cubemap', 'Free Cubemap Generator'],
+    ['/cubemap-generator/', 'cubemap', 'Free Cubemap Generator'],
     ['/360-photo-to-video/', 'landing-video', '360° Photo to Video Generator'],
     ['/', 'generator', '360 Panorama Viewer'],
   ]) {
@@ -51,11 +55,21 @@ test('mounted route metadata keeps new URLs independent and restores older route
     assert.ok(document.title.startsWith(expectedTitle), document.title);
     assert.equal(attributes.get('meta[property="og:title"]:content'), document.title);
     assert.equal(attributes.get('meta[name="twitter:title"]:content'), document.title);
-    if (currentPath.includes('hdri-to-cubemap') || currentPath.includes('360-product-video')) {
+    if (currentPath.includes('hdri-to-cubemap') || currentPath.includes('360-product-video') || currentPath === '/cubemap-generator/') {
       const html = read(currentPath.replace(/^\//, '').replace(/\/?$/, '/index.html'));
       assert.equal(document.title, html.match(/<title>([^<]+)<\/title>/)[1]);
       assert.equal(attributes.get('meta[name="description"]:content'), html.match(/<meta name="description" content="([^"]+)"/)[1]);
     }
+  }
+});
+
+test('legacy cubemap hash opens the same landing page as the canonical URL', () => {
+  const route = app.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'getInitialTabFromLocation');
+  const code = ts.transpileModule(route.getText(app), { compilerOptions: { target: ts.ScriptTarget.ES2023 } }).outputText;
+  for (const [pathname, hash] of [['/', '#cubemap'], ['/cubemap-generator/', '']]) {
+    assert.equal(vm.runInNewContext(code + '\ngetInitialTabFromLocation()', {
+      window: { location: { pathname, hash } },
+    }), 'landing-cubemap');
   }
 });
 
@@ -93,6 +107,43 @@ test('every language page retains localized content, a working tool link and rec
       const main = html.match(/<main[\s\S]*?<\/main>/)[0];
       assert.ok(main.includes('<h1>') && main.includes('<h3>'));
     }
+  }
+});
+
+test('language regeneration preserves English pages and unchanged sitemap dates', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'panorama-i18n-test-'));
+  try {
+    fs.mkdirSync(path.join(directory, 'scripts'));
+    fs.mkdirSync(path.join(directory, 'public'));
+    fs.writeFileSync(path.join(directory, 'scripts/generate-i18n-pages.mjs'), read('scripts/generate-i18n-pages.mjs'));
+    fs.writeFileSync(path.join(directory, 'public/sitemap.xml'), read('public/sitemap.xml'));
+    for (const slug of slugs) {
+      fs.mkdirSync(path.join(directory, slug), { recursive: true });
+      fs.writeFileSync(path.join(directory, slug, 'index.html'), read((slug ? slug + '/' : '') + 'index.html'));
+    }
+    const { generateAllI18n } = await import(pathToFileURL(path.join(directory, 'scripts/generate-i18n-pages.mjs')).href);
+    generateAllI18n();
+    const sitemapPath = path.join(directory, 'public/sitemap.xml');
+    const firstSitemap = fs.readFileSync(sitemapPath, 'utf8');
+    const englishDate = xml => xml.match(/<loc>https:\/\/360panoramaviewer\.com\/cubemap-generator\/<\/loc>\s*<lastmod>([^<]+)/)[1];
+    assert.equal(englishDate(firstSitemap), englishDate(read('public/sitemap.xml')));
+    for (const slug of slugs) assert.equal(fs.readFileSync(path.join(directory, slug, 'index.html'), 'utf8'), read((slug ? slug + '/' : '') + 'index.html'));
+    generateAllI18n();
+    assert.equal(fs.readFileSync(sitemapPath, 'utf8'), firstSitemap, 'an unchanged regeneration must not refresh dates');
+    for (const lang of languages.filter(language => language !== 'en')) {
+      const html = fs.readFileSync(path.join(directory, lang, 'cubemap-generator/index.html'), 'utf8');
+      const graph = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1])['@graph'];
+      const description = graph.find(entity => entity['@type'] === 'SoftwareApplication').description;
+      const faq = JSON.stringify(graph.find(entity => entity['@type'] === 'FAQPage'));
+      // Check the tool's output claim; other tools and input examples may mention WebGL or larger images.
+      const faceSizes = [...description.matchAll(/\b(?:256|512|1024|2048|4096)\b/g)].map(match => Number(match[0]));
+      assert.deepEqual(faceSizes, [256, 512, 1024]);
+      assert.doesNotMatch(description, /WebGL/);
+      assert.match(faq, /TextureCube/);
+      assert.match(faq, /\.hdr/);
+    }
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
   }
 });
 

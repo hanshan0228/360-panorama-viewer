@@ -42,7 +42,6 @@ import { fetchServerUser, fetchPublicModelsConfig, fetchPublicBillingConfig, ini
 import { EmbedViewer } from './components/commercial/EmbedViewer';
 
 const AdminTab = lazy(() => import('./components/AdminTab').then(module => ({ default: module.AdminTab })));
-const CubemapTab = lazy(() => import('./components/CubemapTab').then(module => ({ default: module.CubemapTab })));
 const PricingTab = lazy(() => import('./components/PricingTab').then(module => ({ default: module.PricingTab })));
 const AiHdriGeneratorPage = lazy(() => import('./components/landing/AiHdriGeneratorPage').then(module => ({ default: module.AiHdriGeneratorPage })));
 const HdriViewerPage = lazy(() => import('./components/landing/HdriViewerPage').then(module => ({ default: module.HdriViewerPage })));
@@ -56,6 +55,13 @@ const PhotoToGlobePage = lazy(() => import('./components/landing/PhotoToGlobePag
 const CubemapToEquirectPage = lazy(() => import('./components/landing/CubemapToEquirectPage').then(module => ({ default: module.CubemapToEquirectPage })));
 const TextToPanoramaPage = lazy(() => import('./components/landing/TextToPanoramaPage').then(module => ({ default: module.TextToPanoramaPage })));
 const DevelopersPage = lazy(() => import('./components/landing/DevelopersPage').then(module => ({ default: module.DevelopersPage })));
+
+const GUIDE_LANGUAGES = [
+  { code: 'zh', name: '简体中文' },
+  { code: 'es', name: 'Español' },
+  { code: 'de', name: 'Deutsch' },
+  { code: 'ja', name: '日本語' },
+];
 
 function getInitialTabFromLocation(): ActiveTab {
   if (typeof window === 'undefined') return 'generator';
@@ -74,7 +80,7 @@ function getInitialTabFromLocation(): ActiveTab {
   if (path.includes('developers') || hash.includes('developers')) return 'developers';
   if (path.includes('360-image-maker') || hash.includes('360-image-maker')) return 'generator';
   if (path.includes('viewer') || hash.includes('viewer')) return 'viewer';
-  if (path.includes('cubemap') || hash.includes('cubemap')) return 'cubemap';
+  if (path.includes('cubemap') || hash.includes('cubemap')) return 'landing-cubemap';
   if (path.includes('globe') || hash.includes('globe')) return 'globe';
   if (path.includes('pricing') || hash.includes('pricing')) return 'pricing';
   if (path.includes('showcase') || hash.includes('showcase')) return 'showcase';
@@ -85,6 +91,14 @@ function getInitialTabFromLocation(): ActiveTab {
 export function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>(getInitialTabFromLocation);
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
+  const languageGuidePath = ({
+    generator: currentPath === '/' ? '/' : undefined,
+    viewer: '/360-panorama-viewer/',
+    globe: '/photo-to-globe/',
+    cubemap: '/cubemap-generator/',
+    'landing-cubemap': '/cubemap-generator/',
+    'landing-photo360': '/photo-to-360-converter/',
+  } as Partial<Record<ActiveTab, string>>)[activeTab];
   const [isToolsDropdownOpen, setIsToolsDropdownOpen] = useState(false);
   const [generatorInputMode, setGeneratorInputMode] = useState<'text' | 'image'>('text');
   const [isMetadataModalOpen, setIsMetadataModalOpen] = useState(false);
@@ -267,8 +281,8 @@ export function App() {
         desc: 'Free online panorama viewer and 360° photo viewer: open equirectangular photos or Photo Spheres in WebGL with Little Planet, cardboard VR, hotspots. No upload, no signup.',
       },
       cubemap: {
-        title: 'Free Cubemap Generator — Panorama to 6 Faces Online (No Upload)',
-        desc: 'Convert 2:1 equirectangular spherical panoramas into 6 rectilinear cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back) with client-side WebGL math. One-click batch ZIP download for Unity and Unreal. 100% free, no upload needed.',
+        title: 'Free Cubemap Generator — Panorama to 6 Faces Online',
+        desc: 'Convert a 2:1 panorama to six PNG cube faces online. Free local cubemap generator with sample panoramas, ZIP export and Unity skybox setup. No signup.',
       },
       globe: {
         title: 'Map to Globe — Free Image to 3D Globe Maker, No Upload',
@@ -299,8 +313,8 @@ export function App() {
         desc: 'Transform standard 2D photos, architectural concept renders, or scenery snapshots into immersive 360° equirectangular panoramas. Multi-reference AI style and spatial expansion with seamless 360° wrap. Free online tool.',
       },
       'landing-cubemap': {
-        title: 'Free Cubemap Generator — Panorama to 6 Faces Online (No Upload)',
-        desc: 'Convert 2:1 equirectangular spherical panoramas into 6 rectilinear cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back) with client-side WebGL math. One-click batch ZIP download for Unity and Unreal. 100% free, no upload needed.',
+        title: 'Free Cubemap Generator — Panorama to 6 Faces Online',
+        desc: 'Convert a 2:1 panorama to six PNG cube faces online. Free local cubemap generator with sample panoramas, ZIP export and Unity skybox setup. No signup.',
       },
       'landing-metadata': {
         title: 'Free 360° Photo Metadata Injector | Facebook & Google Street View Ready',
@@ -370,6 +384,7 @@ export function App() {
         'landing-skybox': 'skybox-generator/',
         'landing-photo360': 'photo-to-360-converter/',
         'landing-cubemap': 'cubemap-generator/',
+        cubemap: 'cubemap-generator/',
         'landing-metadata': '360-metadata-injector/',
         'landing-video': '360-photo-to-video/',
         'landing-cube2eq': 'cubemap-to-equirectangular/',
@@ -402,6 +417,7 @@ export function App() {
   }, []);
 
   const navigateTo = (tab: ActiveTab, pushPath?: string) => {
+    if (tab === 'cubemap') tab = 'landing-cubemap';
     setActiveTab(tab);
     setIsToolsDropdownOpen(false);
     if (typeof window !== 'undefined' && window.scrollY > 0) {
@@ -422,7 +438,6 @@ export function App() {
         case 'developers': return '/developers/';
         case 'generator': return '/';
         case 'viewer': return '/360-panorama-viewer/';
-        case 'cubemap': return '/cubemap-generator/';
         case 'globe': return '/photo-to-globe/';
         case 'pricing': return '/#pricing';
         case 'showcase': return '/showcase/';
@@ -979,9 +994,6 @@ export function App() {
             onNavigateTab={navigateTo}
           />
         )}
-        {activeTab === 'cubemap' && (
-          <CubemapTab currentPanoramaUrl={currentPanoramaUrl} />
-        )}
         {activeTab === 'globe' && (
           <PhotoToGlobePage
             currentPanoramaUrl={currentPanoramaUrl}
@@ -1367,6 +1379,17 @@ export function App() {
               </ul>
             </div>
           </div>
+
+          {languageGuidePath && (
+            <nav aria-label="Language guides" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-cyan-200/80">
+              <span>Read this guide in:</span>
+              {GUIDE_LANGUAGES.map(language => (
+                <a key={language.code} lang={language.code} hrefLang={language.code} href={`/${language.code}${languageGuidePath}`} className="hover:text-white underline">
+                  {language.name}
+                </a>
+              ))}
+            </nav>
+          )}
 
           {/* Bottom Bar */}
           <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-cyan-400/60">

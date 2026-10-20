@@ -8,6 +8,66 @@ function fixture(t) {
  const db={prepare(sql){let args=[];const stmt={bind(...values){args=values;return stmt;},async run(){return {meta:{changes:Number(sqlite.prepare(sql).run(...args).changes)}};},async first(){return sqlite.prepare(sql).get(...args)||null;},async all(){return {results:sqlite.prepare(sql).all(...args)};}};return stmt;},async batch(statements){const results=[];for(const stmt of statements)results.push(await stmt.run());return results;}};
  return {db,sqlite};
 }
+
+test('edge schema bootstrap is shared across overlapping requests and isolated by binding', async t => {
+ const {db}=fixture(t);
+ const prepared=t.mock.method(db,'prepare');
+ const call=database=>onRequest({request:new Request('https://example.com/api/billing'),env:{DB:database}});
+ const responses=await Promise.all([call(db),call(db),call(db)]);
+ assert.deepEqual(responses.map(response=>response.status),[200,200,200]);
+ await call(db);
+ assert.equal(prepared.mock.calls.filter(call=>/CREATE TABLE IF NOT EXISTS users\s*\(/.test(call.arguments[0])).length,1);
+ assert.equal(prepared.mock.calls.filter(call=>/ALTER TABLE users/.test(call.arguments[0])).length,0);
+ const other=fixture(t);
+ assert.equal((await call(other.db)).status,200);
+ assert.ok(other.sqlite.prepare("SELECT name FROM sqlite_master WHERE name='users'").get());
+});
+
+test('edge initialization and maintenance failures can be retried', async t => {
+ const {db}=fixture(t);
+ const original=db.batch.bind(db);
+ let failure=true;
+ t.mock.method(db,'batch',async statements=>{
+   if(failure){failure=false;throw new Error('temporary database failure');}
+   return original(statements);
+ });
+ const call=()=>onRequest({request:new Request('https://example.com/api/billing'),env:{DB:db}});
+ assert.equal((await call()).status,500);
+ assert.equal((await call()).status,200);
+ // Expire the maintenance window, then fail that batch rather than the schema bootstrap.
+ const future=Date.now()+60001;t.mock.method(Date,'now',()=>future);failure=true;
+ assert.equal((await call()).status,500);
+ assert.equal((await call()).status,200);
+});
+
+test('edge maintenance keeps running after initialization and preserves live sessions', async t => {
+ const {db,sqlite}=fixture(t);let now=Date.now();t.mock.method(Date,'now',()=>now);
+ const call=()=>onRequest({request:new Request('https://example.com/api/billing'),env:{DB:db}});
+ await call();
+ sqlite.prepare('INSERT INTO user_sessions VALUES (?,?,?)').run('expired','owner',now-1);
+ sqlite.prepare('INSERT INTO user_sessions VALUES (?,?,?)').run('live','owner',now+3600000);
+ sqlite.prepare('INSERT INTO risk_counters VALUES (?,?,?)').run('expired-counter',1,now-1);
+ await call();
+ assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM user_sessions').get().n,2);
+ now+=60001;await call();
+ assert.deepEqual(sqlite.prepare('SELECT token FROM user_sessions').all().map(row=>row.token),['live']);
+ assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM risk_counters').get().n,0);
+});
+
+test('edge schema bootstrap migrates a legacy users table', async t => {
+ const {db,sqlite}=fixture(t);sqlite.exec('CREATE TABLE users (id TEXT PRIMARY KEY)');
+ const response=await onRequest({request:new Request('https://example.com/api/billing'),env:{DB:db}});
+ assert.equal(response.status,200);
+ assert.ok(sqlite.prepare('PRAGMA table_info(users)').all().some(column=>column.name==='password_hash'));
+});
+
+test('edge health does not advertise Stripe-only settings as a working payment gateway', async () => {
+ const response=await onRequest({request:new Request('https://example.com/api/health'),env:{DB:{},STRIPE_SECRET_KEY:'synthetic',STRIPE_WEBHOOK_SECRET:'synthetic'}});
+ const status=await response.json();
+ assert.equal(status.paymentsReady,false);
+ assert.equal(status.gateways.stripeConfigured,true);
+});
+
 test('durable counter is atomic across races, expires, and cannot be bypassed by a new isolate',async t=>{
  const {db}=fixture(t);await initRisk(db);
  const outcomes=await Promise.all(Array.from({length:30},()=>consumeLimit(db,'bounded',5,1000,1,100)));

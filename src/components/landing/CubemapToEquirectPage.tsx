@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   Box,
@@ -11,7 +11,7 @@ import {
   Lock,
   Sparkles,
 } from 'lucide-react';
-import { stitchCubemapToEquirectangular } from '../../utils/cubemapSlicer';
+import { stitchCubemapToEquirectangularAsync } from '../../utils/cubemapSlicer';
 import type { ActiveTab, CubemapFace, CubemapFaceName } from '../../types/panorama';
 
 interface CubemapToEquirectPageProps {
@@ -41,6 +41,13 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
   const [result, setResult] = useState<{ canvas: HTMLCanvasElement; url: string; width: number; height: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
+  const [stitchingInput, setStitchingInput] = useState<{ faces: typeof loaded; width: number; controller: AbortController } | null>(null);
+  const stitchController = useRef<AbortController | null>(null);
+  const isStitching = !!stitchingInput && stitchingInput.faces === loaded && stitchingInput.width === eqWidth && !stitchingInput.controller.signal.aborted;
+
+  useEffect(() => {
+    return () => { stitchController.current?.abort(); };
+  }, [loaded, eqWidth]);
 
   const loadedCount = Object.keys(loaded).length;
 
@@ -77,11 +84,17 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
     image.src = url;
   };
 
-  const handleStitch = () => {
+  const handleStitch = async () => {
+    if (isStitching) return;
     if (loadedCount === 0) {
       setError('Add at least one cube face first — six faces give a complete 360° panorama.');
       return;
     }
+    const controller = new AbortController();
+    stitchController.current?.abort();
+    stitchController.current = controller;
+    setStitchingInput({ faces: loaded, width: eqWidth, controller });
+    setResult(null);
     try {
       const faces: CubemapFace[] = FACE_SLOTS
         .filter(slot => loaded[slot.name])
@@ -91,7 +104,8 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
           dataUrl: '',
           canvas: (loaded[slot.name] as { canvas: HTMLCanvasElement }).canvas,
         }));
-      const canvas = stitchCubemapToEquirectangular(faces, eqWidth);
+      const canvas = await stitchCubemapToEquirectangularAsync(faces, eqWidth, controller.signal);
+      if (controller.signal.aborted) return;
       setResult({
         canvas,
         url: canvas.toDataURL('image/png'),
@@ -100,7 +114,9 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
       });
       setError(null);
     } catch (stitchError) {
-      setError(stitchError instanceof Error ? stitchError.message : 'Stitching failed. Try smaller face images.');
+      if (!controller.signal.aborted) setError(stitchError instanceof Error ? stitchError.message : 'Stitching failed. Try smaller face images.');
+    } finally {
+      if (!controller.signal.aborted) setStitchingInput(null);
     }
   };
 
@@ -289,10 +305,11 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
               <button
                 type="button"
                 onClick={handleStitch}
+                disabled={isStitching}
                 className="px-5 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 shadow-lg shadow-cyan-400/30 hover:shadow-cyan-400/50 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
               >
                 <Sparkles className="w-4 h-4 text-slate-950" />
-                <span>Stitch to 2:1 Panorama</span>
+                <span>{isStitching ? 'Stitching panorama...' : 'Stitch to 2:1 Panorama'}</span>
               </button>
               <button
                 type="button"

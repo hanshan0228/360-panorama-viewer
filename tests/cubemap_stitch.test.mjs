@@ -42,7 +42,7 @@ function makeCanvas() {
   return canvas;
 }
 
-function loadCubemapSlicer() {
+function loadCubemapSlicer(globals = {}) {
   const filename = new URL('../src/utils/cubemapSlicer.ts', import.meta.url);
   const source = fs.readFileSync(filename, 'utf8');
   const code = ts.transpileModule(source, {
@@ -55,6 +55,8 @@ function loadCubemapSlicer() {
     Uint8ClampedArray,
     Math,
     Map,
+    setTimeout,
+    ...globals,
   });
   return exports;
 }
@@ -62,6 +64,33 @@ function loadCubemapSlicer() {
 const EQ_WIDTH = 128;
 const EQ_HEIGHT = 64;
 const FACE_SIZE = 64;
+
+test('cooperative conversion preserves pixels and yields before completing', async () => {
+  let yields = 0;
+  const slicer = loadCubemapSlicer({ setTimeout(callback) { yields++; queueMicrotask(callback); } });
+  const source = makeCanvas(); source.width = 128; source.height = 64;
+  for (let i = 0; i < source.pixels.length; i++) source.pixels[i] = i * 31 % 256;
+  const syncFaces = slicer.sliceEquirectangularToCubemap(source, 64);
+  const asyncFaces = await slicer.sliceEquirectangularToCubemapAsync(source, 64);
+  assert.ok(yields >= 6);
+  assert.equal(asyncFaces.length, 6);
+  asyncFaces.forEach((face, i) => assert.deepEqual(face.canvas.pixels, syncFaces[i].canvas.pixels));
+  const sync = slicer.stitchCubemapToEquirectangular(syncFaces, 256);
+  const asyncCanvas = await slicer.stitchCubemapToEquirectangularAsync(asyncFaces, 256);
+  assert.deepEqual(asyncCanvas.pixels, sync.pixels);
+  assert.ok(yields >= 8);
+});
+
+test('a replaced conversion stops at its next row batch', async () => {
+  const controller = new AbortController();
+  let yields = 0;
+  const slicer = loadCubemapSlicer({ setTimeout(callback) { yields++; controller.abort(new Error('source replaced')); queueMicrotask(callback); } });
+  const source = makeCanvas(); source.width = 128; source.height = 64;
+  await assert.rejects(slicer.sliceEquirectangularToCubemapAsync(source, 256, controller.signal), /source replaced/);
+  assert.equal(yields, 1);
+  await assert.rejects(slicer.stitchCubemapToEquirectangularAsync([], 1024, controller.signal), /source replaced/);
+  assert.equal(yields, 1);
+});
 
 // Smooth longitude/latitude gradient: every direction has a unique colour, so a wrong
 // cube face or a flipped axis shows up as a large per-pixel error.

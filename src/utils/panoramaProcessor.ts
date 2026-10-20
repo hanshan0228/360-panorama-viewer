@@ -1,5 +1,6 @@
 import { enhanceAndUpscalePanorama, type EnhanceOptions } from './imageEnhancer';
 import { healPanoramaSeam } from './seamHealer';
+import { combineAbortSignals } from './abortSignal';
 
 export async function processPanoramaImage(
   imageUrl: string,
@@ -7,7 +8,7 @@ export async function processPanoramaImage(
   healSeam: boolean | 'auto',
   signal?: AbortSignal
 ): Promise<string> {
-  const deadline = AbortSignal.any([AbortSignal.timeout(30000), ...(signal ? [signal] : [])]);
+  const deadline = combineAbortSignals([AbortSignal.timeout(30000), ...(signal ? [signal] : [])]);
   deadline.throwIfAborted();
   const response = await fetch(imageUrl, { signal: deadline });
   if (!response.ok) throw new Error(`Image download failed (${response.status})`);

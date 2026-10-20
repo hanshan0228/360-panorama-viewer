@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { RotateCw, Sun, Pause, Play, Maximize, Minimize } from 'lucide-react';
+import { RotateCw, Sun, Pause, Play, Maximize, Minimize, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface GlobeViewerProps {
   textureUrl: string;
@@ -10,6 +10,8 @@ interface GlobeViewerProps {
 export function GlobeViewer({ textureUrl, className = '' }: GlobeViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const distanceRef = useRef(320);
   const globeMeshRef = useRef<THREE.Mesh | null>(null);
   const animFrameIdRef = useRef<number | null>(null);
 
@@ -33,6 +35,11 @@ export function GlobeViewer({ textureUrl, className = '' }: GlobeViewerProps) {
   const prevMouseXRef = useRef(0);
   const prevMouseYRef = useRef(0);
 
+  const zoom = (factor: number) => {
+    distanceRef.current = Math.max(150, Math.min(650, distanceRef.current * factor));
+    if (cameraRef.current) cameraRef.current.position.z = distanceRef.current;
+  };
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -42,7 +49,8 @@ export function GlobeViewer({ textureUrl, className = '' }: GlobeViewerProps) {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.set(0, 0, 320);
+    camera.position.set(0, 0, distanceRef.current);
+    cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setSize(width, height);
@@ -108,10 +116,18 @@ export function GlobeViewer({ textureUrl, className = '' }: GlobeViewerProps) {
 
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(container);
+    const handleWheel = (event: WheelEvent) => {
+      if ((event.target as HTMLElement).closest('button, input')) return;
+      event.preventDefault();
+      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? container.clientHeight : 1);
+      zoom(Math.exp(Math.max(-1, Math.min(1, delta * 0.001))));
+    };
+    container.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
       resizeObserver.disconnect();
+      container.removeEventListener('wheel', handleWheel);
       if (renderer.domElement && container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
@@ -122,11 +138,13 @@ export function GlobeViewer({ textureUrl, className = '' }: GlobeViewerProps) {
       texture.dispose();
       renderer.dispose();
       renderer.forceContextLoss();
+      cameraRef.current = null;
     };
   }, [textureUrl, wireframe]);
 
   // Pointer drag controls
   const handlePointerDown = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('button, input')) return;
     isDraggingRef.current = true;
     prevMouseXRef.current = e.clientX;
     prevMouseYRef.current = e.clientY;
@@ -166,9 +184,12 @@ export function GlobeViewer({ textureUrl, className = '' }: GlobeViewerProps) {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
+      onPointerCancel={handlePointerUp}
     >
       {/* Control overlay */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 bg-slate-900/80 backdrop-blur-md border border-slate-700/60 rounded-full shadow-2xl z-20 text-xs text-slate-200">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-wrap justify-center items-center gap-1 sm:gap-2 w-max max-w-[calc(100%_-_1rem)] px-3 py-1.5 bg-slate-900/80 backdrop-blur-md border border-slate-700/60 rounded-2xl sm:rounded-full shadow-2xl z-20 text-xs text-slate-200">
+        <button type="button" onClick={() => zoom(0.85)} aria-label="Zoom in on globe" className="p-2 hover:bg-slate-800 rounded-full"><ZoomIn className="w-3.5 h-3.5" /></button>
+        <button type="button" onClick={() => zoom(1 / 0.85)} aria-label="Zoom out of globe" className="p-2 hover:bg-slate-800 rounded-full"><ZoomOut className="w-3.5 h-3.5" /></button>
         <button
           type="button"
           onClick={() => setIsRotating((p) => !p)}
