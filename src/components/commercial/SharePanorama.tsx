@@ -9,7 +9,7 @@ const getSubpath = () => {
   const sIndex = pathname.indexOf("/s/");
   if (sIndex > 0) return pathname.slice(0, sIndex);
   const parts = pathname.split("/").filter(Boolean);
-  if (parts.length > 0 && parts[0] === "panorama-generator") return "/panorama-generator";
+  if (parts.length > 0 && (parts[0] === "360-panorama-viewer" || parts[0] === "panorama-generator")) return `/${parts[0]}`;
   return "";
 };
 const linkFor = (id: string) => `${typeof window !== "undefined" && window.location ? window.location.origin : ""}${getSubpath()}/s/${id}`;

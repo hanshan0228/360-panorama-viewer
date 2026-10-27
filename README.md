@@ -120,8 +120,8 @@ Inspect interactive 360° equirectangular panoramas, cylindrical wide shots, and
 ### 1. Installation
 ```bash
 # Clone the repository
-git clone https://github.com/hanshan0228/panorama-generator.git
-cd panorama-generator
+git clone https://github.com/hanshan0228/360-panorama-viewer.git
+cd 360-panorama-viewer
 
 # Install dependencies
 npm install

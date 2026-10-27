@@ -26,7 +26,7 @@ function getHtmlInputs() {
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: process.env.VITE_BASE_PATH ?? (process.env.GITHUB_ACTIONS ? '/panorama-generator/' : '/'),
+  base: process.env.VITE_BASE_PATH ?? (process.env.GITHUB_ACTIONS ? '/360-panorama-viewer/' : '/'),
   server: {
     port: 5173,
     host: true,
