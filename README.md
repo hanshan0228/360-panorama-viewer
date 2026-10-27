@@ -1,4 +1,4 @@
-# 360 Panorama Viewer — AI 360° Panorama Generator & VR Skybox Studio
+# Panorama Viewer & 360° Studio — Free Online WebGL Viewer & AI Skybox Suite
 
 [![Live Website](https://img.shields.io/badge/Website-360panoramaviewer.com-00f2fe?style=for-the-badge&logo=googlechrome&logoColor=white)](https://360panoramaviewer.com)
 [![React](https://img.shields.io/badge/React-19.2-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
@@ -8,9 +8,9 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-An open-source, production-grade WebGL 3D panorama viewer and AI-powered equirectangular environment generation suite.
+A high-performance open-source WebGL **panorama viewer**, **360° photo inspector**, and **AI skybox studio**.
 
-Explore interactive 360° panoramic images in real-time, generate seamless 2:1 equirectangular skyboxes from text prompts or reference photos, convert panoramas into 6-face cubemap packages for Unity/Unreal Engine/Godot, inspect Radiance HDRIs with tone-mapping, and project spherical images onto interactive 3D globes.
+Inspect interactive 360° equirectangular panoramas, cylindrical wide shots, and DJI drone captures online for free. Features Three.js WebGL 2.0 rendering, `Ctrl + V` clipboard paste, Little Planet fisheye projection, VR cardboard split-screen, 6-face cubemap slicing for Unity/Unreal Engine/Godot, and 4K AI skybox generation. 100% client-side privacy with zero server uploads.
 
 **Official Website**: [https://360panoramaviewer.com](https://360panoramaviewer.com)
 
@@ -18,14 +18,18 @@ Explore interactive 360° panoramic images in real-time, generate seamless 2:1 e
 
 ## 🌟 Key Features
 
-### 1. 👁️ Free Client-Side 360° Panorama Viewer
+### 1. 👁️ Free Online Panorama Viewer (360° & Cylindrical Wide Panoramas)
 * **Pure Client-Side WebGL Rendering**: Powered by Three.js `SphereGeometry` and reverse-normals spherical mapping. Runs 100% locally in the browser with zero GPU server overhead.
-* **DJI Drone Sphere Compatibility**: Seamlessly preview stitched 360° spherical JPEGs and DNGs from **DJI Mini 4 Pro, Mini 3 Pro, Mavic 3, Air 3**, and Osmo cameras without installing heavy desktop software.
+* **Full Format & Camera Support**:
+  * **360° Equirectangular Panoramas**: 2:1 full spherical photos (JPG, PNG, WebP, Radiance `.hdr`);
+  * **Cylindrical & Curved Wide Panoramas**: Curved viewport projection for wide-angle panorama photos shot on iPhone, Android, and DSLR stitching;
+  * **DJI Drone Sphere Compatibility**: Seamlessly preview stitched 360° spherical JPEGs and DNGs from **DJI Mini 4 Pro, Mini 3 Pro, Mavic 3, Air 3**, and Osmo cameras without installing heavy desktop software.
 * **Instant Media Input**:
   * File picker and drag-and-drop support for local images;
-  * **`Ctrl + V` Direct Clipboard Paste**: Paste screenshots, saved images, or copied graphics directly into the 360° viewport for immediate spherical inspection.
-* **Dual Projection Modes**:
+  * **`Ctrl + V` Direct Clipboard Paste**: Paste screenshots, saved images, or copied graphics directly into the panorama viewer for immediate inspection.
+* **Multi-Projection Modes**:
   * **Interactive 360° Spherical VR Mode**: Mouse drag, touch swipe, inertia scrolling, and FOV wide-angle zoom (`30°` to `105°`);
+  * **Cylindrical Curved Mode**: Ideal for ultra-wide mobile phone panoramic shots;
   * **Little Planet Fisheye Mode**: Stereographic outward projection for dynamic miniature planetary overviews.
 * **VR Cardboard & Gyroscope Mode**: Dual-eye split-screen view with mobile gyroscope head-tracking support for Meta Quest and Google Cardboard.
 * **Navigation & Orientation**:
@@ -190,6 +194,9 @@ PAYPAL_MODE=live
 ---
 
 ## ❓ Frequently Asked Questions (FAQ)
+
+### What formats does this online panorama viewer support?
+This **panorama viewer** supports standard 2:1 equirectangular spherical panoramas, ultra-wide cylindrical panoramic photos (from iPhone and Android panorama mode), DJI drone spheres, and 32-bit Radiance `.hdr` environment maps in JPG, PNG, WebP, and HDR formats.
 
 ### How do I view 360 photos taken by DJI drones without software?
 Open **[360panoramaviewer.com](https://360panoramaviewer.com)** and drag your DJI drone panorama (from DJI Mini 4 Pro, Mini 3 Pro, Mavic 3, or Air 3) directly into the browser. The Three.js WebGL viewer renders the spherical environment instantly with zero file uploads and complete privacy.
