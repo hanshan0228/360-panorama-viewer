@@ -1,3 +1,5 @@
+import { useLanguage, useTranslation, withLanguageHref } from '../../utils/i18n';
+import { advancedTranslations } from '../../utils/advancedTranslations';
 import { useState, useMemo } from 'react';
 import {
   Sparkles,
@@ -19,6 +21,8 @@ interface SkyboxGeneratorPageProps {
 }
 
 export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGeneratorPageProps) {
+  const t = useTranslation(advancedTranslations);
+  const [lang] = useLanguage();
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
 
   // Generate a cosmic sci-fi space nebula sample skybox
@@ -39,7 +43,7 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
     },
     {
       q: 'Is 360 Panorama Viewer a direct alternative to Blockade Labs Skybox AI?',
-      a: 'Yes. 360 Panorama Viewer provides comparable and enhanced capabilities: seamless 360° wrapping with Poisson seam blending, interactive WebGL preview, client-side 4K resolution upscaling, instant 6-sided cubemap ZIP slicing, and PhotoSphere XMP metadata injection without requiring monthly lock-in.',
+      a: 'The studio combines panorama generation, WebGL preview, six-face PNG slicing, and PhotoSphere XMP tools. Inspect seams and returned dimensions, and check current credit pricing before generating.',
     },
     {
       q: 'How do I use the generated skybox in Unity?',
@@ -47,15 +51,15 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
     },
     {
       q: 'Can I generate skyboxes for Unreal Engine 5?',
-      a: 'Yes. In Unreal Engine 5, drag your equirectangular texture into the content browser, drop an HDRIBackdrop actor or Skylight into your level, and assign the texture to the Cubemap slot for photorealistic background and ambient lighting.',
+      a: 'Use an appropriate Radiance .HDR workflow for Unreal Engine and check the imported texture type. The six PNG faces are not an Unreal TextureCube asset.',
     },
     {
       q: 'Do the generated skyboxes come with commercial rights?',
-      a: 'Yes. All skybox assets generated with your credits come with full commercial rights. You can use them in indie games, commercial video games on Steam, architectural visualizations, Roblox experiences, and client deliverables.',
+      a: 'Paid plans include commercial usage rights. Check the pricing page and plan terms before using generated skyboxes in commercial projects.',
     },
     {
       q: 'How does seam healing work for skyboxes?',
-      a: 'Skyboxes require a perfect 360° seamless loop to avoid breaking visual immersion. 360 Panorama Viewer applies automated harmonic seam healing along the 0°/360° seam, equalizing vertical color transitions so no line is visible when panning in game engines or VR headsets.',
+      a: 'The studio applies harmonic boundary blending at the 0°/360° seam to reduce color differences. It cannot guarantee an invisible seam for every image.',
     },
   ];
 
@@ -63,11 +67,11 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
     <div className="space-y-16 pb-16">
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs text-cyan-400/70 pt-2">
-        <a href="/" className="hover:text-cyan-300 transition-colors">Home</a>
+        <a href={withLanguageHref("/", lang)} className="hover:text-cyan-300 transition-colors">{t("Home")}</a>
         <span>/</span>
-        <span className="text-cyan-300">Tools</span>
+        <span className="text-cyan-300">{t("Tools")}</span>
         <span>/</span>
-        <span className="text-white font-medium">AI Skybox Generator</span>
+        <span className="text-white font-medium">{t("AI Skybox Generator")}</span>
       </nav>
 
       {/* Hero Section */}
@@ -75,19 +79,18 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
         <div className="max-w-4xl space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-400/15 border border-cyan-400/40 text-cyan-300 text-xs font-semibold tracking-wide">
             <Gamepad2 className="w-3.5 h-3.5 text-cyan-300" />
-            <span>GAME DEV &bull; VR WORLDS &bull; BLOCKADE LABS ALTERNATIVE</span>
+            <span>{t("GAME DEV • VR WORLDS • BLOCKADE LABS ALTERNATIVE")}</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
-            AI Skybox Generator:{' '}
+            {t("AI Skybox Generator:")}{' '}
             <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-300 bg-clip-text text-transparent">
-              Create 360° VR Game Worlds
+              {t("Create 360° VR Game Worlds")}
             </span>
           </h1>
 
           <p className="text-base sm:text-lg text-cyan-100/80 leading-relaxed max-w-3xl">
-            Generate panoramic 360° skyboxes and immersive virtual environments from text prompts or concept art in seconds.
-            Instant 6-sided cubemap slicing (+X, -X, +Y, -Y, +Z, -Z) and equirectangular export for Unity, Unreal Engine, and WebXR.
+            {t("Generate 360° environments from text or concept art. Export a 2:1 image or six PNG cube faces, then check your engine’s import requirements.")}
           </p>
 
           <div className="flex flex-wrap items-center gap-4 pt-2">
@@ -97,7 +100,7 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
               className="px-6 py-3.5 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 shadow-lg shadow-cyan-400/30 hover:shadow-cyan-400/60 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
             >
               <Sparkles className="w-4 h-4 fill-slate-950" />
-              <span>Generate Free Skybox Now</span>
+              <span>{t("Generate Free Skybox Now")}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
 
@@ -107,22 +110,22 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
               className="px-5 py-3.5 rounded-xl font-semibold text-sm bg-cyan-950/60 border border-cyan-500/40 text-cyan-200 hover:text-white hover:bg-cyan-900/60 transition-all cursor-pointer flex items-center gap-2"
             >
               <Box className="w-4 h-4 text-cyan-400" />
-              <span>Open Cubemap Slicer</span>
+              <span>{t("Open Cubemap Slicer")}</span>
             </button>
           </div>
 
           <div className="flex flex-wrap items-center gap-6 pt-4 text-xs text-cyan-300/70 border-t border-cyan-500/15">
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-teal-400" />
-              <span>Instant 6-Sided Cubemap ZIP</span>
+              <span>{t("Instant 6-Sided Cubemap ZIP")}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-teal-400" />
-              <span>Full 360° x 180° Spherical Wrap</span>
+              <span>{t("Full 360° x 180° Spherical Wrap")}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-teal-400" />
-              <span>Commercial Game License</span>
+              <span>{t("Commercial Game License")}</span>
             </span>
           </div>
         </div>
@@ -133,10 +136,10 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-              Interactive 3D Viewport
+              {t("Interactive 3D Viewport")}
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-white">
-              Inspect 360° Game Skybox in Real-Time WebGL
+              {t("Inspect 360° Game Skybox in Real-Time WebGL")}
             </h2>
           </div>
         </div>
@@ -151,7 +154,7 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
           </div>
           <div className="absolute top-4 left-4 pointer-events-none bg-slate-950/80 backdrop-blur-md border border-cyan-400/30 rounded-lg px-3 py-1.5 text-xs text-cyan-200 flex items-center gap-2">
             <Gamepad2 className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Sample: Cosmic Nebula VR Skybox (Drag to pan 360°)</span>
+            <span>{t("Sample: Cosmic Nebula VR Skybox (Drag to pan 360°)")}</span>
           </div>
         </div>
       </section>
@@ -160,10 +163,10 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Built For Game Engines
+            {t("Built For Game Engines")}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Everything You Need For Immersive Worlds
+            {t("Everything You Need For Immersive Worlds")}
           </h2>
         </div>
 
@@ -172,9 +175,9 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
             <div className="p-2.5 rounded-xl bg-cyan-500/15 text-cyan-400 w-fit">
               <Box className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">6-Sided Cubemap ZIP</h3>
+            <h3 className="font-bold text-white text-base">{t("6-Sided Cubemap ZIP")}</h3>
             <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Instantly converts spherical output into Right, Left, Top, Bottom, Front, and Back faces for Unity and Unreal Engine.
+              {t("Convert a 2:1 panorama into six PNG faces for a Unity 6 Sided skybox. Other engines may require further configuration.")}
             </p>
           </div>
 
@@ -182,9 +185,9 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
             <div className="p-2.5 rounded-xl bg-teal-500/15 text-teal-400 w-fit">
               <ShieldCheck className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">Seamless 360° Loop</h3>
+            <h3 className="font-bold text-white text-base">{t("Seamless 360° Loop")}</h3>
             <p className="text-xs text-cyan-200/70 leading-relaxed">
-              No ugly vertical lines when looking around in VR. Poisson boundary blending aligns luminance across the stitch line.
+              {t("Harmonic boundary blending reduces visible color differences at the seam. Results depend on the source image.")}
             </p>
           </div>
 
@@ -192,9 +195,9 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
             <div className="p-2.5 rounded-xl bg-blue-500/15 text-blue-400 w-fit">
               <Eye className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">VR Cardboard Mode</h3>
+            <h3 className="font-bold text-white text-base">{t("VR Cardboard Mode")}</h3>
             <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Inspect skyboxes in dual-eye stereoscopic split-screen on mobile browsers or VR headsets like Meta Quest.
+              {t("Inspect skyboxes in dual-eye stereoscopic split-screen on mobile browsers or VR headsets like Meta Quest.")}
             </p>
           </div>
 
@@ -202,9 +205,9 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
             <div className="p-2.5 rounded-xl bg-purple-500/15 text-purple-400 w-fit">
               <Gamepad2 className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">Diverse Art Styles</h3>
+            <h3 className="font-bold text-white text-base">{t("Diverse Art Styles")}</h3>
             <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Switch between Cyberpunk, Fantasy, Cosmic Space, Anime, and Photorealistic Nature presets in one click.
+              {t("Switch between Cyberpunk, Fantasy, Cosmic Space, Anime, and Photorealistic Nature presets in one click.")}
             </p>
           </div>
         </div>
@@ -214,10 +217,10 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Competitive Comparison
+            {t("Competitive Comparison")}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            360 Panorama Viewer vs Blockade Labs Skybox AI
+            {t("360 Panorama Viewer vs Blockade Labs Skybox AI")}
           </h2>
         </div>
 
@@ -225,42 +228,42 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
           <table className="w-full text-left text-xs">
             <thead className="bg-[#051733] text-cyan-200 border-b border-cyan-500/30 font-semibold uppercase tracking-wider">
               <tr>
-                <th className="py-4 px-5">Feature</th>
+                <th className="py-4 px-5">{t("Feature")}</th>
                 <th className="py-4 px-5 text-cyan-400">360 Panorama Viewer</th>
                 <th className="py-4 px-5 text-slate-400">Blockade Labs</th>
-                <th className="py-4 px-5 text-slate-400">Manual Matte Painting</th>
+                <th className="py-4 px-5 text-slate-400">{t("Manual Matte Painting")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cyan-500/15 text-cyan-100/90">
               <tr>
-                <td className="py-3.5 px-5 font-semibold text-white">Free Onboarding Credits</td>
-                <td className="py-3.5 px-5 text-teal-400 font-bold">4 Free Trial Credits</td>
-                <td className="py-3.5 px-5 text-slate-400">Limited trial / Paywall</td>
-                <td className="py-3.5 px-5 text-slate-400">N/A ($100s/artist hr)</td>
+                <td className="py-3.5 px-5 font-semibold text-white">{t("Free Onboarding Credits")}</td>
+                <td className="py-3.5 px-5 text-teal-400 font-bold">{t("Trial credits shown in your account")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("Limited trial / Paywall")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("N/A ($100s/artist hr)")}</td>
               </tr>
               <tr>
-                <td className="py-3.5 px-5 font-semibold text-white">Cubemap 6-Sided Slicing</td>
-                <td className="py-3.5 px-5 text-teal-400 font-bold">Included (Client-side ZIP)</td>
-                <td className="py-3.5 px-5 text-slate-400">Requires Pro subscription</td>
-                <td className="py-3.5 px-5 text-slate-400">Manual 90-degree renders</td>
+                <td className="py-3.5 px-5 font-semibold text-white">{t("Cubemap 6-Sided Slicing")}</td>
+                <td className="py-3.5 px-5 text-teal-400 font-bold">{t("Included (Client-side ZIP)")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("Requires Pro subscription")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("Manual 90-degree renders")}</td>
               </tr>
               <tr>
-                <td className="py-3.5 px-5 font-semibold text-white">Seam Blending Engine</td>
-                <td className="py-3.5 px-5 text-teal-400 font-bold">Automated Poisson Harmonic</td>
-                <td className="py-3.5 px-5 text-slate-400">Standard wrap</td>
-                <td className="py-3.5 px-5 text-slate-400">Manual clone stamping</td>
+                <td className="py-3.5 px-5 font-semibold text-white">{t("Seam Blending Engine")}</td>
+                <td className="py-3.5 px-5 text-teal-400 font-bold">{t("Automated Poisson Harmonic")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("Standard wrap")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("Manual clone stamping")}</td>
               </tr>
               <tr>
-                <td className="py-3.5 px-5 font-semibold text-white">VR Split-Screen Cardboard</td>
-                <td className="py-3.5 px-5 text-teal-400 font-bold">Built-in 1-Click Toggle</td>
-                <td className="py-3.5 px-5 text-slate-400">WebXR only</td>
-                <td className="py-3.5 px-5 text-slate-400">Requires game build</td>
+                <td className="py-3.5 px-5 font-semibold text-white">{t("VR Split-Screen Cardboard")}</td>
+                <td className="py-3.5 px-5 text-teal-400 font-bold">{t("Built-in 1-Click Toggle")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("WebXR only")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("Requires game build")}</td>
               </tr>
               <tr>
-                <td className="py-3.5 px-5 font-semibold text-white">PhotoSphere XMP Metadata</td>
-                <td className="py-3.5 px-5 text-teal-400 font-bold">Integrated Tool</td>
-                <td className="py-3.5 px-5 text-slate-400">Not supported</td>
-                <td className="py-3.5 px-5 text-slate-400">Third-party CLI tool</td>
+                <td className="py-3.5 px-5 font-semibold text-white">{t("PhotoSphere XMP Metadata")}</td>
+                <td className="py-3.5 px-5 text-teal-400 font-bold">{t("Integrated Tool")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("Not supported")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("Third-party CLI tool")}</td>
               </tr>
             </tbody>
           </table>
@@ -272,40 +275,44 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
         <div className="rounded-2xl border border-cyan-500/25 bg-[#031124] p-6 space-y-3">
           <div className="flex items-center gap-2">
             <Code2 className="w-4 h-4 text-cyan-400" />
-            <h3 className="text-sm font-bold text-white">Unity Skybox Setup</h3>
+            <h3 className="text-sm font-bold text-white">{t("Unity Skybox Setup")}</h3>
           </div>
           <ol className="text-xs text-cyan-200/80 space-y-2 list-decimal list-inside leading-relaxed">
-            <li>Download the 6-sided cubemap ZIP from 360 Panorama Viewer.</li>
-            <li>In Unity, create a new Material named `Skybox_Custom`.</li>
-            <li>Set shader to `Skybox / 6 Sided`.</li>
-            <li>Assign Right (+X), Left (-X), Up (+Y), Down (-Y), Front (+Z), Back (-Z).</li>
-            <li>Assign to Window &gt; Rendering &gt; Lighting &gt; Skybox Material.</li>
+            <li>{t("Download the 6-sided cubemap ZIP from 360 Panorama Viewer.")}</li>
+            <li>{t("In Unity, create a new Material named `Skybox_Custom`.")}</li>
+            <li>{t("Set shader to `Skybox / 6 Sided`.")}</li>
+            <li>{t("Assign Right (+X), Left (-X), Up (+Y), Down (-Y), Front (+Z), Back (-Z).")}</li>
+            <li>{t("Assign to Window > Rendering > Lighting > Skybox Material.")}</li>
           </ol>
         </div>
 
         <div className="rounded-2xl border border-cyan-500/25 bg-[#031124] p-6 space-y-3">
           <div className="flex items-center gap-2">
             <Code2 className="w-4 h-4 text-cyan-400" />
-            <h3 className="text-sm font-bold text-white">Unreal Engine 5 Skybox Setup</h3>
+            <h3 className="text-sm font-bold text-white">{t("Unreal Engine 5 Skybox Setup")}</h3>
           </div>
           <ol className="text-xs text-cyan-200/80 space-y-2 list-decimal list-inside leading-relaxed">
-            <li>Download the 2:1 equirectangular PNG or .HDR file.</li>
-            <li>Drag into Content Browser and check `Compression Settings = HDR`.</li>
-            <li>Place an `HDRIBackdrop` blueprint into your level.</li>
-            <li>Assign your imported texture to the `Cubemap` slot.</li>
-            <li>Adjust intensity and radius to match your scene scale.</li>
+            <li>{t("Export a Radiance .HDR environment and check Unreal Engine import requirements.")}</li>
+            <li>{t("Import into the Content Browser and verify the texture type and HDR settings.")}</li>
+            <li>{t("Place an `HDRIBackdrop` blueprint into your level.")}</li>
+            <li>{t("Check that the imported .HDR texture has the type required by the `Cubemap` slot.")}</li>
+            <li>{t("Adjust intensity and radius to match your scene scale.")}</li>
           </ol>
         </div>
       </section>
+
+      <p className="text-sm text-cyan-100/80">
+        <a href="/blog/panorama-to-skybox-threejs-unity/" hrefLang="en" className="text-cyan-300 underline">{t("Skybox tutorial: sample files, Three.js and Unity (English)")}</a>
+      </p>
 
       {/* FAQ Accordion Section */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Frequently Asked Questions
+            {t("Frequently Asked Questions")}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Common Skybox Generator Questions
+            {t("Common Skybox Generator Questions")}
           </h2>
         </div>
 
@@ -322,7 +329,7 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
                   onClick={() => setActiveFaq(isOpen ? null : idx)}
                   className="w-full py-4 px-5 text-left flex items-center justify-between gap-4 font-semibold text-sm text-white hover:text-cyan-300 cursor-pointer transition-colors"
                 >
-                  <span>{faq.q}</span>
+                  <span>{t(faq.q)}</span>
                   <ChevronDown
                     className={`w-4 h-4 text-cyan-400 shrink-0 transition-transform duration-200 ${
                       isOpen ? 'rotate-180' : ''
@@ -331,7 +338,7 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
                 </button>
                 {isOpen && (
                   <div className="px-5 pb-4 text-xs text-cyan-100/80 leading-relaxed border-t border-cyan-500/15 pt-3">
-                    {faq.a}
+                    {t(faq.a)}
                   </div>
                 )}
               </div>
@@ -343,10 +350,10 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
       {/* Final Action Callout */}
       <section className="rounded-3xl border border-cyan-400/40 bg-gradient-to-r from-[#031d42] via-[#042858] to-[#011430] p-8 sm:p-12 text-center space-y-6 shadow-2xl">
         <h2 className="text-2xl sm:text-4xl font-black text-white">
-          Build Your First VR Skybox in 30 Seconds
+          {t("Build Your First VR Skybox")}
         </h2>
         <p className="text-sm sm:text-base text-cyan-100/80 max-w-xl mx-auto">
-          No credit card required. Generate panoramic game backgrounds and export 6-sided cubemaps for your indie game or VR experience.
+          {t("No credit card required. Generate panoramic game backgrounds and export 6-sided cubemaps for your indie game or VR experience.")}
         </p>
         <div>
           <button
@@ -355,7 +362,7 @@ export function SkyboxGeneratorPage({ onLaunchStudio, onOpenCubemap }: SkyboxGen
             className="px-8 py-4 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-400 to-teal-400 text-slate-950 shadow-xl shadow-cyan-400/40 hover:scale-105 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
           >
             <Sparkles className="w-4 h-4 fill-slate-950" />
-            <span>Launch Skybox Studio Free</span>
+            <span>{t("Launch Skybox Studio Free")}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

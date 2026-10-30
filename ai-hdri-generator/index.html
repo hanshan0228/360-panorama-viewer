@@ -8,10 +8,10 @@
     <!-- Primary Meta Tags -->
     <title>AI HDRI Generator — 360° HDR for Blender &amp; Unreal</title>
     <meta name="title" content="AI HDRI Generator — 360° HDR for Blender &amp; Unreal" />
-    <meta name="description" content="Generate 360° high dynamic range lighting maps and panoramic skyboxes with AI. 4K equirectangular textures and 32-bit Radiance .HDR export for Blender." />
+    <meta name="description" content="Generate 360° panoramas and skyboxes with AI. Export equirectangular images as Radiance .HDR for Blender; 8-bit sources retain their original dynamic range." />
     <meta
       name="keywords"
-      content="AI HDRI generator, hdri generator, ai hdri generator free, free HDRI generator, hdri generator ai, panoramic hdri, text to HDRI, Blender HDRI AI, Unreal Engine HDRI backdrop, 360 HDR environment lighting, AI IBL map, equirectangular HDR, 3D lighting skybox, no upload"
+      content="AI HDRI generator, hdri generator, ai hdri generator free, free HDRI generator, hdri generator ai, panoramic hdri, text to HDRI, Blender HDRI AI, Unreal Engine HDRI backdrop, 360 HDR environment lighting, AI IBL map, equirectangular HDR, 3D lighting skybox"
     />
     <meta name="author" content="360 Panorama Viewer" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
@@ -24,7 +24,7 @@
     <meta property="og:site_name" content="360 Panorama Viewer" />
     <meta property="og:url" content="https://360panoramaviewer.com/ai-hdri-generator/" />
     <meta property="og:title" content="AI HDRI Generator — 360° HDR for Blender &amp; Unreal" />
-    <meta property="og:description" content="Generate 360° high dynamic range lighting maps and panoramic skyboxes with AI. 4K equirectangular textures and 32-bit Radiance .HDR export for Blender." />
+    <meta property="og:description" content="Generate 360° panoramas and skyboxes with AI. Export equirectangular images as Radiance .HDR for Blender; 8-bit sources retain their original dynamic range." />
     <meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
@@ -36,7 +36,7 @@
     <meta name="twitter:creator" content="@360panoramaviewer" />
     <meta name="twitter:url" content="https://360panoramaviewer.com/ai-hdri-generator/" />
     <meta name="twitter:title" content="AI HDRI Generator — 360° HDR for Blender &amp; Unreal" />
-    <meta name="twitter:description" content="Generate 360° high dynamic range lighting maps and panoramic skyboxes with AI. 4K equirectangular textures and 32-bit Radiance .HDR export for Blender." />
+    <meta name="twitter:description" content="Generate 360° panoramas and skyboxes with AI. Export equirectangular images as Radiance .HDR for Blender; 8-bit sources retain their original dynamic range." />
     <meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
 
     <!-- Schema.org JSON-LD Structured Data: SoftwareApplication + HowTo + FAQPage + Breadcrumbs -->
@@ -49,16 +49,10 @@
             "@id": "https://360panoramaviewer.com/ai-hdri-generator/#software",
             "name": "360 Panorama Viewer HDRI Generator",
             "headline": "AI HDRI Generator for 3D Lighting & Skyboxes",
-            "description": "Generate photorealistic 360° equirectangular HDRI environment maps and panoramic skyboxes for Blender, Unreal Engine 5, and Unity.",
+            "description": "Generate 360° equirectangular panoramas and export Radiance .HDR files for Blender, Unreal Engine 5, and Unity. Exporting an 8-bit image does not recover true high dynamic range.",
             "applicationCategory": "DesignApplication",
             "operatingSystem": "All, Web Browser",
-            "url": "https://360panoramaviewer.com/ai-hdri-generator/",
-            "offers": {
-              "@type": "Offer",
-              "price": "0",
-              "priceCurrency": "USD",
-              "description": "Free trial with 4 credits on onboarding"
-            }
+            "url": "https://360panoramaviewer.com/ai-hdri-generator/"
           },
           {
             "@type": "BreadcrumbList",
@@ -82,7 +76,7 @@
             "@type": "HowTo",
             "@id": "https://360panoramaviewer.com/ai-hdri-generator/#howto",
             "name": "How to Generate an AI HDRI for Blender and Unreal Engine",
-            "description": "Step-by-step guide to generating photorealistic 360° HDR environment maps with AI.",
+            "description": "Step-by-step guide to generating 360° panoramas and exporting them as Radiance .HDR files.",
             "step": [
               {
                 "@type": "HowToStep",
@@ -119,7 +113,7 @@
                 "name": "What is an AI HDRI Generator and how does it work?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "An AI HDRI Generator transforms natural language text descriptions or concept images into 360° equirectangular High Dynamic Range (HDR) environment textures ready for Image-Based Lighting (IBL) in 3D software."
+                  "text": "Generate a 360° equirectangular panorama from a prompt or reference image and export it as a Radiance .HDR file for 3D software. An 8-bit source cannot recover true high dynamic range or clipped highlights through export."
                 }
               },
               {
@@ -127,7 +121,7 @@
                 "name": "Can I export in Radiance .HDR or EXR format for Blender and Unreal Engine?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Yes. 360 Panorama Viewer allows downloading the full 2:1 equirectangular map in high-resolution PNG as well as generating 32-bit floating point Radiance .HDR files and 6-sided cubemap slices formatted for Blender World Shaders and Unreal Engine 5 Skylights."
+                  "text": "You can export a Radiance RGBE .HDR file, PNG, or cubemap faces. EXR export is not supported. Converting an 8-bit image to .HDR cannot recover true high dynamic range or clipped highlights."
                 }
               },
               {
@@ -135,7 +129,7 @@
                 "name": "How does 360 Panorama Viewer solve the 360° boundary seam problem?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "360 Panorama Viewer integrates a proprietary Poisson harmonic seam blending engine that calculates gradient continuity across the boundary, guaranteeing 100% seamless 360° rotation with zero seam artifacts."
+                  "text": "360 Panorama Viewer integrates a proprietary Poisson harmonic seam blending engine that calculates gradient continuity across the boundary, smoothing opposite horizontal borders to reduce visible vertical seams during 360° rotation."
                 }
               },
               {
@@ -143,7 +137,7 @@
                 "name": "Is the AI HDRI Generator free to use?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Yes. Every new user receives 4 complimentary trial credits upon onboarding to generate, inspect, and export HDRI maps without requiring a credit card."
+                  "text": "AI generation uses account credits. Check the current pricing and available credits in the studio."
                 }
               }
             ]
@@ -155,8 +149,8 @@
   <body>
     <div id="root">
         <header>
-          <h1>AI HDRI Generator: Create 360° Photorealistic HDR Environments</h1>
-          <p>Generate seamless 360° equirectangular HDRI environment maps and panoramic skyboxes in seconds. Powered by AI with 4K clarity, harmonic seam healing, and direct 32-bit Radiance .HDR export for Blender and Unreal Engine 5.</p>
+          <h1>AI HDRI Generator: Create 360° Environment Maps</h1>
+          <p>Generate 360° equirectangular panoramas and skyboxes with AI, then export a Radiance .HDR file for Blender or Unreal Engine. Exporting an 8-bit image does not recover true high dynamic range or clipped highlights.</p>
         </header>
         <main>
           <section>
@@ -165,31 +159,34 @@
             <li><strong>Describe Your Environment Lighting:</strong> Enter natural English lighting prompts describing sun angle, cloud density, time of day (such as golden hour sunset, overcast fog, or midnight neon city).</li>
             <li><strong>Harmonic Spherical Synthesis:</strong> The generative diffusion pipeline constructs a complete 2:1 spherical projection and applies Poisson boundary gradient blending to eliminate vertical seams.</li>
             <li><strong>Inspect in 3D WebGL:</strong> Pan, zoom, and check specular reflections in the real-time 3D sphere viewer directly in your browser.</li>
-            <li><strong>Export to 3D Suites:</strong> Download 4K equirectangular textures, convert to 32-bit floating point Radiance .HDR files, or export 6-sided cubemap ZIP archives for Blender World Shaders and Unreal Engine Skylights.</li>
+            <li><strong>Export to 3D Suites:</strong> Download 4K equirectangular textures, convert to Radiance RGBE .HDR files, or export 6-sided cubemap ZIP archives for Blender World Shaders and Unreal Engine Skylights.</li>
           </ol>
         </section>
 
         <section>
           <h2>Key HDRI Generation Capabilities</h2>
             <ul>
-            <li><strong>Physically Grounded Image-Based Lighting:</strong> Simulates high-intensity key lights, diffuse sky bounce, and natural horizon falloff for lifelike PBR materials.</li>
-            <li><strong>Zero Seam Discontinuity:</strong> Proprietary multi-band Poisson harmonic blending joins 0° and 360° boundaries with zero visible stitching seams.</li>
-            <li><strong>Native 4K Ultra-Clarity:</strong> High dynamic range pixel density guarantees sharp distant silhouettes and accurate shadow casting in 3D viewports.</li>
+            <li><strong>Environment Maps:</strong> Export panoramas for use as backgrounds or lighting maps in compatible 3D software, subject to the source image’s dynamic range.</li>
+            <li><strong>Boundary Seam Blending:</strong> Gradient blending across 0° and 360° edges reduces visible stitching seams when panning.</li>
+            <li><strong>Up to 4K Equirectangular Canvas:</strong> Generates high-resolution environment maps suitable for 3D viewports and scene backdrops.</li>
             <li><strong>One-Click 6-Sided Cubemap Slicing:</strong> Effortlessly converts spherical HDRI maps into rectilinear cube faces formatted for Unity, Unreal Engine 5, and Godot.</li>
-            <li><strong>Zero Upload Privacy:</strong> Inspect and export environment maps locally in client-side WebGL memory.</li>
+            <li><strong>Local Inspection and Export:</strong> Inspect and export environment maps in your browser. AI generation sends prompts and optional reference images to the generation service.</li>
             </ul>
           </section>
 
         <section>
           <h2>Frequently Asked Questions</h2>
           <h3>What is an AI HDRI Generator and how does it work?</h3>
-          <p>An AI HDRI Generator converts natural language descriptions into 360-degree equirectangular High Dynamic Range (HDR) environment textures. These textures are used as Image-Based Lighting (IBL) sources in 3D rendering engines to calculate realistic lighting, color bleeding, and glossy reflections on 3D meshes.</p>
+          <p>Generate a 360° equirectangular panorama from a prompt or reference image and export it as a Radiance .HDR file for 3D software. An 8-bit source cannot recover true high dynamic range or clipped highlights through export.</p>
 
           <h3>Can I export in Radiance .HDR or EXR format for Blender and Unreal Engine?</h3>
-          <p>Yes. 360 Panorama Viewer allows downloading the full 2:1 equirectangular map in high-resolution PNG as well as generating 32-bit floating point Radiance RGBE .HDR files and 6-sided cubemap slices formatted for Blender World Shaders and Unreal Engine 5 Skylights.</p>
+          <p>You can export a Radiance RGBE .HDR file, PNG, or cubemap faces. EXR export is not supported. Converting an 8-bit image to .HDR cannot recover true high dynamic range or clipped highlights.</p>
+
+          <h3>Is the AI HDRI Generator free to use?</h3>
+          <p>AI generation uses account credits. Check the current pricing and available credits in the studio.</p>
 
           <h3>How does 360 Panorama Viewer eliminate the vertical boundary seam?</h3>
-          <p>Our renderer integrates a proprietary Poisson harmonic seam blending engine that calculates gradient continuity across opposite image edges, guaranteeing 100% seamless 360-degree rotation with zero seam artifacts.</p>
+          <p>Our renderer integrates a proprietary Poisson harmonic seam blending engine that calculates gradient continuity across opposite image edges, smoothing opposite horizontal borders to reduce visible vertical seams during 360-degree rotation.</p>
         </section>
 
         <section>
@@ -207,9 +204,9 @@
           <h2>Image-Based Lighting (IBL) Workflow for 3D Artists</h2>
           <p>High Dynamic Range Images (.HDR and .EXR) serve as the primary lighting foundation for photorealistic 3D rendering. When placed into an environment slot in Blender Cycles, Unreal Engine 5, or Maya Arnold, the HDRI illuminates the scene naturally:</p>
           <ul>
-            <li><strong>Blender World Environment Setup:</strong> In the Shading workspace, switch to World mode. Add an Environment Texture node, connect it to the Background node Color input, and open your exported .HDR file to instantly illuminate meshes with authentic sky lighting.</li>
+            <li><strong>Blender World Environment Setup:</strong> In the Shading workspace, switch to World mode. Add an Environment Texture node, connect it to the Background node Color input, and open your exported .HDR file to light your scene. The result is limited by the source image’s dynamic range.</li>
             <li><strong>Unreal Engine 5 HDRIBackdrop:</strong> Enable the HDRIBackdrop plugin, drag the actor into your level, and assign the 360 panorama texture to receive immediate specular reflections and directional shadows.</li>
-            <li><strong>Physically Accurate Reflections:</strong> Unlike flat background images, 32-bit HDR images retain floating-point radiance data, ensuring metallic and dielectric materials reflect bright sun spots and subtle ambient bounces correctly.</li>
+            <li><strong>Dynamic Range:</strong> True HDR images can contain radiance beyond the range of an 8-bit image. Converting an 8-bit panorama to .HDR does not recreate that information.</li>
           </ul>
         </section>
 

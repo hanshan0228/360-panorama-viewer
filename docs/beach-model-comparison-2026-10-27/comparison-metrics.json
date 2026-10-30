@@ -1,0 +1,42 @@
+[
+  {
+    "model": "gemini-3.1-flash-image",
+    "originalWidth": 5504,
+    "originalHeight": 3072,
+    "cropWidth": 5504,
+    "cropHeight": 2752,
+    "elapsedSeconds": 31.3,
+    "seam": {
+      "difference": 28.537306201550386,
+      "baseline": 5.348897771317829,
+      "needsBlending": true
+    },
+    "autoSkipped": false,
+    "autoChangedPixels": 3492996,
+    "autoSeam": {
+      "difference": 0,
+      "baseline": 12.33157703488372,
+      "needsBlending": false
+    }
+  },
+  {
+    "model": "gpt-image-2.5",
+    "originalWidth": 1774,
+    "originalHeight": 887,
+    "cropWidth": 1774,
+    "cropHeight": 887,
+    "elapsedSeconds": 26.8,
+    "seam": {
+      "difference": 34.29838406614055,
+      "baseline": 13.158399098083427,
+      "needsBlending": false
+    },
+    "autoSkipped": true,
+    "autoChangedPixels": 0,
+    "autoSeam": {
+      "difference": 34.29838406614055,
+      "baseline": 13.158399098083427,
+      "needsBlending": false
+    }
+  }
+]

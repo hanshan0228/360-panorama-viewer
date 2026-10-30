@@ -1,3 +1,5 @@
+import { useLanguage, useTranslation, withLanguageHref } from '../../utils/i18n';
+import { advancedTranslations } from '../../utils/advancedTranslations';
 import { useState } from 'react';
 import {
   CheckCircle2,
@@ -26,8 +28,8 @@ const EMBED_SNIPPET = [
 ].join('\n');
 
 const CURL_SNIPPET = [
-  '# 1. Start a trial session (returns a bearer token and trial credits)',
-  'curl -X POST https://360panoramaviewer.com/api/user/guest -H "Content-Type: application/json" -d "{}"',
+  '# 1. Register and verify your email on the website, then sign in for a bearer token',
+  `curl -X POST https://360panoramaviewer.com/api/user/auth -H "Content-Type: application/json" -d '{"mode":"login","email":"you@example.com","password":"<password>"}'`,
   '',
   '# 2. Read the public showcase feed (no auth, CORS enabled)',
   'curl "https://360panoramaviewer.com/api/shares?public=1"',
@@ -42,8 +44,8 @@ const ENDPOINTS: Array<{ method: string; path: string; auth: string; description
   { method: 'GET', path: '/api/health', auth: 'None', description: 'Service status plus database and payment gateway readiness.' },
   { method: 'GET', path: '/api/billing', auth: 'None', description: 'Public plan configuration: trial credits, prices and billing cycle.' },
   { method: 'GET', path: '/api/models', auth: 'None', description: 'Available image models and routing configuration, with all API keys stripped.' },
-  { method: 'POST', path: '/api/user/guest', auth: 'None', description: 'Create a trial session and return the bearer token used by the other calls.' },
-  { method: 'POST', path: '/api/user/auth', auth: 'None', description: 'Register or sign in with an email and password; returns a session token.' },
+  { method: 'GET', path: '/api/user/auth-config', auth: 'None', description: 'Registration availability and public Turnstile site key.' },
+  { method: 'POST', path: '/api/user/auth', auth: 'None', description: 'Sign in with email and password for a session token. New registrations also require Turnstile and email verification before trial use.' },
   { method: 'GET', path: '/api/user/me', auth: 'Bearer', description: 'Current user, plan and remaining credit balance.' },
   { method: 'POST', path: '/api/generate', auth: 'Bearer', description: 'Generate a 2:1 equirectangular panorama from a prompt at 1K, 2K or 4K.' },
   { method: 'GET', path: '/api/shares?public=1', auth: 'None', description: 'Listed panoramas only, newest first, for showcase and gallery embeds.' },
@@ -63,6 +65,8 @@ const EMBED_PARAMS: Array<{ param: string; value: string; description: string }>
 ];
 
 export function DevelopersPage({ onNavigateTab }: DevelopersPageProps) {
+  const t = useTranslation(advancedTranslations);
+  const [lang] = useLanguage();
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
 
   const faqs = [
@@ -80,7 +84,7 @@ export function DevelopersPage({ onNavigateTab }: DevelopersPageProps) {
     },
     {
       q: 'How does the API authenticate private calls?',
-      a: 'Send the session token from POST /api/user/guest or POST /api/user/auth as an Authorization: Bearer header. Guest sessions can generate panoramas with trial credits but cannot publish permanent shares; that requires a signed-in, non-guest account.',
+      a: 'Send the session token from POST /api/user/auth as an Authorization: Bearer header. Guests cannot generate images. Free generation requires a registered account with a verified email; starter credits are granted once, subject to network and daily limits.',
     },
     {
       q: 'Are there rate limits?',
@@ -113,9 +117,9 @@ export function DevelopersPage({ onNavigateTab }: DevelopersPageProps) {
     <div className="space-y-16 pb-16">
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs text-cyan-400/70 pt-2">
-        <a href="/" className="hover:text-cyan-300 transition-colors">Home</a>
+        <a href={withLanguageHref("/", lang)} className="hover:text-cyan-300 transition-colors">{t("Home")}</a>
         <span>/</span>
-        <span className="text-white font-medium">Developers</span>
+        <span className="text-white font-medium">{t("Developers")}</span>
       </nav>
 
       {/* Hero */}
@@ -123,34 +127,32 @@ export function DevelopersPage({ onNavigateTab }: DevelopersPageProps) {
         <div className="max-w-4xl space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-400/15 border border-cyan-400/40 text-cyan-300 text-xs font-semibold tracking-wide">
             <Code2 className="w-3.5 h-3.5 text-cyan-400" />
-            <span>EMBED &bull; REST API &bull; JSON OVER HTTPS</span>
+            <span>{t("EMBED • REST API • JSON OVER HTTPS")}</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
-            Developer Docs:{' '}
+            {t("Developer Docs:")}{' '}
             <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-400 bg-clip-text text-transparent">
-              Embed a 360&deg; Panorama or Call the API
+              {t("Embed a 360° Panorama or Call the API")}
             </span>
           </h1>
 
           <p className="text-base sm:text-lg text-cyan-100/80 leading-relaxed max-w-3xl">
-            Drop an interactive 360&deg; viewer into any page with a single iframe, or drive the platform from
-            your own code: generate equirectangular panoramas, publish them, and read them back as JSON or image
-            bytes. No SDK, and no API key for reads.
+            {t("Drop an interactive 360° viewer into any page with a single iframe, or drive the platform from your own code: generate equirectangular panoramas, publish them, and read them back as JSON or image bytes. No SDK, and no API key for reads.")}
           </p>
 
           <div className="flex flex-wrap items-center gap-6 pt-4 text-xs text-cyan-300/70 border-t border-cyan-500/15">
             <span className="flex items-center gap-1.5">
               <Link2 className="w-4 h-4 text-teal-400" />
-              <span>One-line embed, no account needed</span>
+              <span>{t("One-line embed, no account needed")}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <Server className="w-4 h-4 text-teal-400" />
-              <span>Edge-hosted JSON API with CORS enabled</span>
+              <span>{t("Edge-hosted JSON API with CORS enabled")}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <Lock className="w-4 h-4 text-teal-400" />
-              <span>Bearer tokens for private calls</span>
+              <span>{t("Bearer tokens for private calls")}</span>
             </span>
           </div>
         </div>
@@ -160,14 +162,13 @@ export function DevelopersPage({ onNavigateTab }: DevelopersPageProps) {
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Quick Start
+            {t("Quick Start")}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Embed a 360&deg; Panorama with One iframe
+            {t("Embed a 360° Panorama with One iframe")}
           </h2>
           <p className="text-xs text-cyan-200/70">
-            Point the viewer at a public equirectangular image. The page switches to full-viewport mode, so the
-            iframe shows the scene only &mdash; no navigation, no header.
+            {t("Point the viewer at a public equirectangular image. The page switches to full-viewport mode, so the iframe shows the scene only — no navigation, no header.")}
           </p>
         </div>
 
@@ -180,9 +181,9 @@ export function DevelopersPage({ onNavigateTab }: DevelopersPageProps) {
             <table className="w-full text-left text-xs">
               <thead className="bg-[#051733] text-cyan-200 border-b border-cyan-500/30 font-semibold uppercase tracking-wider">
                 <tr>
-                  <th className="py-3.5 px-5">Parameter</th>
-                  <th className="py-3.5 px-5">Value</th>
-                  <th className="py-3.5 px-5">What it does</th>
+                  <th className="py-3.5 px-5">{t("Parameter")}</th>
+                  <th className="py-3.5 px-5">{t("Value")}</th>
+                  <th className="py-3.5 px-5">{t("What it does")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-cyan-500/15 text-cyan-100/90">
@@ -190,7 +191,7 @@ export function DevelopersPage({ onNavigateTab }: DevelopersPageProps) {
                   <tr key={row.param}>
                     <td className="py-3.5 px-5 font-mono font-bold text-teal-300">{row.param}</td>
                     <td className="py-3.5 px-5 font-mono text-cyan-200/80">{row.value}</td>
-                    <td className="py-3.5 px-5">{row.description}</td>
+                    <td className="py-3.5 px-5">{t(row.description)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -206,12 +207,12 @@ export function DevelopersPage({ onNavigateTab }: DevelopersPageProps) {
             REST API
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Endpoints on 360panoramaviewer.com
+            {t("Endpoints on 360panoramaviewer.com")}
           </h2>
           <p className="text-xs text-cyan-200/70">
-            Every route returns JSON unless noted, sends{' '}
-            <code className="text-cyan-300">Access-Control-Allow-Origin: *</code>, and answers{' '}
-            <code className="text-cyan-300">OPTIONS</code> preflights for browser clients.
+            {t("Every route returns JSON unless noted, sends")}{' '}
+            <code className="text-cyan-300">Access-Control-Allow-Origin: *</code>{t(", and answers")}{' '}
+            <code className="text-cyan-300">OPTIONS</code> {t("preflights for browser clients.")}
           </p>
         </div>
 
@@ -219,10 +220,10 @@ export function DevelopersPage({ onNavigateTab }: DevelopersPageProps) {
           <table className="w-full text-left text-xs">
             <thead className="bg-[#051733] text-cyan-200 border-b border-cyan-500/30 font-semibold uppercase tracking-wider">
               <tr>
-                <th className="py-3.5 px-5">Method</th>
-                <th className="py-3.5 px-5">Path</th>
-                <th className="py-3.5 px-5">Auth</th>
-                <th className="py-3.5 px-5">Description</th>
+                <th className="py-3.5 px-5">{t("Method")}</th>
+                <th className="py-3.5 px-5">{t("Path")}</th>
+                <th className="py-3.5 px-5">{t("Auth")}</th>
+                <th className="py-3.5 px-5">{t("Description")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cyan-500/15 text-cyan-100/90">
@@ -230,8 +231,8 @@ export function DevelopersPage({ onNavigateTab }: DevelopersPageProps) {
                 <tr key={`${row.method} ${row.path}`}>
                   <td className="py-3.5 px-5 font-mono font-bold text-teal-300">{row.method}</td>
                   <td className="py-3.5 px-5 font-mono text-cyan-200/90">{row.path}</td>
-                  <td className="py-3.5 px-5 text-cyan-300/80">{row.auth}</td>
-                  <td className="py-3.5 px-5">{row.description}</td>
+                  <td className="py-3.5 px-5 text-cyan-300/80">{t(row.auth)}</td>
+                  <td className="py-3.5 px-5">{t(row.description)}</td>
                 </tr>
               ))}
             </tbody>
@@ -243,10 +244,10 @@ export function DevelopersPage({ onNavigateTab }: DevelopersPageProps) {
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Copy &amp; Paste
+            {t("Copy & Paste")}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Working curl Examples
+            {t("Working curl Examples")}
           </h2>
         </div>
 
@@ -259,41 +260,40 @@ export function DevelopersPage({ onNavigateTab }: DevelopersPageProps) {
             <Terminal className="w-5 h-5 text-cyan-400 shrink-0" />
             <div className="space-y-2 text-xs text-cyan-100/80 leading-relaxed">
               <p>
-                <strong className="text-white">Response shapes.</strong> A guest session answers with{' '}
-                <code className="text-cyan-300">{'{ token, user: { id, creditsBalance } }'}</code>; the public
-                showcase answers with{' '}
-                <code className="text-cyan-300">{'{ shares: [{ id, title, width, height, createdAt }] }'}</code>;
-                publishing answers with <code className="text-cyan-300">201</code> and the new share id.
+                <strong className="text-white">{t("Response shapes.")}</strong> {t("A successful sign-in answers with")}{' '}
+                <code className="text-cyan-300">{'{ token, user: { id, creditsBalance } }'}</code>{t("; the public showcase answers with")}{' '}
+                <code className="text-cyan-300">{'{ shares: [{ id, title, width, height, createdAt }] }'}</code>{t("; publishing answers with")} <code className="text-cyan-300">201</code> {t("and the new share id.")}
               </p>
               <p>
-                <strong className="text-white">Building an AI agent?</strong> These are ordinary JSON
-                endpoints, so any tool wrapper &mdash; including an MCP server you host yourself &mdash; can
-                call <code className="text-cyan-300">/api/generate</code> to create a scene and then pass{' '}
-                <code className="text-cyan-300">/api/shares/&#123;id&#125;/image</code> to other tools as a
-                plain image URL.
+                <strong className="text-white">{t("Building an AI agent?")}</strong> {t("These are ordinary JSON endpoints, so any tool wrapper — including an MCP server you host yourself — can call")} <code className="text-cyan-300">/api/generate</code> {t("to create a scene and then pass")}{' '}
+                <code className="text-cyan-300">/api/shares/&#123;id&#125;/image</code> {t("to other tools as a plain image URL.")}
               </p>
             </div>
           </div>
 
           <a
-            href="/showcase/"
+            href={withLanguageHref("/showcase/", lang)}
             onClick={(e) => { e.preventDefault(); onNavigateTab('showcase', '/showcase/'); }}
             className="inline-flex items-center gap-2 text-xs font-semibold text-cyan-300 hover:text-cyan-200 transition-colors cursor-pointer"
           >
             <ExternalLink className="w-4 h-4" />
-            <span>See the public shares feed rendered live in the showcase</span>
+            <span>{t("See the public shares feed rendered live in the showcase")}</span>
           </a>
         </div>
       </section>
+
+      <p className="text-sm text-cyan-100/80">
+        <a href="/blog/panorama-to-skybox-threejs-unity/" hrefLang="en" className="text-cyan-300 underline">{t("Skybox tutorial: sample files, Three.js and Unity (English)")}</a>
+      </p>
 
       {/* FAQ */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Frequently Asked Questions
+            {t("Frequently Asked Questions")}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Embed &amp; API Questions
+            {t("Embed & API Questions")}
           </h2>
         </div>
 
@@ -301,18 +301,18 @@ export function DevelopersPage({ onNavigateTab }: DevelopersPageProps) {
           {faqs.map((faq, idx) => {
             const isOpen = activeFaq === idx;
             return (
-              <div key={faq.q} className="rounded-xl border border-cyan-500/25 bg-[#030e20] overflow-hidden transition-colors">
+              <div key={t(faq.q)} className="rounded-xl border border-cyan-500/25 bg-[#030e20] overflow-hidden transition-colors">
                 <button
                   type="button"
                   onClick={() => setActiveFaq(isOpen ? null : idx)}
                   className="w-full py-4 px-5 text-left flex items-center justify-between gap-4 font-semibold text-sm text-white hover:text-cyan-300 cursor-pointer transition-colors"
                 >
-                  <span>{faq.q}</span>
+                  <span>{t(faq.q)}</span>
                   <ChevronDown className={`w-4 h-4 text-cyan-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {isOpen && (
                   <div className="px-5 pb-4 text-xs text-cyan-100/80 leading-relaxed border-t border-cyan-500/15 pt-3">
-                    {faq.a}
+                    {t(faq.a)}
                   </div>
                 )}
               </div>
@@ -325,10 +325,10 @@ export function DevelopersPage({ onNavigateTab }: DevelopersPageProps) {
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Where to Point It
+            {t("Where to Point It")}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Tools &amp; Pages Behind the API
+            {t("Tools & Pages Behind the API")}
           </h2>
         </div>
 
@@ -336,15 +336,15 @@ export function DevelopersPage({ onNavigateTab }: DevelopersPageProps) {
           {related.map(tool => (
             <a
               key={tool.href}
-              href={tool.href}
+              href={withLanguageHref(tool.href, lang)}
               onClick={(e) => { e.preventDefault(); onNavigateTab(tool.tab, tool.href); }}
               className="group rounded-2xl border border-cyan-500/25 bg-[#05142b]/70 p-5 hover:border-cyan-400/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2 text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
                 <CheckCircle2 className="w-4 h-4 text-teal-400" />
-                <span>{tool.label}</span>
+                <span>{t(tool.label)}</span>
               </div>
-              <p className="text-xs text-cyan-200/70 pt-1.5">{tool.note}</p>
+              <p className="text-xs text-cyan-200/70 pt-1.5">{t(tool.note)}</p>
             </a>
           ))}
         </div>

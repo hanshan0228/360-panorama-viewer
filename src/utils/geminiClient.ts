@@ -12,6 +12,26 @@ export interface GeminiConfig {
   sessionToken?: string | null;
 }
 
+export interface PanoramaQuality {
+  status: 'passed' | 'failed' | 'unavailable';
+  issues: string[];
+  explanation?: string;
+  reviewModel: string;
+  attempts: number;
+}
+
+export interface GeminiGenerationResult {
+  imageUrl: string;
+  quality?: PanoramaQuality;
+  remainingCredits?: number;
+  creditsDeducted?: number;
+  creditsRefunded?: number;
+  imageResolution?: ImageResolution;
+  modelUsed?: string;
+  library?: { saved: boolean; id?: string; error?: string };
+  generationTiming?: { upstreamWaitMs: number; upstreamBodyMs: number };
+}
+
 export const DEFAULT_GEMINI_CONFIG: GeminiConfig = {
   apiKey: '',
   baseUrl: 'http://127.0.0.1:8317',
@@ -220,8 +240,11 @@ export function sanitizePromptForSafety(rawPrompt: string): { sanitized: string;
  * Builds a 360 VR Equirectangular skybox prompt with rigorous topological constraints.
  * Requests full spherical coverage; geometry and edge continuity still require inspection.
  */
-export function buildPanoramaPrompt(userPrompt: string, styleSuffix = ''): string {
+export function buildPanoramaPrompt(userPrompt: string, styleSuffix = '', hasReferenceImages = false): string {
   const { sanitized } = sanitizePromptForSafety(userPrompt.trim());
+  if (hasReferenceImages) {
+    return `Treat the attached reference photos as perspective views of ONE part of the source scene. Synthesize ONE continuous 360-degree by 180-degree equirectangular environment from ONE stationary camera at the original source viewpoint. Preserve recognizable subjects, structures, materials, lighting and spatial relationships visible in the photos, while allowing the requested changes and visual style. Show each source subject only once unless the user explicitly requests copies. Infer unseen surroundings consistently around this same camera. The entire canvas must be one coherent spherical scene: no collage, stacked horizontal bands, repeated panorama strips, split views, insets or pasted source photo. Use one level horizon across the vertical center. The top edge looks straight up into sky or ceiling; the bottom edge looks straight down onto continuous ground or floor. The left and right edges meet at the same rearward view with continuous geometry and lighting. Do not invent camera equipment, a foreground cockpit, steering wheel or dashboard, or a duplicate foreground subject. Output a single flat latitude-longitude spherical texture map with a 2:1 ratio and full 360 by 180 degree coverage, matching left and right edges, filling the frame without borders; no fisheye, rendered globe or little planet.${sanitized ? ` Apply these requested changes: ${sanitized}` : ''}${styleSuffix ? ` Visual style: ${styleSuffix}` : ''}`;
+  }
   const suffix = styleSuffix ? `, ${styleSuffix}` : '';
   // Equirectangular 360 panoramic magic tokens:
   // Keep projection constraints separate from the selected visual style and API resolution.
@@ -238,7 +261,7 @@ export async function generateWithGemini(
   prompt: string,
   config: GeminiConfig,
   referenceImages?: string[]
-): Promise<{ imageUrl: string; remainingCredits?: number; creditsDeducted?: number; creditsRefunded?: number; imageResolution?: ImageResolution; modelUsed?: string; library?: { saved: boolean; id?: string; error?: string }; generationTiming?: { upstreamWaitMs: number; upstreamBodyMs: number } }> {
+): Promise<GeminiGenerationResult> {
   const normalizedBase = (config.baseUrl || 'http://127.0.0.1:8317').replace(/\/+$/, '');
   const apiKey = (config.apiKey || '').trim();
   const model = config.model.trim() || 'gpt-image-2.5';
@@ -276,10 +299,20 @@ export async function generateWithGemini(
     }
 
     if (proxyRes!) {
+      const proxyData = await proxyRes.json().catch(() => ({}));
+      if (proxyData.code === 'GENERATION_QUALITY_REJECTED' || proxyData.code === 'GENERATION_REVIEW_UNAVAILABLE'
+        || proxyData.quality?.status === 'failed' || proxyData.quality?.status === 'unavailable') {
+        const unavailable = proxyData.code === 'GENERATION_REVIEW_UNAVAILABLE' || proxyData.quality?.status === 'unavailable';
+        const error = new Error(unavailable
+          ? 'The AI quality check could not be completed. Your credits were returned. Please try again later.'
+          : 'The panorama did not pass the AI quality check after one retry. Your credits were returned.');
+        error.name = 'PanoramaQualityError';
+        throw error;
+      }
       if (proxyRes.ok) {
-        const proxyData = await proxyRes.json();
         if (proxyData.success && proxyData.imageUrl) {
           return {
+            quality: proxyData.quality,
             library: proxyData.library, generationTiming: proxyData.generationTiming, modelUsed: proxyData.modelUsed, imageUrl: proxyData.imageUrl, remainingCredits: proxyData.remainingCredits,
             creditsDeducted: proxyData.creditsDeducted, creditsRefunded: proxyData.creditsRefunded,
             imageResolution: proxyData.imageResolution ?? inspectImageResolution(proxyData.imageUrl, config.resolution || '4K'),
@@ -287,8 +320,7 @@ export async function generateWithGemini(
         }
       } else {
         // Server returned an explicit error (400 Insufficient credits, 403 Suspended, etc.): NEVER silently bypass!
-        const errJson = await proxyRes.json().catch(() => ({}));
-        throw new Error(errJson.error || `Image generation proxy error [HTTP ${proxyRes.status}]`);
+        throw new Error(proxyData.error || `Image generation proxy error [HTTP ${proxyRes.status}]`);
       }
     }
   }
@@ -367,7 +399,7 @@ export async function generateWithGemini(
         throw new Error(`Proxy Gemini response did not contain image data: ${JSON.stringify(msg).slice(0, 200)}`);
       }
     } else {
-      // 1. Standard OpenAI-compatible /v1/images/generations (used by 8317 cli-proxy-api, One-API, etc.)
+      // Standard OpenAI-compatible image generation or reference-image editing.
       const endpoint = directRequest.url;
       const headers = directRequest.headers;
 
@@ -380,7 +412,7 @@ export async function generateWithGemini(
         method: 'POST',
         headers,
         signal: controller.signal,
-        body: JSON.stringify(directRequest.payload),
+        body: directRequest.payload instanceof FormData ? directRequest.payload : JSON.stringify(directRequest.payload),
       });
     } catch (err: unknown) {
       clearTimeout(timeoutId);

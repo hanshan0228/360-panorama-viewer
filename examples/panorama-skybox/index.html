@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Three.js Panorama Skybox Example — 360 Panorama Viewer</title>
+  <meta name="description" content="A working Three.js equirectangular background example using a downloadable orientation chart, with six accessible camera direction buttons." />
+  <link rel="canonical" href="https://360panoramaviewer.com/examples/panorama-skybox/" />
+  <link rel="stylesheet" href="/blog/blog.css" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    #viewport { width: 100%; aspect-ratio: 16 / 9; background: #102354; }
+    canvas { display: block; width: 100%; height: 100%; }
+    .directions { display: flex; flex-wrap: wrap; gap: .5rem; }
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible { outline: 2px solid #fbbf24; outline-offset: 4px; }
+  </style>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<main id="main-content" class="wrap">
+  <p><a href="/blog/panorama-to-skybox-threejs-unity/">← Back to the skybox tutorial and downloads</a></p>
+  <h1>A 2:1 panorama in Three.js</h1>
+  <p>This is a drawn calibration chart, not an AI scene. Choose a camera direction to inspect the background. Direction labels refer to this Three.js scene’s world axes; chart labels refer to the converter’s source axes.</p>
+  <div id="viewport"></div>
+  <p id="status" role="status">Loading example…</p>
+  <div class="directions" role="group" aria-label="Camera direction">
+    <button class="button" type="button" data-direction="0,0,1" aria-pressed="true">+Z</button>
+    <button class="button" type="button" data-direction="0,0,-1" aria-pressed="false">−Z</button>
+    <button class="button" type="button" data-direction="1,0,0" aria-pressed="false">+X</button>
+    <button class="button" type="button" data-direction="-1,0,0" aria-pressed="false">−X</button>
+    <button class="button" type="button" data-direction="0,1,0" aria-pressed="false">+Y</button>
+    <button class="button" type="button" data-direction="0,-1,0" aria-pressed="false">−Y</button>
+  </div>
+  <p><a href="/examples/skybox/orientation-panorama.png" download>Download the sample PNG</a> · <a href="/cubemap-generator/">Convert your own panorama</a></p>
+  <noscript><p>Enable JavaScript and WebGL to run the scene. The <a href="/blog/panorama-to-skybox-threejs-unity/">tutorial and sample downloads</a> work without JavaScript.</p></noscript>
+</main>
+<script type="module">
+  import * as THREE from 'three';
+
+  const container = document.getElementById('viewport');
+  const status = document.getElementById('status');
+  try {
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, 16 / 9, 0.1, 10);
+    camera.lookAt(0, 0, 1);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.domElement.setAttribute('role', 'img');
+    renderer.domElement.setAttribute('aria-label', 'Panorama background viewed along the selected camera direction');
+    container.append(renderer.domElement);
+
+    const panorama = await new THREE.TextureLoader().loadAsync('/examples/skybox/orientation-panorama.png');
+    panorama.colorSpace = THREE.SRGBColorSpace;
+    panorama.mapping = THREE.EquirectangularReflectionMapping;
+    scene.background = panorama;
+
+    // ponytail: A static background only needs renders after loading, resizing or direction changes.
+    const render = () => renderer.render(scene, camera);
+    new ResizeObserver(() => {
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight, false);
+      render();
+    }).observe(container);
+    document.querySelectorAll('[data-direction]').forEach(button => {
+      button.addEventListener('click', () => {
+        camera.lookAt(...button.dataset.direction.split(',').map(Number));
+        document.querySelectorAll('[data-direction]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+        render();
+        status.textContent = `Ready — looking toward ${button.textContent}.`;
+      });
+    });
+    render();
+    status.textContent = 'Ready — looking toward +Z.';
+  } catch (error) {
+    console.error('Skybox example failed', error);
+    status.textContent = 'Could not load the example. Check WebGL support and reload, or use the tutorial and PNG download.';
+  }
+</script>
+</body>
+</html>

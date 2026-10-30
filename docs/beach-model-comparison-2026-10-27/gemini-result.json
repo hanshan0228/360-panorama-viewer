@@ -1,0 +1,26 @@
+{
+  "label": "Gemini",
+  "model": "gemini-3.1-flash-image",
+  "file": "gemini-original.jpg",
+  "startedAt": "2026-10-27T03:59:48.533Z",
+  "requestedSize": null,
+  "requestedImageConfig": {
+    "aspect_ratio": "16:9",
+    "image_size": "4K"
+  },
+  "requestMode": "chat",
+  "success": true,
+  "bytes": 11479293,
+  "elapsedSeconds": 31.3,
+  "reportedModel": "gemini-3.1-flash-image",
+  "resolution": {
+    "requested": "4K",
+    "targetWidth": 3840,
+    "targetHeight": 1920,
+    "width": 5504,
+    "height": 3072,
+    "panoramaWidth": 5504,
+    "panoramaHeight": 2752,
+    "status": "met"
+  }
+}

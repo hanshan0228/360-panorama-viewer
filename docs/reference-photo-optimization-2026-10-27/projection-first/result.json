@@ -1,0 +1,39 @@
+{
+  "startedAt": "2026-10-27T04:39:49.034Z",
+  "input": "/Users/han/Downloads/cartarmor-hero-lifestyle-v2-1536.webp",
+  "inputSha256": "a32539c266f21d75440f2412d72810541243b8f2873ab0ded215c90adcf333c7",
+  "model": "gemini-3.1-flash-image",
+  "resolution": "4K",
+  "aspectRatio": "16:9",
+  "id": "projection-first",
+  "prompt": "Create a single continuous equirectangular 360 x 180 degree panorama of the real scene shown in the attached photo. Treat the photo as a perspective reference, not as a rectangular panel to paste into the output. Reconstruct one spherical environment from one camera position beside the pictured golf cart. In the equirectangular mapping, horizontal pixel position represents azimuth from -180 to +180 degrees and vertical position represents elevation from +90 degrees at the top through 0 degrees at the center to -90 degrees at the bottom. Sky occupies the upper hemisphere; the ground occupies the lower hemisphere; there is exactly one level horizon at mid-height. Place the same recognizable silver golf cart only once near the front-center on the ground, smaller than in the reference so it fits comfortably within the central view. Preserve its dark roof, beige/black seat, golf clubs and cooler. Continue the stone clubhouse, landscaped path, trees and golf course around the camera with the same golden-hour light. The camera is outside all vehicles: no extra steering wheel, cockpit, dashboard or duplicate cart in the foreground. Create natural continuous surroundings above, below and around the reference. No horizontal bands, repeated landscape strips, tiled panels, collages, split views or straight cuts between different views. Match the scene across the left/right wrap. Deliver only the flat immersive environment texture, without labels, frames or lens borders.",
+  "transport": "Existing generateWithGemini and buildImageModelRequest via configured local proxy; experimental prompt only",
+  "original": "model-original.jpg",
+  "elapsedSeconds": 33.402,
+  "imageResolution": {
+    "requested": "4K",
+    "targetWidth": 3840,
+    "targetHeight": 1920,
+    "width": 5504,
+    "height": 3072,
+    "panoramaWidth": 5504,
+    "panoramaHeight": 2752,
+    "status": "met"
+  },
+  "finishedAt": "2026-10-27T04:40:22.436Z",
+  "postprocessing": {
+    "width": 5504,
+    "height": 2752,
+    "seamBefore": {
+      "difference": 22.569040697674417,
+      "baseline": 2.6126453488372094,
+      "needsBlending": true
+    },
+    "seamAfter": {
+      "difference": 0,
+      "baseline": 6.384629360465116,
+      "needsBlending": false
+    },
+    "logic": "Existing 2:1 native-detail crop, Auto seam blending; no upscaling or sharpening"
+  }
+}

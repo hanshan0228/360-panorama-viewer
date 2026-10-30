@@ -60,13 +60,7 @@
             "description": "Convert ordinary 2D photos and architectural renders into full 360° equirectangular spherical panoramas.",
             "applicationCategory": "DesignApplication",
             "operatingSystem": "All, Web Browser",
-            "url": "https://360panoramaviewer.com/photo-to-360-converter/",
-            "offers": {
-              "@type": "Offer",
-              "price": "0",
-              "priceCurrency": "USD",
-              "description": "Free trial with 4 credits on onboarding"
-            }
+            "url": "https://360panoramaviewer.com/photo-to-360-converter/"
           },
           {
             "@type": "BreadcrumbList",
@@ -108,7 +102,7 @@
                 "@type": "HowToStep",
                 "position": 3,
                 "name": "AI Spatial Expansion",
-                "text": "The AI outpaints the perspective into a 360° x 180° sphere and applies Poisson seam healing."
+                "text": "Reference photos guide AI generation of a new 2:1 panorama. Optional edge blending can soften a visible seam."
               },
               {
                 "@type": "HowToStep",
@@ -135,7 +129,7 @@
                 "name": "Is this suitable for real estate virtual tours?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Yes. Real estate professionals and architectural designers use it to convert 2D room photos into interactive 360° walkthrough spheres for clients."
+                  "text": "You can use generated panoramas for design concepts and visualization. AI may invent room layouts or details, so the result is not a measured property tour or an accurate record of a real space."
                 }
               },
               {
@@ -143,7 +137,7 @@
                 "name": "Does the converted 360 photo have visible stitching lines?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "No. 360 Panorama Viewer automatically executes Poisson harmonic seam healing across the 0°/360° seam, guaranteeing continuous horizontal looping with zero visible seam cuts."
+                  "text": "Generated edges can differ. Optional seam blending can soften a visible boundary, but it may cause ghosting and cannot reconstruct mismatched objects. The model original remains available."
                 }
               }
             ]
@@ -164,7 +158,7 @@
           <ol>
             <li><strong>Upload Reference Photos:</strong> Select 1 to 3 reference images from your device (JPG, PNG, WebP) showing an interior room, landscape, or architectural project.</li>
             <li><strong>Configure Guidance Prompt:</strong> Type short environmental instructions to steer the spatial expansion, lighting mood, or ceiling and floor textures.</li>
-            <li><strong>AI Generative Outpainting:</strong> The model extrapolates surrounding perspective into a complete 360&times;180 degree sphere and applies Poisson gradient blending to heal seams.</li>
+            <li><strong>AI Generation:</strong> Reference photos guide a new 2:1 panorama. Optional edge blending can soften visible seams; generated details may differ from the source scene.</li>
             <li><strong>Preview in WebGL and Inject XMP:</strong> Inspect your new panorama in the real-time 3D sphere viewer, inject PhotoSphere XMP tags for Facebook, or slice into cubemaps for VR.</li>
           </ol>
         </section>
@@ -174,8 +168,8 @@
             <ul>
             <li><strong>Multimodal Reference Conditioning:</strong> Guides color palette, illumination sources, and structural aesthetics using your real photos.</li>
             <li><strong>Virtual Tour &amp; Real Estate Staging:</strong> Transform flat listing photos into immersive 360-degree interactive tour spheres for potential buyers.</li>
-            <li><strong>Zero Parallax or Ghosting Defects:</strong> Generative spatial expansion synthesizes complete continuous backgrounds without multi-shot stitching artifacts.</li>
-            <li><strong>PhotoSphere Metadata Injection:</strong> Automatically formats JPEG headers with official XMP tags for Facebook, Kuula, and VR headsets.</li>
+            <li><strong>AI-generated Scene Details:</strong> Preview the result for invented geometry, inconsistent objects, or visible edge transitions before sharing.</li>
+            <li><strong>PhotoSphere Metadata:</strong> The VR JPG export and metadata tool add PhotoSphere XMP tags. Recognition depends on the destination viewer or platform.</li>
             </ul>
           </section>
 
@@ -185,10 +179,10 @@
           <p>Yes. 360 Panorama Viewer takes ordinary single-shot photos and extrapolates surrounding spatial context, ceiling, floor, and lighting vectors into a seamless 2:1 equirectangular sphere ready for VR exploration.</p>
 
           <h3>Is this suitable for real estate virtual tours?</h3>
-          <p>Yes. Real estate agents, architects, and 3D visualizers use it to generate virtual walkthrough spheres from architectural elevations, CAD renderings, and staging photographs.</p>
+          <p>You can use generated panoramas for design concepts and visualization. AI may invent room layouts or details, so the result is not a measured property tour or an accurate record of a real space.</p>
 
           <h3>Does the converted 360 photo have visible stitching lines?</h3>
-          <p>No. Our engine runs automatic Poisson harmonic gradient blending across the boundary edges, guaranteeing smooth continuous horizontal rotation with zero visible cuts.</p>
+          <p>Generated edges can differ. Optional seam blending can soften a visible boundary, but it may cause ghosting and cannot reconstruct mismatched objects. The model original remains available.</p>
         </section>
 
         <section>

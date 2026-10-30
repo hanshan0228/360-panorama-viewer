@@ -19,6 +19,26 @@ export function inspectPanoramaSeam(data: Uint8ClampedArray, width: number, heig
   return { difference, baseline, needsBlending: difference > Math.max(12, baseline * 3) };
 }
 
+function smooth1D(arr: Float32Array, radius: number): Float32Array {
+  const len = arr.length;
+  const out = new Float32Array(len);
+  let windowSum = 0;
+  let count = 0;
+  const initialEnd = Math.min(len - 1, radius);
+  for (let j = 0; j <= initialEnd; j++) {
+    windowSum += arr[j];
+    count++;
+  }
+  for (let i = 0; i < len; i++) {
+    if (i > 0) {
+      if (i + radius < len) { windowSum += arr[i + radius]; count++; }
+      if (i - radius - 1 >= 0) { windowSum -= arr[i - radius - 1]; count--; }
+    }
+    out[i] = windowSum / count;
+  }
+  return out;
+}
+
 export function healPanoramaSeam<Canvas extends HTMLCanvasElement | OffscreenCanvas>(
   sourceCanvas: Canvas,
   blendWidth = 160,
@@ -66,21 +86,22 @@ export function healPanoramaSeam<Canvas extends HTMLCanvasElement | OffscreenCan
     wHarm[d] = 0.5 * (1 + Math.cos(Math.PI * t)); // 1.0 at d=0, 0.0 at d=harmDist
   }
 
-  // Precompute Cosine S-curve weights for texture cross-fade
+  // Precompute Cosine S-curve weights for boundary step ramp (1.0 at d=0, 0.0 at d=safeBlend)
   const wCross = new Float32Array(safeBlend);
   for (let d = 0; d < safeBlend; d++) {
     const t = d / safeBlend;
-    // 0.0 at d=0 (50/50 target), 1.0 at d=safeBlend (100% original texture)
-    wCross[d] = 0.5 * (1 - Math.cos(Math.PI * t));
+    wCross[d] = 0.5 * (1 + Math.cos(Math.PI * t));
   }
 
   const sampleCount = Math.min(8, Math.floor(safeBlend * 0.2));
 
-  // Process horizontal seam for every row
+  const rawDeltaR = new Float32Array(height);
+  const rawDeltaG = new Float32Array(height);
+  const rawDeltaB = new Float32Array(height);
+
+  // 1. Multi-sample boundary colors for gradient estimation per row
   for (let y = 0; y < height; y++) {
     const rowOffset = y * width;
-
-    // 1. Multi-sample left and right boundary colors for robust gradient estimation
     let lR = 0, lG = 0, lB = 0;
     let rR = 0, rG = 0, rB = 0;
 
@@ -97,71 +118,73 @@ export function healPanoramaSeam<Canvas extends HTMLCanvasElement | OffscreenCan
       rB += src[rIdx + 2];
     }
 
-    const avgLR = lR / sampleCount;
-    const avgLG = lG / sampleCount;
-    const avgLB = lB / sampleCount;
+    rawDeltaR[y] = (rR - lR) / sampleCount;
+    rawDeltaG[y] = (rG - lG) / sampleCount;
+    rawDeltaB[y] = (rB - lB) / sampleCount;
+  }
 
-    const avgRR = rR / sampleCount;
-    const avgRG = rG / sampleCount;
-    const avgRB = rB / sampleCount;
+  // Vertically smooth illumination deltas to prevent horizontal scanline striations ("拉丝")
+  const vRadius = Math.max(4, Math.min(32, Math.floor(height * 0.04)));
+  const smoothDeltaR = smooth1D(rawDeltaR, vRadius);
+  const smoothDeltaG = smooth1D(rawDeltaG, vRadius);
+  const smoothDeltaB = smooth1D(rawDeltaB, vRadius);
 
-    // Color jump across the wrap boundary (Right meets Left)
-    const deltaR = avgRR - avgLR;
-    const deltaG = avgRG - avgLG;
-    const deltaB = avgRB - avgLB;
+  // First pass: Wide harmonic illumination harmonization
+  for (let y = 0; y < height; y++) {
+    const rowOffset = y * width;
+    const deltaR = smoothDeltaR[y];
+    const deltaG = smoothDeltaG[y];
+    const deltaB = smoothDeltaB[y];
 
-    // First pass: Wide harmonic illumination harmonization
     for (let d = 0; d < harmDist; d++) {
       const leftIdx = (rowOffset + d) * 4;
       const rightIdx = (rowOffset + (width - 1 - d)) * 4;
       const hWeight = wHarm[d];
 
-      const leftOffsetR = 0.5 * deltaR * hWeight;
-      const leftOffsetG = 0.5 * deltaG * hWeight;
-      const leftOffsetB = 0.5 * deltaB * hWeight;
+      data[leftIdx] = Math.min(255, Math.max(0, Math.round(src[leftIdx] + 0.5 * deltaR * hWeight)));
+      data[leftIdx + 1] = Math.min(255, Math.max(0, Math.round(src[leftIdx + 1] + 0.5 * deltaG * hWeight)));
+      data[leftIdx + 2] = Math.min(255, Math.max(0, Math.round(src[leftIdx + 2] + 0.5 * deltaB * hWeight)));
 
-      const rightOffsetR = -0.5 * deltaR * hWeight;
-      const rightOffsetG = -0.5 * deltaG * hWeight;
-      const rightOffsetB = -0.5 * deltaB * hWeight;
-
-      data[leftIdx] = Math.min(255, Math.max(0, Math.round(src[leftIdx] + leftOffsetR)));
-      data[leftIdx + 1] = Math.min(255, Math.max(0, Math.round(src[leftIdx + 1] + leftOffsetG)));
-      data[leftIdx + 2] = Math.min(255, Math.max(0, Math.round(src[leftIdx + 2] + leftOffsetB)));
-
-      data[rightIdx] = Math.min(255, Math.max(0, Math.round(src[rightIdx] + rightOffsetR)));
-      data[rightIdx + 1] = Math.min(255, Math.max(0, Math.round(src[rightIdx + 1] + rightOffsetG)));
-      data[rightIdx + 2] = Math.min(255, Math.max(0, Math.round(src[rightIdx + 2] + rightOffsetB)));
+      data[rightIdx] = Math.min(255, Math.max(0, Math.round(src[rightIdx] - 0.5 * deltaR * hWeight)));
+      data[rightIdx + 1] = Math.min(255, Math.max(0, Math.round(src[rightIdx + 1] - 0.5 * deltaG * hWeight)));
+      data[rightIdx + 2] = Math.min(255, Math.max(0, Math.round(src[rightIdx + 2] - 0.5 * deltaB * hWeight)));
     }
+  }
 
-    // Second pass: Symmetric texture cross-fade in the core blend zone
+  // Second pass: Bridge boundary step smoothly without mirroring opposite textures
+  const rawStepR = new Float32Array(height);
+  const rawStepG = new Float32Array(height);
+  const rawStepB = new Float32Array(height);
+  for (let y = 0; y < height; y++) {
+    const rowOffset = y * width;
+    const seamPixelL = rowOffset * 4;
+    const seamPixelR = (rowOffset + (width - 1)) * 4;
+    rawStepR[y] = data[seamPixelR] - data[seamPixelL];
+    rawStepG[y] = data[seamPixelR + 1] - data[seamPixelL + 1];
+    rawStepB[y] = data[seamPixelR + 2] - data[seamPixelL + 2];
+  }
+  const smoothStepR = smooth1D(rawStepR, vRadius);
+  const smoothStepG = smooth1D(rawStepG, vRadius);
+  const smoothStepB = smooth1D(rawStepB, vRadius);
+
+  for (let y = 0; y < height; y++) {
+    const rowOffset = y * width;
+    const stepR = smoothStepR[y];
+    const stepG = smoothStepG[y];
+    const stepB = smoothStepB[y];
+
     for (let d = 0; d < safeBlend; d++) {
       const leftIdx = (rowOffset + d) * 4;
       const rightIdx = (rowOffset + (width - 1 - d)) * 4;
+      const ramp = wCross[d];
 
-      const curLR = data[leftIdx];
-      const curLG = data[leftIdx + 1];
-      const curLB = data[leftIdx + 2];
+      data[leftIdx] = Math.min(255, Math.max(0, Math.round(data[leftIdx] + 0.5 * stepR * ramp)));
+      data[leftIdx + 1] = Math.min(255, Math.max(0, Math.round(data[leftIdx + 1] + 0.5 * stepG * ramp)));
+      data[leftIdx + 2] = Math.min(255, Math.max(0, Math.round(data[leftIdx + 2] + 0.5 * stepB * ramp)));
 
-      const curRR = data[rightIdx];
-      const curRG = data[rightIdx + 1];
-      const curRB = data[rightIdx + 2];
-
-      // Symmetrically mirrored texture target across the wrap meridian
-      const targetR = 0.5 * (curLR + curRR);
-      const targetG = 0.5 * (curLG + curRG);
-      const targetB = 0.5 * (curLB + curRB);
-
-      const alpha = wCross[d]; // 0 at seam (d=0), 1 at boundary (d=safeBlend)
-
-      data[leftIdx] = Math.round((1 - alpha) * targetR + alpha * curLR);
-      data[leftIdx + 1] = Math.round((1 - alpha) * targetG + alpha * curLG);
-      data[leftIdx + 2] = Math.round((1 - alpha) * targetB + alpha * curLB);
-      data[leftIdx + 3] = 255;
-
-      data[rightIdx] = Math.round((1 - alpha) * targetR + alpha * curRR);
-      data[rightIdx + 1] = Math.round((1 - alpha) * targetG + alpha * curRG);
-      data[rightIdx + 2] = Math.round((1 - alpha) * targetB + alpha * curRB);
-      data[rightIdx + 3] = 255;
+      data[rightIdx] = Math.min(255, Math.max(0, Math.round(data[rightIdx] - 0.5 * stepR * ramp)));
+      data[rightIdx + 1] = Math.min(255, Math.max(0, Math.round(data[rightIdx + 1] - 0.5 * stepG * ramp)));
+      data[rightIdx + 2] = Math.min(255, Math.max(0, Math.round(data[rightIdx + 2] - 0.5 * stepB * ramp)));
     }
 
     // 3. Exact Bit-for-Bit Seam Equality at column 0 and column (width - 1)

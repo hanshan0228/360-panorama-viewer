@@ -1,0 +1,33 @@
+{
+  "input": "/Users/han/Documents/ChatGPT/pp/panorama-generator/docs/seam-inpaint-trial-2026-10-27/gemini-original.jpg",
+  "model": "gpt-image-2.5",
+  "sourceWidth": 2752,
+  "sourceHeight": 1536,
+  "width": 2752,
+  "height": 1376,
+  "editInputWidth": 1024,
+  "editInputHeight": 1376,
+  "method": "half-width roll, masked edit, original-pixel composite, inverse roll",
+  "actualModelCall": true,
+  "elapsedSeconds": 50.2,
+  "prompt": "This is a crop around the wrap seam of a 360-degree equirectangular panorama. The seam to repair is the central vertical line. Reconstruct ONLY the narrow transparent-masked central band into a coherent continuation of the scene on both sides. Connect actual objects, horizon, palm leaves, sand and cloud textures with sharp natural detail and matching lighting. Preserve the EXACT positions of every existing tree trunk and leaf outside the mask, camera, composition, geometry, colors and image boundaries. Do not blur, smear, mirror or crossfade mismatched objects. Return exactly 1024 by 1376 pixels, without cropping or rescaling.",
+  "editedWidth": 1082,
+  "editedHeight": 1454,
+  "changedColumns": 428,
+  "outsideChangedPixels": 0,
+  "originalSeam": {
+    "difference": 24.115552325581394,
+    "baseline": 11.842902131782946,
+    "needsBlending": false
+  },
+  "editedSeam": {
+    "difference": 10.127906976744185,
+    "baseline": 9.96172480620155,
+    "needsBlending": false
+  },
+  "oldSeam": {
+    "difference": 24.115552325581394,
+    "baseline": 11.842902131782946,
+    "needsBlending": false
+  }
+}

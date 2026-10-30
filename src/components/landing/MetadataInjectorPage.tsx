@@ -1,3 +1,5 @@
+import { useLanguage, useTranslation, withLanguageHref } from '../../utils/i18n';
+import { specialistMessages } from '../../utils/specialistTranslations';
 import { useState, useRef, useEffect } from 'react';
 import {
   ShieldCheck,
@@ -20,6 +22,8 @@ interface MetadataInjectorPageProps {
 }
 
 export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPageProps) {
+  const t = useTranslation(specialistMessages);
+  const [lang] = useLanguage();
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -148,11 +152,11 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
     <div className="space-y-16 pb-16">
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs text-cyan-400/70 pt-2">
-        <a href="/" className="hover:text-cyan-300 transition-colors">Home</a>
+        <a href={withLanguageHref("/", lang)} className="hover:text-cyan-300 transition-colors">{t("Home")}</a>
         <span>/</span>
-        <span className="text-cyan-300">Tools</span>
+        <span className="text-cyan-300">{t("Tools")}</span>
         <span>/</span>
-        <span className="text-white font-medium">360° Metadata Injector</span>
+        <span className="text-white font-medium">{t("360° Metadata Injector")}</span>
       </nav>
 
       {/* Hero Section */}
@@ -160,33 +164,27 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
         <div className="max-w-4xl space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-400/15 border border-blue-400/40 text-blue-300 text-xs font-semibold tracking-wide">
             <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-            <span>FREE TOOL &bull; OFFICIAL GOOGLE PHOTOSPHERE XMP TAGGER</span>
+            <span>{t("FREE TOOL • OFFICIAL GOOGLE PHOTOSPHERE XMP TAGGER")}</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
-            Free 360° Photo Metadata Injector:{' '}
-            <span className="bg-gradient-to-r from-blue-400 via-cyan-300 to-teal-300 bg-clip-text text-transparent">
-              Facebook &amp; Street View Ready
-            </span>
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">{t("Free 360° Photo Metadata Injector:")}{' '}
+            <span className="bg-gradient-to-r from-blue-400 via-cyan-300 to-teal-300 bg-clip-text text-transparent">{t("PhotoSphere XMP Tags")}</span>
           </h1>
 
-          <p className="text-base sm:text-lg text-cyan-100/80 leading-relaxed max-w-3xl">
-            Embed official Google PhotoSphere XMP and EXIF metadata into any equirectangular JPG image directly in your browser.
-            Fix "flat panorama" upload issues and make your AI panoramas interactive on Facebook, Google Street View, and VR platforms.
-          </p>
+          <p className="text-base sm:text-lg text-cyan-100/80 leading-relaxed max-w-3xl">{t("Embed official Google PhotoSphere XMP and EXIF metadata into any equirectangular JPG image directly in your browser. Fix \"flat panorama\" upload issues and make your AI panoramas interactive on Facebook, Google Street View, and VR platforms.")}</p>
 
           <div className="flex flex-wrap items-center gap-6 pt-2 text-xs text-cyan-300/70">
             <span className="flex items-center gap-1.5">
               <Lock className="w-4 h-4 text-teal-400" />
-              <span>100% Client-Side (No Uploads)</span>
+              <span>{t("100% Client-Side (No Uploads)")}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-teal-400" />
-              <span>Standards-Compliant Adobe XMP</span>
+              <span>{t("Standards-Compliant Adobe XMP")}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-teal-400" />
-              <span>Lossless JPEG Metadata Injection</span>
+              <span>{t("Lossless JPEG Metadata Injection")}</span>
             </span>
           </div>
         </div>
@@ -196,16 +194,10 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-              Interactive Tool
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-white">
-              Drop Your 360 Panorama Below to Inject Metadata
-            </h2>
+            <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Interactive Tool")}</div>
+            <h2 className="text-xl sm:text-2xl font-bold text-white">{t("Drop Your 360 Panorama Below to Inject Metadata")}</h2>
           </div>
-          <div className="text-xs text-cyan-300/80">
-            Supports JPG &bull; PNG &bull; WebP
-          </div>
+          <div className="text-xs text-cyan-300/80">{t("Supports JPG • PNG • WebP")}</div>
         </div>
 
         <div className="rounded-2xl border border-cyan-500/30 bg-[#020b18] p-6 sm:p-8 shadow-2xl">
@@ -234,12 +226,8 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
                 <UploadCloud className="w-10 h-10 animate-pulse" />
               </div>
               <div className="space-y-1">
-                <div className="text-base font-bold text-white">
-                  Drop your 2:1 equirectangular panorama here
-                </div>
-                <div className="text-xs text-cyan-300/60">
-                  or click to browse from your computer (JPG, PNG, WebP)
-                </div>
+                <div className="text-base font-bold text-white">{t("Drop your 2:1 equirectangular panorama here")}</div>
+                <div className="text-xs text-cyan-300/60">{t("or click to browse from your computer (JPG, PNG, WebP)")}</div>
               </div>
             </div>
           ) : (
@@ -250,7 +238,7 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
                   {imagePreviewUrl && (
                     <img
                       src={imagePreviewUrl}
-                      alt="Uploaded preview"
+                      alt={t("Uploaded preview")}
                       className="w-full h-full object-cover"
                     />
                   )}
@@ -264,22 +252,22 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
                     <div className="bg-[#030c1c] p-2.5 rounded-lg border border-cyan-500/15">
-                      <div className="text-cyan-400/60 text-[10px]">Dimensions</div>
+                      <div className="text-cyan-400/60 text-[10px]">{t("Dimensions")}</div>
                       <div className="font-mono text-cyan-200 font-semibold">
-                        {imageDimensions ? `${imageDimensions.width} × ${imageDimensions.height}` : 'Reading...'}
+                        {imageDimensions ? `${imageDimensions.width} × ${imageDimensions.height}` : t("Reading...")}
                       </div>
                     </div>
                     <div className="bg-[#030c1c] p-2.5 rounded-lg border border-cyan-500/15">
-                      <div className="text-cyan-400/60 text-[10px]">Aspect Ratio</div>
+                      <div className="text-cyan-400/60 text-[10px]">{t("Aspect Ratio")}</div>
                       <div className="font-mono text-teal-400 font-semibold">
                         {imageDimensions
                           ? `${(imageDimensions.width / imageDimensions.height).toFixed(2)} : 1`
-                          : 'Checking...'}
+                          : t("Checking...")}
                       </div>
                     </div>
                     <div className="bg-[#030c1c] p-2.5 rounded-lg border border-cyan-500/15">
-                      <div className="text-cyan-400/60 text-[10px]">XMP Status</div>
-                      <div className="font-mono text-amber-300 font-semibold">Ready to Inject</div>
+                      <div className="text-cyan-400/60 text-[10px]">{t("XMP Status")}</div>
+                      <div className="font-mono text-amber-300 font-semibold">{t("Ready to Inject")}</div>
                     </div>
                   </div>
 
@@ -291,7 +279,7 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
                       className="px-6 py-3 rounded-xl font-bold text-xs bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 shadow-lg shadow-cyan-400/30 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
                     >
                       <Download className="w-4 h-4" />
-                      <span>{isProcessing ? 'Injecting XMP Tags...' : 'Inject & Download 360 JPEG'}</span>
+                      <span>{isProcessing ? t("Injecting XMP Tags...") : t("Inject & Download 360 JPEG")}</span>
                     </button>
 
                     <button
@@ -306,17 +294,13 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
                         setIsSuccess(false);
                       }}
                       className="px-4 py-3 rounded-xl font-semibold text-xs bg-cyan-950/40 text-cyan-300 hover:text-white transition-colors cursor-pointer"
-                    >
-                      Choose Another File
-                    </button>
+                    >{t("Choose Another File")}</button>
                   </div>
 
                   {isSuccess && (
                     <div className="flex items-center gap-2 text-xs text-teal-300 bg-teal-950/40 border border-teal-500/30 p-2.5 rounded-xl">
                       <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-                      <span>
-                        Success! PhotoSphere XMP tags injected. Your 360 photo is ready for Facebook, Street View, and VR.
-                      </span>
+                      <span>{t("Success! PhotoSphere XMP tags injected. Your 360 photo is ready for Facebook, Street View, and VR.")}</span>
                     </div>
                   )}
                 </div>
@@ -326,17 +310,13 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
         </div>
       </section>
 
-      {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-300">{t(error)}</p>}
 
       {/* Platform Compatibility Matrix */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Verified Support
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Compatible Platforms &amp; Viewers
-          </h2>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Platform Compatibility")}</div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">{t("Compatible Platforms & Viewers")}</h2>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -345,9 +325,7 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
               <Share2 className="w-4 h-4 text-blue-400" />
               <span>Facebook 360</span>
             </div>
-            <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Enables interactive gyroscope navigation on mobile feed and drag-to-look on desktop feeds automatically.
-            </p>
+            <p className="text-xs text-cyan-200/70 leading-relaxed">{t("PhotoSphere tags help compatible platforms recognize a 360° panorama. Playback depends on platform support.")}</p>
           </div>
 
           <div className="bg-[#05142b]/70 border border-cyan-500/20 rounded-2xl p-5 space-y-2">
@@ -355,9 +333,7 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
               <Globe2 className="w-4 h-4 text-teal-400" />
               <span>Google Street View</span>
             </div>
-            <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Fulfills Google Maps PhotoSphere requirements for blue line virtual tour submissions.
-            </p>
+            <p className="text-xs text-cyan-200/70 leading-relaxed">{t("Adds PhotoSphere metadata. Publishing and virtual tour requirements depend on the destination platform.")}</p>
           </div>
 
           <div className="bg-[#05142b]/70 border border-cyan-500/20 rounded-2xl p-5 space-y-2">
@@ -365,9 +341,7 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
               <ShieldCheck className="w-4 h-4 text-amber-400" />
               <span>Kuula &amp; Roundme</span>
             </div>
-            <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Auto-detects full 360° x 180° boundaries without requiring manual projection adjustments.
-            </p>
+            <p className="text-xs text-cyan-200/70 leading-relaxed">{t("Check the uploaded panorama and projection settings in the destination viewer.")}</p>
           </div>
 
           <div className="bg-[#05142b]/70 border border-cyan-500/20 rounded-2xl p-5 space-y-2">
@@ -375,9 +349,7 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
               <Sparkles className="w-4 h-4 text-purple-400" />
               <span>Meta Quest &amp; Vision Pro</span>
             </div>
-            <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Displays natively in spatial photo viewers and WebXR gallery experiences.
-            </p>
+            <p className="text-xs text-cyan-200/70 leading-relaxed">{t("Use a compatible panorama viewer or WebXR application; check support on the device.")}</p>
           </div>
         </div>
       </section>
@@ -385,12 +357,8 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
       {/* FAQ Accordion Section */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Frequently Asked Questions
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">
-            360° Metadata &amp; XMP FAQ
-          </h2>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Frequently Asked Questions")}</div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">{t("360° Metadata & XMP FAQ")}</h2>
         </div>
 
         <div className="max-w-3xl mx-auto space-y-3">
@@ -406,7 +374,7 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
                   onClick={() => setActiveFaq(isOpen ? null : idx)}
                   className="w-full py-4 px-5 text-left flex items-center justify-between gap-4 font-semibold text-sm text-white hover:text-cyan-300 cursor-pointer transition-colors"
                 >
-                  <span>{faq.q}</span>
+                  <span>{t(faq.q)}</span>
                   <ChevronDown
                     className={`w-4 h-4 text-cyan-400 shrink-0 transition-transform duration-200 ${
                       isOpen ? 'rotate-180' : ''
@@ -415,7 +383,7 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
                 </button>
                 {isOpen && (
                   <div className="px-5 pb-4 text-xs text-cyan-100/80 leading-relaxed border-t border-cyan-500/15 pt-3">
-                    {faq.a}
+                    {t(faq.a)}
                   </div>
                 )}
               </div>
@@ -426,12 +394,8 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
 
       {/* Final Action Callout */}
       <section className="rounded-3xl border border-blue-400/40 bg-gradient-to-r from-[#031d42] via-[#042452] to-[#011430] p-8 sm:p-12 text-center space-y-6 shadow-2xl">
-        <h2 className="text-2xl sm:text-4xl font-black text-white">
-          Generate New 360 Panoramas with AI
-        </h2>
-        <p className="text-sm sm:text-base text-cyan-100/80 max-w-xl mx-auto">
-          Need new 360 environments? Create seamless equirectangular panoramas from text prompts with our AI Studio.
-        </p>
+        <h2 className="text-2xl sm:text-4xl font-black text-white">{t("Generate New 360 Panoramas with AI")}</h2>
+        <p className="text-sm sm:text-base text-cyan-100/80 max-w-xl mx-auto">{t("Need new 360 environments? Create seamless equirectangular panoramas from text prompts with our AI Studio.")}</p>
         <div>
           <button
             type="button"
@@ -439,7 +403,7 @@ export function MetadataInjectorPage({ onLaunchStudio }: MetadataInjectorPagePro
             className="px-8 py-4 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-400 to-teal-400 text-slate-950 shadow-xl shadow-cyan-400/40 hover:scale-105 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
           >
             <Sparkles className="w-4 h-4 fill-slate-950" />
-            <span>Open AI Panorama Studio</span>
+            <span>{t("Open AI Panorama Studio")}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

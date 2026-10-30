@@ -1,5 +1,8 @@
+import { reviewPanorama, buildQualityRetryPrompt, DEFAULT_PANORAMA_REVIEW_MODEL } from '../../server/panoramaQuality.mjs';
 import { WORK_STORAGE_LIMIT, SHARE_STORAGE_LIMIT, ensureByteAccounting } from '../../server/storageBudget.mjs';
-import { riskSchema, consumeLimit, sourceKey, claimTrial, acquireGeneration, readJsonLimited } from '../../server/risk.mjs';
+import { riskSchema, consumeLimit, sourceKey, acquireGeneration, readJsonLimited, GENERATION_WORKFLOW_TIMEOUT_MS } from '../../server/risk.mjs';
+import { registrationAgeError, AGE_SCREEN_DENIED } from '../../src/utils/registrationAge.mjs';
+import { emailVerificationSchema, verificationConfig, checkVerificationChallenge, createD1VerificationLedger, handleEmailVerification, sendVerificationEmail } from '../../server/emailVerification.mjs';
 import { handleWorksRequest, saveGeneratedWork, workSchema } from '../../server/works.mjs';
 import { handleShareRequest, shareSchema } from '../../server/shares.mjs';
 // Cloudflare Pages Functions - Edge Commercial Backend with D1 Persistence
@@ -9,7 +12,15 @@ import { buildImageModelRequest, inspectImageResolution, IMAGE_GENERATION_TIMEOU
 interface Env {
   DB?: D1Database;
   GENERATION_ENABLED?: string;
+  PANORAMA_REVIEW_MODEL?: string;
+  PANORAMA_REVIEW_BASE_URL?: string;
+  PANORAMA_REVIEW_API_KEY?: string;
   FREE_TRIAL_ENABLED?: string;
+  APP_ORIGIN?: string;
+  RESEND_API_KEY?: string;
+  VERIFICATION_FROM_EMAIL?: string;
+  TURNSTILE_SITE_KEY?: string;
+  TURNSTILE_SECRET_KEY?: string;
   MAX_DAILY_GENERATION_CREDITS?: string;
   MAX_DAILY_FREE_CREDITS?: string;
   MAX_CONCURRENT_GENERATIONS?: string;
@@ -36,17 +47,17 @@ async function freeCredits(db: D1Database): Promise<number> {
   try {
     value = row ? JSON.parse(row.value)?.freeMonthlyCredits : undefined;
   } catch {
-    return 4;
+    return 8;
   }
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 4;
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 8;
 }
 
-function jsonResponse(data: unknown, status = 200): Response {
+function jsonResponse(data: unknown, status = 200, cacheControl = 'no-store'): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       'Content-Type': 'application/json',
-      'Cache-Control': 'no-store',
+      'Cache-Control': cacheControl,
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
@@ -57,6 +68,11 @@ function jsonResponse(data: unknown, status = 200): Response {
 // Password hashing with Web Crypto PBKDF2 (per-user salt, 100k iterations).
 // Legacy single-round `sha256:` hashes stay verifiable and are upgraded on successful login.
 const PBKDF2_ITERATIONS = 100000;
+const CONFIG_CACHE_TTL = 60000;
+const edgeConfigCache = new WeakMap<D1Database, {
+  billing?: { raw: string; expiresAt: number };
+  models?: { raw: string; expiresAt: number };
+}>();
 
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -180,6 +196,7 @@ async function initializeDb(db: D1Database): Promise<void> {
   await db.batch([
     ...paypalSchema.map((sql: string) => db.prepare(sql)),
     ...riskSchema.map((sql: string) => db.prepare(sql)),
+    db.prepare(emailVerificationSchema),
     db.prepare(workSchema),
     db.prepare(shareSchema),
     db.prepare(`
@@ -188,8 +205,8 @@ async function initializeDb(db: D1Database): Promise<void> {
         email TEXT UNIQUE NOT NULL,
         name TEXT NOT NULL,
         plan TEXT NOT NULL DEFAULT 'free',
-        credits_balance INTEGER NOT NULL DEFAULT 4,
-        credits_total INTEGER NOT NULL DEFAULT 4,
+        credits_balance INTEGER NOT NULL DEFAULT 0,
+        credits_total INTEGER NOT NULL DEFAULT 0,
         api_calls_count INTEGER NOT NULL DEFAULT 0,
         status TEXT NOT NULL DEFAULT 'active',
         password_hash TEXT,
@@ -209,6 +226,7 @@ async function initializeDb(db: D1Database): Promise<void> {
         value TEXT NOT NULL
       );
     `),
+    db.prepare("UPDATE admin_config SET value = replace(value, '\"proMonthlyCredits\":1000', '\"proMonthlyCredits\":120') WHERE key = 'billing_config'"),
     db.prepare(`
       CREATE TABLE IF NOT EXISTS admin_sessions (
         token TEXT PRIMARY KEY,
@@ -334,103 +352,115 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
     // Public Pricing / Billing Rules Query
     if (pathname === '/api/billing' && request.method === 'GET') {
-      if (env.DB) {
-        const row = await env.DB.prepare('SELECT value FROM admin_config WHERE key = ?')
-          .bind('billing_config')
-          .first<{ value: string }>();
-        if (row?.value) {
-          try {
-            return jsonResponse({ success: true, config: JSON.parse(row.value) });
-          } catch {
-            // fallback
+      const cache = env.DB ? edgeConfigCache.get(env.DB) : undefined;
+      const now = Date.now();
+      let billingRaw = cache?.billing && cache.billing.expiresAt > now ? cache.billing.raw : null;
+
+      if (!billingRaw && env.DB) {
+        try {
+          const row = await Promise.race([
+            env.DB.prepare('SELECT value FROM admin_config WHERE key = ?').bind('billing_config').first<{ value: string }>(),
+            new Promise<null>(resolve => setTimeout(() => resolve(null), 2500)),
+          ]);
+          if (row?.value) {
+            billingRaw = row.value;
+            const existing = edgeConfigCache.get(env.DB) || {};
+            existing.billing = { raw: billingRaw, expiresAt: now + CONFIG_CACHE_TTL };
+            edgeConfigCache.set(env.DB, existing);
           }
+        } catch {
+          // fallback
+        }
+      }
+
+      if (billingRaw) {
+        try {
+          const config = JSON.parse(billingRaw);
+          if (config.proMonthlyCredits === 1000) config.proMonthlyCredits = 120;
+          return jsonResponse(
+            { success: true, config },
+            200,
+            'public, max-age=60, s-maxage=300, stale-while-revalidate=600'
+          );
+        } catch {
+          // fallback
         }
       }
       return jsonResponse({
         success: true,
         config: {
-          freeMonthlyCredits: 4,
+          freeMonthlyCredits: 8,
           proMonthlyPriceUsd: 9.9,
-          proMonthlyCredits: 1000,
+          proMonthlyCredits: 120,
           enterpriseCustomPricing: true,
           creditCostPer1K: 1,
           creditCostPer2K: 2,
           creditCostPer4K: 4,
         },
-      });
+      }, 200, 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
     }
 
     // Public Models Query (sanitized - NEVER leak admin API keys)
     if (pathname === '/api/models' && request.method === 'GET') {
-      if (env.DB) {
-        const row = await env.DB.prepare('SELECT value FROM admin_config WHERE key = ?')
-          .bind('models_config')
-          .first<{ value: string }>();
-        if (row?.value) {
-          try {
-            const parsed = JSON.parse(row.value);
-            const rawEndpoints = Array.isArray(parsed) ? parsed : parsed.endpoints || [];
-            // Strictly sanitize endpoints: blank all apiKeys from public response
-            const sanitized = rawEndpoints.map((ep: any) => ({
-              ...ep,
-              apiKey: '',
-              hasServerKey: Boolean(ep.apiKey && String(ep.apiKey).trim()),
-            }));
-            const routingConfig = Array.isArray(parsed) ? null : parsed.routingConfig || null;
-            return jsonResponse({ success: true, endpoints: sanitized, routingConfig });
-          } catch {}
-        }
+      const cache = env.DB ? edgeConfigCache.get(env.DB) : undefined;
+      const now = Date.now();
+      let modelsRaw = cache?.models && cache.models.expiresAt > now ? cache.models.raw : null;
+
+      if (!modelsRaw && env.DB) {
+        try {
+          const row = await Promise.race([
+            env.DB.prepare('SELECT value FROM admin_config WHERE key = ?').bind('models_config').first<{ value: string }>(),
+            new Promise<null>(resolve => setTimeout(() => resolve(null), 2500)),
+          ]);
+          if (row?.value) {
+            modelsRaw = row.value;
+            const existing = edgeConfigCache.get(env.DB) || {};
+            existing.models = { raw: modelsRaw, expiresAt: now + CONFIG_CACHE_TTL };
+            edgeConfigCache.set(env.DB, existing);
+          }
+        } catch {}
       }
-      return jsonResponse({ success: true, endpoints: null, routingConfig: null });
+
+      if (modelsRaw) {
+        try {
+          const parsed = JSON.parse(modelsRaw);
+          const rawEndpoints = Array.isArray(parsed) ? parsed : parsed.endpoints || [];
+          // Strictly sanitize endpoints: blank all apiKeys from public response
+          const sanitized = rawEndpoints.map((ep: any) => ({
+            ...ep,
+            apiKey: '',
+            hasServerKey: Boolean(ep.apiKey && String(ep.apiKey).trim()),
+          }));
+          const routingConfig = Array.isArray(parsed) ? null : parsed.routingConfig || null;
+          return jsonResponse(
+            { success: true, endpoints: sanitized, routingConfig },
+            200,
+            'public, max-age=60, s-maxage=300, stale-while-revalidate=600'
+          );
+        } catch {}
+      }
+      return jsonResponse({ success: true, endpoints: null, routingConfig: null }, 200, 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
     }
 
     const authHeader = request.headers.get('Authorization') || '';
     const token = authHeader.replace(/^Bearer\s+/i, '');
 
-    // 2. Guest User Session Initialization (Auto-grants 4 trial credits in D1)
+    if (pathname === '/api/user/auth-config' && request.method === 'GET') {
+      return jsonResponse(verificationConfig(env));
+    }
     if (pathname === '/api/user/guest' && request.method === 'POST') {
-      if (!env.DB) return jsonResponse({ success: false, error: 'Database service unavailable' }, 503);
-      if (env.FREE_TRIAL_ENABLED === 'false') return jsonResponse({ success: false, error: 'Guest trials are temporarily paused. Sign in to continue.' }, 429);
-      const guestIp = clientIp(request);
-      if (rateLimitExceeded(`guest:hour:${guestIp}`, 5, 3600000)
-        || rateLimitExceeded(`guest:day:${guestIp}`, 20, 86400000)) {
-        return jsonResponse({ success: false, error: 'Too many trial accounts from this address. Sign in or try again later.' }, 429);
-      }
-      recordRateHit(`guest:hour:${guestIp}`);
-      recordRateHit(`guest:day:${guestIp}`);
-      const source = await sourceKey(request);
-      if (!await consumeLimit(env.DB, 'guest-create-global', 200, 86400000)
-        || !await consumeLimit(env.DB, 'guest-create:'+source, 1, 7*86400000, 1, Date.now(), true)) {
-        return jsonResponse({ success: false, error: 'This network has already initialized a trial. Sign in to continue; clearing browser data does not renew trial credits.' }, 429);
-      }
-      const credits = await claimTrial(env.DB, source, await freeCredits(env.DB), env.FREE_TRIAL_ENABLED !== 'false');
-      const guestId = 'usr_guest_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
-      const now = new Date().toISOString();
-      const guestEmail = `guest_${guestId}@guest.360panoramaviewer.com`;
-
-      await env.DB.prepare(`
-        INSERT INTO users (id, email, name, plan, credits_balance, credits_total, api_calls_count, status, created_at)
-        VALUES (?, ?, 'Free Trial Guest', 'free', ?, ?, 0, 'active', ?)
-      `).bind(guestId, guestEmail, credits, credits, now).run();
-
-      const sessionToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
-      const expiresAt = Date.now() + 7 * 86400000;
-      await env.DB.prepare('INSERT INTO user_sessions (token, user_id, expires_at) VALUES (?, ?, ?)')
-        .bind(sessionToken, guestId, expiresAt)
-        .run();
-
-      return jsonResponse({
-        success: true,
-        user: {
-          id: guestId,
-          email: guestEmail,
-          name: 'Free Trial Guest',
-          plan: 'free',
-          creditsBalance: credits,
-          creditsTotal: credits,
-          status: 'active',
+      return jsonResponse({ success: false, code: 'REGISTRATION_REQUIRED', error: 'Register and verify your email to receive starter credits.' }, 403);
+    }
+    if (pathname === '/api/user/verify-email' || pathname === '/api/user/send-verification') {
+      if (!env.DB) return jsonResponse({ error: 'Database unavailable' }, 503);
+      const db = env.DB;
+      return handleEmailVerification({ request, env, ledger: createD1VerificationLedger(db), source: await sourceKey(request),
+        freeCredits: () => freeCredits(db),
+        authenticate: async () => {
+          const session = await db.prepare('SELECT user_id FROM user_sessions WHERE token = ? AND expires_at > ?')
+            .bind(token, Date.now()).first<{ user_id: string }>();
+          return session ? db.prepare('SELECT * FROM users WHERE id = ?').bind(session.user_id).first() : null;
         },
-        token: sessionToken,
       });
     }
 
@@ -441,11 +471,17 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         name?: string;
         password?: string;
         mode?: 'login' | 'register';
+        turnstileToken?: string;
+        birthDate?: string;
       };
       const { email, name, password, mode } = body;
       if (password !== undefined && typeof password !== 'string') return jsonResponse({ success: false, error: 'Password must be a string' }, 400);
       if (mode !== undefined && mode !== 'login' && mode !== 'register') return jsonResponse({ success: false, error: 'Invalid authentication mode' }, 400);
-      if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      if (mode === 'register') {
+        const error = registrationAgeError(body.birthDate);
+        if (error) return jsonResponse({ success: false, error }, error === AGE_SCREEN_DENIED ? 403 : 400);
+      }
+      if (typeof email !== 'string' || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return jsonResponse({ success: false, error: 'Valid email address is required' }, 400);
       }
 
@@ -480,6 +516,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         return jsonResponse({ success: false, error: 'Email or password is incorrect.' }, 401);
       }
       if (user && mode === 'register') return jsonResponse({ success: false, error: 'An account already exists for this email. Sign in instead.' }, 409);
+      let verificationSent: boolean | undefined;
+      if (user?.id.startsWith('usr_guest')) return jsonResponse({ error: 'Register a new account with your own email address.' }, 403);
       if (user) {
         // Existing user: strictly verify password if set; prevent unauthorized account claim if unset
         if (user.password_hash) {
@@ -506,13 +544,17 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           }, 403);
         }
       } else {
-        // New user registration: require password (at least 6 chars) and grant 4 trial credits
+        // Registration starts at zero; only email verification can grant starter credits.
+        const ageError = registrationAgeError(body.birthDate);
+        if (ageError) return jsonResponse({ success: false, error: ageError }, ageError === AGE_SCREEN_DENIED ? 403 : 400);
         if (rateLimitExceeded(`register:${authIp}`, 5, 3600000)) {
           return jsonResponse({ success: false, error: 'Too many new accounts from this address. Try again later.' }, 429);
         }
         if (typeof password !== 'string' || password.length < 6 || password.length > 1024) {
           return jsonResponse({ success: false, error: 'New accounts require a password between 6 and 1024 characters.' }, 400);
         }
+        try { await checkVerificationChallenge(env, body.turnstileToken, 'register'); }
+        catch (error: any) { return jsonResponse({ success: false, error: error.message }, error.status || 503); }
         const userId = 'usr_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12);
         const displayName = typeof name === 'string' && name.trim() ? name.trim() : email.split('@')[0];
         const now = new Date().toISOString();
@@ -522,12 +564,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           || !await consumeLimit(env.DB, 'register-create:'+source, 5, 86400000)) {
           return jsonResponse({ success: false, error: 'Account creation safety limit reached. Try again later.' }, 429);
         }
-        const credits = await claimTrial(env.DB, source, await freeCredits(env.DB), env.FREE_TRIAL_ENABLED !== 'false');
+        const credits = 0;
 
-        await env.DB.prepare(`
-          INSERT INTO users (id, email, name, plan, credits_balance, credits_total, api_calls_count, status, password_hash, created_at)
-          VALUES (?, ?, ?, 'free', ?, ?, 0, 'active', ?, ?)
-        `).bind(userId, email.toLowerCase(), displayName, credits, credits, pwdHash, now).run();
+        await env.DB.batch([
+          env.DB.prepare(`INSERT INTO users (id, email, name, plan, credits_balance, credits_total, api_calls_count, status, password_hash, created_at)
+            VALUES (?, ?, ?, 'free', ?, ?, 0, 'active', ?, ?)`)
+            .bind(userId, email.toLowerCase(), displayName, credits, credits, pwdHash, now),
+          env.DB.prepare('INSERT INTO email_verifications (user_id,email,source,eligible) VALUES (?,?,?,1)')
+            .bind(userId, email.toLowerCase(), source),
+        ]);
         recordRateHit(`register:${authIp}`);
 
         user = {
@@ -540,6 +585,10 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           api_calls_count: 0,
           status: 'active',
         };
+        try {
+          await sendVerificationEmail({ ledger: createD1VerificationLedger(env.DB), user, source, env });
+          verificationSent = true;
+        } catch { verificationSent = false; }
       }
 
       clearRateBucket(authFailKey);
@@ -560,8 +609,10 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           creditsTotal: user.credits_total,
           apiCallsCount: user.api_calls_count,
           status: user.status,
+          emailVerified: Boolean((await createD1VerificationLedger(env.DB).state(user.id))?.verified_at),
         },
         token: sessionToken,
+        ...(verificationSent === undefined ? {} : { verificationSent }),
       });
     }
 
@@ -592,6 +643,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         }>();
 
       if (!user) return jsonResponse({ success: false, error: 'User not found' }, 404);
+      if (user.id.startsWith('usr_guest')) return jsonResponse({ error: 'Register and verify your email to continue.' }, 401);
 
       return jsonResponse({
         success: true,
@@ -604,6 +656,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           creditsTotal: user.credits_total,
           apiCallsCount: user.api_calls_count,
           status: user.status,
+          emailVerified: Boolean((await createD1VerificationLedger(env.DB).state(user.id))?.verified_at),
         },
       });
     }
@@ -813,7 +866,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           return jsonResponse({ success: false, error: 'Name and email are required' }, 400);
         }
         const userId = 'usr_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12);
-        const initCredits = typeof credits === 'number' ? credits : typeof creditsBalance === 'number' ? creditsBalance : 1000;
+        const initCredits = typeof credits === 'number' ? credits : typeof creditsBalance === 'number' ? creditsBalance : 120;
         const now = new Date().toISOString();
         // Generate unique high-entropy initial password if not explicitly supplied
         const initialPwd = typeof password === 'string' && password.length >= 6
@@ -844,6 +897,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
       // D1 Write: Persist Billing Configuration
       if (pathname === '/api/admin/billing' && request.method === 'POST') {
+        if (env.DB) edgeConfigCache.delete(env.DB);
         const body = (await request.json().catch(() => ({}))) as { config?: any };
         if (!body.config) {
           return jsonResponse({ success: false, error: 'Billing config required' }, 400);
@@ -860,6 +914,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
       // D1 Write: Persist Model Endpoints & Routing Strategy (with secure apiKey preservation)
       if (pathname === '/api/admin/models' && request.method === 'POST') {
+        if (env.DB) edgeConfigCache.delete(env.DB);
         const body = (await request.json().catch(() => ({}))) as any;
         const toSave = Array.isArray(body.endpoints)
           ? { endpoints: body.endpoints, routingConfig: body.routingConfig || null }
@@ -972,7 +1027,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       if (!token) {
         return jsonResponse({
           success: false,
-          error: 'Sign in or initialize a trial session before generating a panorama.',
+          error: 'Sign in to a registered account before generating a panorama.',
         }, 401);
       }
 
@@ -1003,6 +1058,11 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
       if (user.status !== 'active') {
         return jsonResponse({ success: false, error: 'This account is suspended and cannot generate images.' }, 403);
+      }
+
+      if (user.id.startsWith('usr_guest')) return jsonResponse({ success: false, code: 'REGISTRATION_REQUIRED', error: 'Register and verify your email before generating images.' }, 403);
+      if (!['pro', 'enterprise'].includes(user.plan) && !(await createD1VerificationLedger(env.DB).state(user.id))?.verified_at) {
+        return jsonResponse({ success: false, code: 'EMAIL_VERIFICATION_REQUIRED', error: 'Verify your email before generating images.' }, 403);
       }
 
       const resolution = body.resolution ?? '4K';
@@ -1067,10 +1127,6 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       } catch (error) {
         return jsonResponse({ success: false, error: error instanceof Error ? error.message : 'Invalid model configuration' }, 400);
       }
-      const { url: targetUrl, headers, payload, mode } = upstreamRequest;
-      const isGoogleOfficial = mode.startsWith('google-');
-      const isImagen = mode === 'google-imagen';
-      const isChatMode = mode === 'chat';
 
       const safety = await acquireGeneration(env.DB, user, await sourceKey(request), cost, env);
       if (!safety.id) return jsonResponse({ success: false, error: safety.error }, 429);
@@ -1084,96 +1140,140 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       }
       let completed = false;
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), IMAGE_GENERATION_TIMEOUT_MS);
+      const timer = setTimeout(() => ctrl.abort(), GENERATION_WORKFLOW_TIMEOUT_MS);
 
       try {
-        const upstreamStarted = Date.now();
-        const upstreamRes = await fetch(targetUrl, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(payload),
-          signal: ctrl.signal,
-        });
+        const generationTiming = { upstreamWaitMs: 0, upstreamBodyMs: 0 };
+        for (let attempts = 1; attempts <= 2; attempts++) {
+          ctrl.signal.throwIfAborted();
+          const { url: targetUrl, headers, payload, mode } = upstreamRequest;
+          const isGoogleOfficial = mode.startsWith('google-');
+          const isImagen = mode === 'google-imagen';
+          const isChatMode = mode === 'chat';
+          const upstreamStarted = Date.now();
+          const generationSignal = AbortSignal.any([ctrl.signal, AbortSignal.timeout(IMAGE_GENERATION_TIMEOUT_MS)]);
+          const upstreamRes = await fetch(targetUrl, {
+            method: 'POST',
+            headers,
+            body: payload instanceof FormData ? payload : JSON.stringify(payload),
+            signal: generationSignal,
+          });
 
-        if (!upstreamRes.ok) {
-          const errText = await upstreamRes.text();
-          return jsonResponse({
-            success: false,
-            error: `Model endpoint returned HTTP ${upstreamRes.status}: ${errText.slice(0, 240)}`,
-          }, 502);
-        }
-
-        const upstreamWaitMs = Date.now() - upstreamStarted;
-        const data = (await upstreamRes.json()) as any;
-        const generationTiming = { upstreamWaitMs, upstreamBodyMs: Date.now() - upstreamStarted - upstreamWaitMs };
-        let imageUrl: string | null = null;
-
-        if (isGoogleOfficial && isImagen) {
-          if (data.predictions && data.predictions[0]?.bytesBase64Encoded) {
-            imageUrl = `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`;
+          if (!upstreamRes.ok) {
+            const errText = await upstreamRes.text();
+            return jsonResponse({
+              success: false,
+              error: `Model endpoint returned HTTP ${upstreamRes.status}: ${errText.slice(0, 240)}`,
+            }, 502);
           }
-        } else if (isGoogleOfficial) {
-          const parts = data.candidates?.[0]?.content?.parts || [];
-          const part = parts.find((item: any) => item?.inlineData?.data);
-          if (part?.inlineData?.data) {
-            imageUrl = `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
+
+          const upstreamWaitMs = Date.now() - upstreamStarted;
+          const data = (await upstreamRes.json()) as any;
+          generationSignal.throwIfAborted();
+          generationTiming.upstreamWaitMs += upstreamWaitMs;
+          generationTiming.upstreamBodyMs += Date.now() - upstreamStarted - upstreamWaitMs;
+          let imageUrl: string | null = null;
+
+          if (isGoogleOfficial && isImagen) {
+            if (data.predictions && data.predictions[0]?.bytesBase64Encoded) {
+              imageUrl = `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`;
+            }
+          } else if (isGoogleOfficial) {
+            const parts = data.candidates?.[0]?.content?.parts || [];
+            const part = parts.find((item: any) => item?.inlineData?.data);
+            if (part?.inlineData?.data) {
+              imageUrl = `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
+            } else {
+              const text = parts.filter((item: any) => typeof item?.text === 'string')
+                .map((item: any) => item.text).join('\n');
+              const b64 = text.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
+              imageUrl = b64 ? b64[0] : (text.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)/i)?.[0] || null);
+            }
+          } else if (isChatMode) {
+            const msg = data.choices?.[0]?.message;
+            if (msg?.images && msg.images[0]?.image_url?.url) {
+              imageUrl = msg.images[0].image_url.url;
+            } else if (typeof msg?.content === 'string') {
+              const b64 = msg.content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
+              imageUrl = b64 ? b64[0] : (msg.content.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)/i)?.[0] || null);
+            }
           } else {
-            const text = parts.filter((item: any) => typeof item?.text === 'string')
-              .map((item: any) => item.text).join('\n');
-            const b64 = text.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
-            imageUrl = b64 ? b64[0] : (text.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)/i)?.[0] || null);
+            const item = data.data?.[0];
+            if (item?.b64_json) {
+              imageUrl = item.b64_json.startsWith('data:image') ? item.b64_json : `data:image/png;base64,${item.b64_json}`;
+            } else if (item?.url) {
+              imageUrl = item.url;
+            }
           }
-        } else if (isChatMode) {
-          const msg = data.choices?.[0]?.message;
-          if (msg?.images && msg.images[0]?.image_url?.url) {
-            imageUrl = msg.images[0].image_url.url;
-          } else if (typeof msg?.content === 'string') {
-            const b64 = msg.content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
-            imageUrl = b64 ? b64[0] : (msg.content.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)/i)?.[0] || null);
-          }
-        } else {
-          const item = data.data?.[0];
-          if (item?.b64_json) {
-            imageUrl = item.b64_json.startsWith('data:image') ? item.b64_json : `data:image/png;base64,${item.b64_json}`;
-          } else if (item?.url) {
-            imageUrl = item.url;
-          }
-        }
 
-        if (!imageUrl) {
-          return jsonResponse({ success: false, error: 'The model responded without a valid image.' }, 502);
-        }
+          if (!imageUrl) {
+            return jsonResponse({ success: false, error: 'The model responded without a valid image.' }, 502);
+          }
 
-        const imageResolution = inspectImageResolution(imageUrl, resolution);
-          console.info('[generation-quality]', JSON.stringify({ endpointId: targetEp.id, model, resolution, imageResolution }));
-        const creditsRefunded = imageResolution.status === 'below-request' ? cost : 0;
-        if (creditsRefunded) {
-          await env.DB.prepare('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?')
-            .bind(creditsRefunded, user.id).run();
+          const quality = { ...await reviewPanorama({
+            endpoint: {
+              ...targetEp,
+              baseUrl: env.PANORAMA_REVIEW_BASE_URL || targetEp.baseUrl,
+              apiKey: env.PANORAMA_REVIEW_API_KEY || targetEp.apiKey,
+            },
+            model: env.PANORAMA_REVIEW_MODEL || DEFAULT_PANORAMA_REVIEW_MODEL,
+            prompt,
+            referenceImages: referenceImages ?? [],
+            imageUrl,
+            fetch: fetch,
+            signal: ctrl.signal,
+          }), attempts };
+          if (quality.status === 'failed' && attempts === 1) {
+            upstreamRequest = buildImageModelRequest({ ...targetEp, model }, {
+              prompt: buildQualityRetryPrompt(prompt, quality.issues), referenceImages, resolution,
+            });
+            continue;
+          }
+
+          const imageResolution = inspectImageResolution(imageUrl, resolution);
+            console.info('[generation-quality]', JSON.stringify({ endpointId: targetEp.id, model, resolution, imageResolution }));
+          const creditsRefunded = quality.status !== 'passed' || imageResolution.status === 'below-request' ? cost : 0;
+          if (creditsRefunded) {
+            await env.DB.prepare('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?')
+              .bind(creditsRefunded, user.id).run();
+            completed = true;
+          }
+
+          await env.DB.prepare(`
+            UPDATE users SET api_calls_count = api_calls_count + ? WHERE id = ?
+          `).bind(attempts, user.id).run();
+
+          const updated = await env.DB.prepare('SELECT credits_balance FROM users WHERE id = ?')
+            .bind(user.id)
+            .first<{ credits_balance: number }>();
+
           completed = true;
+          if (quality.status !== 'passed') {
+            const unavailable = quality.status === 'unavailable';
+            return jsonResponse({
+              success: false,
+              code: unavailable ? 'GENERATION_REVIEW_UNAVAILABLE' : 'GENERATION_QUALITY_REJECTED',
+              error: unavailable ? 'Panorama quality review is unavailable. Your credits were returned. Please try again later.'
+                : 'The generated panorama did not pass quality review after two attempts. Your credits were returned. Please revise your prompt or reference images.',
+              quality, creditsDeducted: 0, creditsRefunded: cost,
+              remainingCredits: updated?.credits_balance ?? user.credits_balance,
+            }, unavailable ? 503 : 422);
+          }
+
+          const library = await saveGeneratedWork({ db: env.DB, storage: env.PANORAMA_SHARES, user, imageUrl, prompt, model, resolution }).catch(() => ({ saved: false, error: 'Cloud history could not save this image. Download it before leaving the page.' }));
+          return jsonResponse({
+            success: true,
+            library,
+            imageUrl,
+            modelUsed: model,
+            generationTiming,
+            remainingCredits: updated?.credits_balance ?? Math.max(0, user.credits_balance - cost),
+            creditsDeducted: cost - creditsRefunded,
+            creditsRefunded,
+            imageResolution,
+            quality,
+          });
         }
-
-        await env.DB.prepare(`
-          UPDATE users SET api_calls_count = api_calls_count + 1 WHERE id = ?
-        `).bind(user.id).run();
-
-        const updated = await env.DB.prepare('SELECT credits_balance FROM users WHERE id = ?')
-          .bind(user.id)
-          .first<{ credits_balance: number }>();
-
-        completed = true;
-        const library = await saveGeneratedWork({ db: env.DB, storage: env.PANORAMA_SHARES, user, imageUrl, prompt, model, resolution }).catch(() => ({ saved: false, error: 'Cloud history could not save this image. Download it before leaving the page.' }));
-        return jsonResponse({
-          success: true,
-          library,
-          imageUrl,
-          modelUsed: model,
-          generationTiming,
-          remainingCredits: updated?.credits_balance ?? Math.max(0, user.credits_balance - cost),
-          creditsDeducted: cost - creditsRefunded,
-          creditsRefunded,
-          imageResolution,
-        });
       } catch (err: unknown) {
         console.error('[Cloudflare Edge Commercial API] Image model request failed:', err);
         return jsonResponse({

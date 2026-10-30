@@ -1,0 +1,11 @@
+{
+  "startedAt": "2026-10-27T04:43:15.608Z",
+  "input": "/Users/han/Downloads/cartarmor-hero-lifestyle-v2-1536.webp",
+  "inputSha256": "a32539c266f21d75440f2412d72810541243b8f2873ab0ded215c90adcf333c7",
+  "model": "gemini-3.1-flash-image",
+  "resolution": "4K",
+  "aspectRatio": "16:9",
+  "id": "production-prompt",
+  "prompt": "Treat the attached reference photos as perspective views of ONE part of the source scene. Synthesize ONE continuous 360-degree by 180-degree equirectangular environment from ONE stationary camera at the original source viewpoint. Preserve recognizable subjects, structures, materials, lighting and spatial relationships visible in the photos, while allowing the requested changes and visual style. Show each source subject only once unless the user explicitly requests copies. Infer unseen surroundings consistently around this same camera. The entire canvas must be one coherent spherical scene: no collage, stacked horizontal bands, repeated panorama strips, split views, insets or pasted source photo. Use one level horizon across the vertical center. The top edge looks straight up into sky or ceiling; the bottom edge looks straight down onto continuous ground or floor. The left and right edges meet at the same rearward view with continuous geometry and lighting. Do not invent camera equipment, a foreground cockpit, steering wheel or dashboard, or a duplicate foreground subject. Output a single flat latitude-longitude spherical texture map with a 2:1 ratio and full 360 by 180 degree coverage, matching left and right edges, filling the frame without borders; no fisheye, rendered globe or little planet.",
+  "transport": "Existing generateWithGemini and buildImageModelRequest via configured local proxy; current generic reference-prompt builder without scene-specific additions"
+}

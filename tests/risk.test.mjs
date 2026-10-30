@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { initRisk, consumeLimit, claimTrial, acquireGeneration, sourceKey, readJsonLimited } from '../server/risk.mjs';
+import { initRisk, consumeLimit, claimTrial, acquireGeneration, sourceKey, readJsonLimited, GENERATION_WORKFLOW_TIMEOUT_MS, GENERATION_LEASE_MS } from '../server/risk.mjs';
+import { IMAGE_GENERATION_TIMEOUT_MS } from '../src/utils/imageModelRequest.mjs';
+import { PANORAMA_REVIEW_TIMEOUT_MS } from '../server/panoramaQuality.mjs';
 import { onRequest, __resetEdgeRateLimits } from '../functions/api/[[route]].ts';
 function fixture(t) {
  const sqlite=new DatabaseSync(':memory:');t.after(()=>sqlite.close());
@@ -96,6 +98,23 @@ test('generation lease limits user and site concurrency, release and stale recov
  await first.release();assert.ok((await acquireGeneration(db,user,'source',1)).id);
  sqlite.exec('UPDATE generation_leases SET expires_at = 0');assert.ok((await acquireGeneration(db,user,'source',1)).id);
 });
+test('generation lease covers the full workflow plus cleanup and only recovers after 270 seconds', async t => {
+ const {db,sqlite}=fixture(t);await initRisk(db);
+ let now=Date.now();const started=now;t.mock.method(Date,'now',()=>now);
+ assert.equal(IMAGE_GENERATION_TIMEOUT_MS,150000);
+ assert.equal(PANORAMA_REVIEW_TIMEOUT_MS,90000);
+ assert.equal(GENERATION_WORKFLOW_TIMEOUT_MS,240000);
+ assert.equal(GENERATION_LEASE_MS,270000);
+ const user={id:'owner',plan:'pro'},env={MAX_CONCURRENT_GENERATIONS:1};
+ const first=await acquireGeneration(db,user,'source',1,env);
+ assert.equal(sqlite.prepare('SELECT expires_at FROM generation_leases WHERE id = ?').get(first.id).expires_at,started+270000);
+ now=started+GENERATION_WORKFLOW_TIMEOUT_MS;
+ assert.ok((await acquireGeneration(db,user,'source',1,env)).error);
+ now=started+GENERATION_LEASE_MS-1;
+ assert.ok((await acquireGeneration(db,user,'source',1,env)).error);
+ now++;
+ assert.ok((await acquireGeneration(db,user,'source',1,env)).id);
+});
 test('safety budget counts refunded/failed attempts, kill switch rejects without a lease',async t=>{
  const {db,sqlite}=fixture(t);await initRisk(db);
  const user={id:'owner',plan:'free'}, env={MAX_DAILY_GENERATION_CREDITS:'4'};
@@ -109,13 +128,12 @@ test('chunked JSON body limits apply without Content-Length',async()=>{
  await assert.rejects(readJsonLimited(request,20),RangeError);
  assert.deepEqual(await readJsonLimited(new Request('https://example.com',{method:'POST',body:'{"ok":true}'}),100),{ok:true});
 });
-test('edge rejects new guest after isolate reset, registration receives no second gift',async t=>{
- const {db}=fixture(t);const call=async(path,body)=>{
- const response=await onRequest({request:new Request('https://example.com/api/'+path,{method:'POST',headers:{'CF-Connecting-IP':'192.0.2.42','Content-Type':'application/json'},body:JSON.stringify(body)}),env:{DB:db}});return {status:response.status,data:await response.json()};};
- const guest=await call('user/guest',{});assert.equal(guest.data.user.creditsBalance,4);
- __resetEdgeRateLimits();assert.equal((await call('user/guest',{})).status,429);
- const registered=await call('user/auth',{mode:'register',email:'synthetic@example.test',password:'test-password'});
- assert.equal(registered.status,200);assert.equal(registered.data.user.creditsBalance,0);
+test('edge cannot mint guest credits even after an isolate reset', async t => {
+ const {db,sqlite}=fixture(t);
+ const call=()=>onRequest({request:new Request('https://example.com/api/user/guest',{method:'POST'}),env:{DB:db}});
+ assert.equal((await call()).status,403);
+ __resetEdgeRateLimits(); assert.equal((await call()).status,403);
+ assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM users').get().n,0);
 });
 
 test('risk usage report requires administrator session and exposes bounded aggregate usage',async t=>{

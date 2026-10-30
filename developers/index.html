@@ -97,7 +97,7 @@
               {
                 "@type": "Question",
                 "name": "How does the API authenticate private calls?",
-                "acceptedAnswer": { "@type": "Answer", "text": "Send the session token from POST /api/user/guest or POST /api/user/auth as an Authorization: Bearer header. Guest sessions can generate panoramas with trial credits but cannot publish permanent shares, which requires a signed-in, non-guest account." }
+                "acceptedAnswer": { "@type": "Answer", "text": "Send the session token from POST /api/user/auth as an Authorization: Bearer header. Guests cannot generate images. Free generation requires a registered account with a verified email; starter credits are granted once, subject to network and daily limits." }
               },
               {
                 "@type": "Question",
@@ -155,7 +155,7 @@
               <li><strong>GET /api/health</strong> — service, database and payment gateway status.</li>
               <li><strong>GET /api/billing</strong> — public plan configuration and trial credits.</li>
               <li><strong>GET /api/models</strong> — available image models with API keys stripped.</li>
-              <li><strong>POST /api/user/guest</strong> — create a trial session and bearer token.</li>
+              <li><strong>GET /api/user/auth-config</strong> — registration availability and public Turnstile site key.</li>
               <li><strong>POST /api/generate</strong> — generate a 2:1 equirectangular panorama from a prompt.</li>
               <li><strong>GET /api/shares?public=1</strong> — listed panoramas only, newest first, no auth.</li>
               <li><strong>GET /api/shares/{id}/image</strong> — panorama bytes, usable as a texture or embed source.</li>
@@ -166,8 +166,8 @@
             <h2>Authentication and Limits</h2>
             <p>
               Read-only endpoints need no credentials and send <code>Access-Control-Allow-Origin: *</code>.
-              Private calls use an <code>Authorization: Bearer</code> session token from the guest or auth
-              endpoint. Share reads are rate limited per hour and per day, publishing is limited to a few new
+              Private calls use an <code>Authorization: Bearer</code> session token from the auth
+              endpoint. Guests cannot generate images. Free AI generation requires a registered account with a verified email. Share reads are rate limited per hour and per day, publishing is limited to a few new
               links per day with a 100 MB personal quota, and generation is limited by daily credits.
             </p>
           </section>
@@ -207,7 +207,8 @@
             </ul>
           </section>
 
-        </main>
+        <p><a href="/blog/panorama-to-skybox-threejs-unity/">Skybox tutorial: sample files, Three.js and Unity</a> — Download the orientation PNG and six-face ZIP, then follow the engine setup steps.</p>
+      </main>
     </div>
 
     <script type="module" src="/src/main.tsx"></script>

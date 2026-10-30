@@ -1,0 +1,7 @@
+{
+  "en": ["Panorama unavailable", "The image could not be loaded. The share may have been revoked. Try again or ask the person who shared it for a new link.", "Try again"],
+  "zh": ["全景图不可用", "无法加载图片，分享可能已被撤销。请重试，或联系分享者获取新链接。", "重试"],
+  "es": ["Panorama no disponible", "No se pudo cargar la imagen. Es posible que se haya revocado el enlace. Inténtalo de nuevo o pide un enlace nuevo a quien lo compartió.", "Intentar de nuevo"],
+  "de": ["Panorama nicht verfügbar", "Das Bild konnte nicht geladen werden. Die Freigabe wurde möglicherweise widerrufen. Versuche es erneut oder bitte die teilende Person um einen neuen Link.", "Erneut versuchen"],
+  "ja": ["パノラマを表示できません", "画像を読み込めませんでした。共有が取り消された可能性があります。再試行するか、共有者に新しいリンクを依頼してください。", "再試行"]
+}

@@ -1,0 +1,71 @@
+{
+  "startedAt": "2026-10-27T04:34:28.443Z",
+  "input": "/Users/han/Downloads/cartarmor-hero-lifestyle-v2-1536.webp",
+  "inputSha256": "a32539c266f21d75440f2412d72810541243b8f2873ab0ded215c90adcf333c7",
+  "inputBytes": 275574,
+  "prompt": "Use the attached reference photos as the source scene for a new 360-degree panorama. Preserve recognizable subjects, structures, materials, lighting and spatial relationships visible in the photos. Extend the scene naturally beyond the original field of view to fill the surroundings; infer unseen areas consistently. Apply these requested changes:, full 360 degree equirectangular projection panorama, 360 spherical VR skybox, 2:1 ratio texture map, seamless horizontal wrap, continuous 360 panoramic loop, matching left and right edges, level horizontal horizon at 50% vertical center, flat camera zero pitch, full frame edge to edge, no borders, no circular lens, no black frame, no vignettes",
+  "resolution": "4K",
+  "style": "custom",
+  "sourceLogic": "Current local GeneratorTab reference template + buildPanoramaPrompt + generateWithGemini",
+  "routing": {
+    "mode": "failover",
+    "primaryEndpointId": "gemini-flash-img",
+    "secondaryEndpointId": "gemini-imagen3",
+    "tertiaryEndpointId": "fal-flux-schnell",
+    "roundRobinIndex": 0
+  },
+  "transport": "Local configured CLIProxyAPI, same requested models as public website; website login and credit ledger not exercised",
+  "attempts": [
+    {
+      "model": "gemini-3.1-flash-image",
+      "elapsedSeconds": 32.395,
+      "original": "gemini-original.jpg",
+      "imageResolution": {
+        "requested": "4K",
+        "targetWidth": 3840,
+        "targetHeight": 1920,
+        "width": 5504,
+        "height": 3072,
+        "panoramaWidth": 5504,
+        "panoramaHeight": 2752,
+        "status": "met"
+      }
+    }
+  ],
+  "selected": {
+    "model": "gemini-3.1-flash-image",
+    "elapsedSeconds": 32.395,
+    "original": "gemini-original.jpg",
+    "imageResolution": {
+      "requested": "4K",
+      "targetWidth": 3840,
+      "targetHeight": 1920,
+      "width": 5504,
+      "height": 3072,
+      "panoramaWidth": 5504,
+      "panoramaHeight": 2752,
+      "status": "met"
+    }
+  },
+  "finishedAt": "2026-10-27T04:35:00.839Z",
+  "postprocessing": {
+    "width": 5504,
+    "height": 2752,
+    "originalWidth": 5504,
+    "originalHeight": 3072,
+    "seamBefore": {
+      "difference": 54.690043604651166,
+      "baseline": 3.532764050387597,
+      "needsBlending": true
+    },
+    "seamAfter": {
+      "difference": 0,
+      "baseline": 10.402979651162791,
+      "needsBlending": false
+    },
+    "changedChannels": 10494869,
+    "logic": "enhanceAndUpscalePanorama(preserveNative:true, sharpness:0, contrastBoost:1), healPanoramaSeam(auto:true)",
+    "output": "panorama.png",
+    "noUpscaling": true
+  }
+}

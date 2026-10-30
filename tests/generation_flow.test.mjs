@@ -1,3 +1,4 @@
+import { emailTestEnv, challengeToken, emailServicesFixture } from './email_services_fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
@@ -14,9 +15,20 @@ import * as commercialApi from '../src/utils/commercialApi.ts';
 import * as adminStorage from '../src/utils/adminStorage.ts';
 import { inspectImageResolution } from '../src/utils/imageModelRequest.mjs';
 import { combineAbortSignals } from '../src/utils/abortSignal.ts';
+import { GENERATION_WORKFLOW_TIMEOUT_MS, GENERATION_LEASE_MS } from '../server/risk.mjs';
 
 const adminPassword = 'isolated-generation-password';
 const imageResponse = () => Response.json({ data: [{ b64_json: 'AA==' }] });
+
+function generationClock(t) {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.now() });
+  t.mock.method(AbortSignal, 'timeout', milliseconds => {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(new DOMException('Synthetic timeout', 'TimeoutError')), milliseconds);
+    return controller.signal;
+  });
+  return t.mock.method(console, 'info', () => {});
+}
 
 function pngMetadata(width, height) {
   const bytes = Buffer.alloc(36);
@@ -65,21 +77,31 @@ function sqliteD1(database) {
   };
 }
 
-async function withBackend(testContext, backend, fetchUpstream = imageResponse) {
+async function withBackend(testContext, backend, fetchUpstream = imageResponse, reviewUpstream) {
+  const emailServices = emailServicesFixture(fetchUpstream, reviewUpstream);
   let call;
   let setUser;
+  let leases;
   if (backend === 'D1') {
     const database = new DatabaseSync(':memory:');
     const db = sqliteD1(database);
+    leases = () => database.prepare('SELECT * FROM generation_leases').all();
+    const kv = new Map();
+    const PANORAMA_SHARES = {
+      async put(key, value) { kv.set(key, value); },
+      async get(key) { return kv.get(key) || null; },
+      async delete(key) { kv.delete(key); },
+    };
     testContext.after(() => database.close());
-    testContext.mock.method(globalThis, 'fetch', fetchUpstream);
+    testContext.mock.method(globalThis, 'fetch', emailServices.fetch);
     call = async (route, body, token) => {
+      if (route === 'user/auth' && body) body = { birthDate: '1990-01-01', turnstileToken: challengeToken(), ...body };
       const request = new Request(`https://review.example/api/${route}`, {
         method: body === undefined ? 'GET' : 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
-      const response = await onRequest({ request, env: { DB: db, ADMIN_PASSWORD: adminPassword } });
+      const response = await onRequest({ request, env: { ...emailTestEnv, DB: db, PANORAMA_SHARES, ADMIN_PASSWORD: adminPassword } });
       return { status: response.status, data: await response.json() };
     };
     setUser = (userId, credits, status = 'active') => {
@@ -89,9 +111,10 @@ async function withBackend(testContext, backend, fetchUpstream = imageResponse) 
   } else {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'panorama-generation-'));
     const file = path.join(directory, 'store.json');
+    leases = () => readStore(file).riskLeases || [];
     writeStore({ schemaVersion: 2, adminPasswordHash: hashPassword(adminPassword),
       users: [], subscriptions: [], invoices: [] }, file);
-    const server = createCommercialServer({ storeFile: file, env: {}, fetch: fetchUpstream });
+    const server = createCommercialServer({ storeFile: file, env: { ...emailTestEnv }, fetch: emailServices.fetch });
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     testContext.after(async () => {
       await new Promise(resolve => server.close(resolve));
@@ -99,6 +122,7 @@ async function withBackend(testContext, backend, fetchUpstream = imageResponse) 
     });
     const base = `http://127.0.0.1:${server.address().port}/api/`;
     call = async (route, body, token) => {
+      if (route === 'user/auth' && body) body = { birthDate: '1990-01-01', turnstileToken: challengeToken(), ...body };
       const response = await fetch(base + route, {
         method: body === undefined ? 'GET' : 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -115,6 +139,7 @@ async function withBackend(testContext, backend, fetchUpstream = imageResponse) 
   const admin = await call('admin/login', { username: 'admin', password: adminPassword });
   assert.equal(admin.status, 200);
   const adminToken = admin.data.token;
+  assert.equal((await call('admin/billing', { config: { freeMonthlyCredits: 4 } }, adminToken)).status, 200);
   const endpoints = [
     { id: 'image', baseUrl: 'https://model.example/v1', model: 'image-model',
       apiKey: 'synthetic-test-key', isEnabled: true, isDefault: true },
@@ -130,13 +155,15 @@ async function withBackend(testContext, backend, fetchUpstream = imageResponse) 
       apiKey: 'synthetic-google-key', isEnabled: true },
   ];
   assert.equal((await call('admin/models', { endpoints }, adminToken)).status, 200);
-  const guest = await call('user/guest', {});
+  const guest = await call('user/auth', { mode: 'register', email: 'generation@example.test', password: 'synthetic-generation-password' });
   assert.equal(guest.status, 200);
+  assert.equal((await call('user/verify-email', { token: emailServices.latestToken('generation@example.test') })).status, 200);
   const userId = guest.data.user.id;
   const token = guest.data.token;
   return {
     call,
     token,
+    leases,
     setUser: (credits, status) => setUser(userId, credits, status),
     billing: config => call('admin/billing', { config }, adminToken),
     adjustCredits: delta => call('admin/users/credits', { userId, delta }, adminToken),
@@ -218,6 +245,43 @@ for (const backend of ['Node', 'D1']) {
       assert.equal(result.data.imageUrl, 'data:image/png;base64,AA==');
     });
   }
+
+  test(`${backend}: GPT uploads reference bytes through image edits and charges once for a successful result`, async testContext => {
+    let calls = 0;
+    const fixture = await withBackend(testContext, backend, async (url, options) => {
+      calls++;
+      assert.equal(new URL(url).pathname, '/v1/images/edits');
+      const request = new Request(url, options);
+      assert.match(request.headers.get('content-type'), /^multipart\/form-data; boundary=/);
+      const form = await request.formData();
+      assert.equal(form.get('model'), 'gpt-image-2.5');
+      assert.equal(form.get('size'), '1152x576');
+      const files = form.getAll('image[]');
+      assert.equal(files.length, 2);
+      assert.deepEqual(Buffer.from(await files[0].arrayBuffer()), Buffer.from([0]));
+      assert.deepEqual(Buffer.from(await files[1].arrayBuffer()), Buffer.from([1, 2]));
+      return Response.json({ data: [{ b64_json: pngMetadata(1152, 576) }] });
+    });
+    const generated = await fixture.generate({ endpointId: 'gpt-modern', resolution: '1K', referenceImages: [
+      'data:image/png;base64,AA==', 'data:image/jpeg;base64,AQI=',
+    ] });
+    assert.equal(generated.status, 200);
+    assert.equal(generated.data.creditsDeducted, 1);
+    assert.equal(generated.data.remainingCredits, 3);
+    assert.equal(calls, 1);
+    assert.equal((await fixture.profile()).creditsBalance, 3);
+  });
+
+  test(`${backend}: invalid GPT reference files fail before model calls or credit reservation`, async testContext => {
+    let calls = 0;
+    const fixture = await withBackend(testContext, backend, () => { calls++; return imageResponse(); });
+    for (const image of ['data:image/svg+xml;base64,PHN2Zz4=', 'data:image/png;base64,%%%%']) {
+      const rejected = await fixture.generate({ endpointId: 'gpt-modern', resolution: '1K', referenceImages: [image] });
+      assert.equal(rejected.status, 400);
+    }
+    assert.equal(calls, 0);
+    assert.equal((await fixture.profile()).creditsBalance, 4);
+  });
 
   test(`${backend}: native Gemini forwards imageConfig to generateContent without duplicating the version path`, async testContext => {
     const fixture = await withBackend(testContext, backend, (url, options) => {
@@ -390,10 +454,11 @@ for (const backend of ['Node', 'D1']) {
   });
 }
 
-test('D1: request deadline covers response body parsing and releases credits', async testContext => {
+for (const backend of ['Node', 'D1']) {
+test(`${backend}: pure generation deadline covers response body parsing and releases credits`, async testContext => {
   let startParsing;
   const parsingStarted = new Promise(resolve => { startParsing = resolve; });
-  const fixture = await withBackend(testContext, 'D1', (url, options) => {
+  const fixture = await withBackend(testContext, backend, (url, options) => {
     const response = Response.json({ data: [] });
     response.json = () => new Promise((resolve, reject) => {
       startParsing();
@@ -401,7 +466,7 @@ test('D1: request deadline covers response body parsing and releases credits', a
     });
     return response;
   });
-  testContext.mock.timers.enable({ apis: ['setTimeout'] });
+  generationClock(testContext);
   const request = fixture.generate({ resolution: '4K' });
   await parsingStarted;
   assert.equal((await fixture.profile()).creditsBalance, 0);
@@ -410,7 +475,9 @@ test('D1: request deadline covers response body parsing and releases credits', a
   testContext.mock.timers.tick(60000);
   assert.equal((await request).status, 504);
   assert.equal((await fixture.profile()).creditsBalance, 4);
+  assert.deepEqual(fixture.leases(), []);
 });
+}
 
 function loadTsModule(relativePath, overrides = {}) {
   const source = fs.readFileSync(new URL(relativePath, import.meta.url), 'utf8');
@@ -421,7 +488,12 @@ function loadTsModule(relativePath, overrides = {}) {
   const module = { exports: {} };
   new Function('require', 'exports', 'module', output)(specifier => (
     Object.hasOwn(overrides, specifier) ? overrides[specifier]
-      : specifier.endsWith('/abortSignal') ? { combineAbortSignals } : nativeRequire(specifier)
+      : specifier.endsWith('/i18n') ? { useTranslation: () => text => text, useLanguage: () => ['en', () => {}], withLanguageHref: href => href }
+      : /\/(?:shell|generator|tool|viewer|landing|shared|commerce|specialist|advanced)Translations$/.test(specifier) ? loadTsModule(new URL(specifier + '.ts', new URL(relativePath, import.meta.url)))
+      : specifier.endsWith('/abortSignal') ? { combineAbortSignals }
+      : specifier.endsWith('/workThumbnail') ? loadTsModule(new URL(specifier + '.ts', new URL(relativePath, import.meta.url)))
+      : specifier.endsWith('/RenewalTerms') ? loadTsModule(new URL(specifier + '.tsx', new URL(relativePath, import.meta.url)))
+      : specifier === './VerificationChallenge' ? { VerificationChallenge: 'verification-challenge' } : nativeRequire(specifier)
   ), module.exports, module);
   return module.exports;
 }
@@ -492,6 +564,7 @@ function sourceCallback(relativePath, name) {
 }
 
 function callbackWithContext(text, context) {
+  context = { t: text => text, lang: 'en', ...context };
   const output = ts.transpileModule('const handler = ' + text + ';', {
     compilerOptions: { target: ts.ScriptTarget.ES2023 },
   }).outputText;
@@ -531,7 +604,7 @@ test('viewport snapshots bake tone filters and support canvases without native f
 });
 
 const accountFixture = (id = 'usr_account') => ({ id, name: 'Test Account', email: 'test@example.com', plan: 'free',
-  creditsBalance: 4, creditsTotal: 4, apiCallsCount: 0, status: 'active' });
+  creditsBalance: 4, creditsTotal: 4, apiCallsCount: 0, status: 'active', emailVerified: true });
 const flushPromises = () => new Promise(resolve => setImmediate(resolve));
 
 for (const backend of ['Node', 'D1']) {
@@ -576,7 +649,9 @@ test('guest plan selection requests sign-in, then continues with exactly the sel
     setCheckoutSelection: value => { state.selection = value; },
     setIsCheckoutModalOpen: value => { state.checkout = value; },
     setIsAuthModalOpen: value => { state.auth = value; },
+    setVerificationToken: value => { state.verificationToken = value; },
     setAuthMode: value => { state.authMode = value; },
+    setAuthModalNotice: value => { state.notice = value; },
     updateCurrentUser: value => { state.user = value; },
   };
   callbackWithContext(sourceCallback('../src/App.tsx', 'handleChoosePlan'), context)('enterprise', 'yearly');
@@ -591,20 +666,21 @@ test('guest plan selection requests sign-in, then continues with exactly the sel
   assert.equal(state.pending, null);
   callbackWithContext(sourceCallback('../src/App.tsx', 'handleCloseAuth'), context)();
   assert.equal(state.auth, false);
+  assert.equal(state.verificationToken, '');
   assert.equal(state.pending, null);
 });
 
 test('navigation from pricing to Studio clears the pricing hash instead of reopening pricing on refresh', () => {
   const paths = [];
   const navigate = callbackWithContext(sourceCallback('../src/App.tsx', 'navigateTo'), {
-    setActiveTab() {}, setIsToolsDropdownOpen() {},
-    window: { location: { pathname: '/', search: '', hash: '#pricing' }, scrollY: 0, history: { pushState: (state, title, path) => paths.push(path) } },
+    setActiveTab() {}, setIsToolsDropdownOpen() {}, setGeneratorVisited() {}, setIsWorksOpen() {},
+    window: { location: { origin: 'https://360panoramaviewer.com', pathname: '/', search: '', hash: '#pricing' }, scrollY: 0, history: { pushState: (state, title, path) => paths.push(path) } },
   });
   navigate('generator');
   assert.deepEqual(paths, ['/']);
 });
 
-test('public source copy stays English while allowing language names, Chinese comments and the private admin console', () => {
+test('public source copy keeps translations in dedicated dictionaries', () => {
   const directory = new URL('../src/', import.meta.url);
   const files = [];
   const walk = root => {
@@ -616,13 +692,14 @@ test('public source copy stays English while allowing language names, Chinese co
   };
   walk(directory);
   for (const file of files) {
+    if (/\/src\/utils\/(?:shell|generator|tool|viewer|landing|shared|commerce|specialist|advanced)Translations\.ts$/.test(file.pathname)) continue;
     const source = ts.createSourceFile(file.pathname, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, file.pathname.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
     const visit = node => {
       if (ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node) || ts.isJsxText(node)) {
         const declaration = node.parent?.parent?.parent?.parent;
-        const isLanguageName = file.pathname.endsWith('/src/App.tsx') && ts.isStringLiteral(node)
+        const isLanguageName = /\/src\/(?:App\.tsx|utils\/i18n\.ts)$/.test(file.pathname) && ts.isStringLiteral(node)
           && ts.isPropertyAssignment(node.parent) && node.parent.name.getText(source) === 'name'
-          && declaration && ts.isVariableDeclaration(declaration) && declaration.name.getText(source) === 'GUIDE_LANGUAGES'
+          && declaration && ts.isVariableDeclaration(declaration) && ['GUIDE_LANGUAGES', 'LANGUAGES'].includes(declaration.name.getText(source))
           && ['简体中文', '日本語'].includes(node.text);
         assert.ok(isLanguageName || !/\p{Script=Han}/u.test(node.text), `${file.pathname}: ${node.text}`);
       }
@@ -634,11 +711,15 @@ test('public source copy stays English while allowing language names, Chinese co
 
 function appHarness(testContext, overrides = {}) {
   setGlobal(testContext, 'localStorage', memoryStorage());
-  setGlobal(testContext, 'window', { addEventListener: () => {}, removeEventListener: () => {} });
+  setGlobal(testContext, 'window', new EventTarget());
   const state = {};
   const context = {
     ...adminStorage,
     setCurrentUser: user => { state.user = user; },
+    setIsWorksOpen() {},
+    panoramaOwner: { current: null }, samplePanoramaUrl: 'public-sample',
+    setCurrentPanoramaUrl: value => { state.panorama = value; },
+    setViewerSession: updater => { state.viewerSession = updater(state.viewerSession ?? 0); },
     setBillingConfig: config => { state.billing = config; },
     fetchServerUser: commercialApi.fetchServerUser,
     initServerGuestUser: async () => ({ success: true, user: accountFixture('usr_guest_test'), token: 'guest-token' }),
@@ -671,16 +752,17 @@ for (const failure of ['network', 403, 500, 503]) {
 }
 
 for (const status of [401, 404]) {
-  test(`profile ${status} clears invalid identity and initializes a controlled guest session`, async testContext => {
+  test(`profile ${status} clears invalid identity without creating a guest session`, async testContext => {
     const harness = appHarness(testContext);
     harness.context.updateCurrentUser(accountFixture());
     localStorage.setItem('panorama_server_user_token', 'invalid-token');
     testContext.mock.method(globalThis, 'fetch', async () => Response.json({ error: 'Invalid account' }, { status }));
     const cleanup = harness.effect();
     await flushPromises();
-    assert.equal(localStorage.getItem('panorama_server_user_token'), 'guest-token');
-    assert.equal(harness.state.user.id, 'usr_guest_test');
-    assert.equal(adminStorage.getCurrentUser().id, 'usr_guest_test');
+    assert.equal(localStorage.getItem('panorama_server_user_token'), null);
+    assert.equal(harness.state.user.id, 'usr_guest');
+    assert.equal(harness.state.user.creditsBalance, 0);
+    assert.equal(adminStorage.getCurrentUser().id, 'usr_guest');
     cleanup();
   });
 }
@@ -733,18 +815,21 @@ test('public billing initializes workspace prices and fills missing server defau
   cleanup();
 });
 
-test('server guest debit updates the active App identity rather than an old guest snapshot', async testContext => {
+test('verified account debit updates the active App identity rather than an old cached snapshot', async testContext => {
   const browser = new EventTarget();
   const harness = appHarness(testContext, {
-    fetchServerUser: async () => ({ success: true, user: { ...accountFixture('usr_guest_test'), creditsBalance: 2 } }),
+    fetchServerUser: async () => ({ success: true, user: { ...accountFixture('usr_verified_test'), creditsBalance: 2 } }),
   });
   setGlobal(testContext, 'window', browser);
+  harness.context.updateCurrentUser(accountFixture('usr_verified_test'));
+  localStorage.setItem('panorama_server_user_token', 'verified-token');
   const cleanup = harness.effect();
   await flushPromises();
   browser.dispatchEvent(new Event('panorama-user-refresh'));
   await flushPromises();
-  assert.equal(harness.state.user.id, 'usr_guest_test');
+  assert.equal(harness.state.user.id, 'usr_verified_test');
   assert.equal(harness.state.user.creditsBalance, 2);
+  assert.equal(harness.state.user.emailVerified, true);
   assert.equal(adminStorage.getCurrentUser().creditsBalance, 2);
   cleanup();
 });
@@ -791,15 +876,6 @@ test('tab navigation resynchronizes stored user, billing and models while cancel
   assert.equal(replies.length, 2);
 });
 
-test('guest initializer returns credentials without mutating the callers active session', async testContext => {
-  setGlobal(testContext, 'localStorage', memoryStorage());
-  localStorage.setItem('panorama_server_user_token', 'active-token');
-  testContext.mock.method(globalThis, 'fetch', async () => Response.json({ success: true, user: accountFixture('usr_guest_test'), token: 'guest-token' }));
-  const result = await commercialApi.initServerGuestUser();
-  assert.equal(result.token, 'guest-token');
-  assert.equal(localStorage.getItem('panorama_server_user_token'), 'active-token');
-});
-
 test('generation uses its captured session even if another account logs in', async testContext => {
   setGlobal(testContext, 'localStorage', { getItem: () => 'other-account-token' });
   setGlobal(testContext, 'window', { location: { hostname: 'review.example' } });
@@ -825,14 +901,14 @@ test('cloud generation defers balance checks to server rather than rejecting on 
   const check = callbackWithContext(`()=>{${source.slice(start, end)}return true;}`, {
     currentUser: { ...accountFixture(), creditsBalance: 2 }, creditsCost: 4, resolution: '4K',
     generationRef: { current: { mounted: true, request: 0 } }, getCurrentUser: () => accountFixture(),
-    setApiError: message => { error = message; },
+    setApiError: message => { error = message; }, window: { dispatchEvent() {} },
   });
   localStorage.setItem('panorama_server_user_token', 'valid-token');
   assert.equal(check(), true);
   assert.equal(error, undefined);
   localStorage.removeItem('panorama_server_user_token');
   assert.equal(check(), undefined);
-  assert.ok(error.includes('Insufficient credits'));
+  assert.ok(error.includes('Register and verify'));
 });
 
 test('generation finishing after an account switch does not overwrite the new account', async () => {
@@ -920,6 +996,11 @@ test('overlapping admin saves are rejected rather than overwriting newer state',
 });
 
 function componentHarness(relativePath, exportName, overrides = {}) {
+  if (relativePath.endsWith('/SharePanorama.tsx')) overrides = { './EmbedModal': { EmbedModal: () => null }, ...overrides };
+  if (exportName === 'UserAuthModal') overrides = { ...overrides, '../../utils/commercialApi': {
+    ...commercialApi, fetchAuthConfiguration: async () => ({ registrationAvailable: true, turnstileSiteKey: 'synthetic-site' }),
+    ...overrides['../../utils/commercialApi'],
+  } };
   const hooks = [];
   let cursor = 0;
   let pendingEffects = [];
@@ -938,6 +1019,7 @@ function componentHarness(relativePath, exportName, overrides = {}) {
       return hooks[index].value;
     },
     useMemo(callback) { return callback(); },
+    useCallback(callback) { return callback; },
     useEffect(callback, dependencies) {
       const index = cursor++;
       const previous = hooks[index];
@@ -1002,12 +1084,88 @@ function studioHarness(testContext) {
     '../utils/seamHealer': {}, '../utils/panoramaProcessor': {}, '../utils/adminStorage': {},
   });
   const props = {
+    isActive: true, isWorksOpen: false, onWorksOpenChange() {}, getPanoramaOwner: () => null,
     currentUser: accountFixture('usr_guest_studio'),
     billingConfig: { creditCostPer1K: 1, creditCostPer2K: 2, creditCostPer4K: 4 },
     currentPanoramaUrl: 'initial-demo', onUserChange() {}, onPanoramaChange() {}, onNavigateTab() {},
   };
   return { ...harness, props, focused, scrolled };
 }
+
+test('generator paste ignores open dialogs and editable fields but accepts viewer image paste', t => {
+  const fixture = studioHarness(t);
+  let dialogOpen = false;
+  setGlobal(t, 'document', { querySelector: () => dialogOpen ? {} : null });
+  setGlobal(t, 'Element', class { constructor(editable = false) { this.editable = editable; } closest() { return this.editable ? this : null; } });
+  setGlobal(t, 'FileReader', class { readAsDataURL() { this.onload({ target: { result: 'data:image/png;base64,new' } }); } });
+  const changes = [];
+  fixture.props.onPanoramaChange = url => changes.push(url);
+  let tree = fixture.render(fixture.props);
+  const paste = target => {
+    const event = new Event('paste');
+    Object.defineProperty(event, 'target', { value: target });
+    Object.defineProperty(event, 'clipboardData', { value: { items: [{ type: 'image/png', getAsFile: () => ({ type: 'image/png' }) }] } });
+    window.dispatchEvent(event);
+  };
+  paste(new Element(true));
+  dialogOpen = true; paste(new Element()); dialogOpen = false;
+  buttonIn(tree, 'Export Video').props.onClick();
+  tree = fixture.render(fixture.props); paste(new Element());
+  const video = elementsIn(tree).find(element => typeof element.type === 'function' && element.props.isOpen && element.props.onClose);
+  video.props.onClose();
+  fixture.render(fixture.props);
+  assert.deepEqual(changes, []);
+  paste(new Element());
+  assert.deepEqual(changes, ['data:image/png;base64,new']);
+});
+
+test('image mode starts without the text demo scene and keeps user descriptions when switching', testContext => {
+  const fixture = studioHarness(testContext);
+  const input = tree => elementsIn(tree).find(element => element.type === 'textarea' && element.props.id === 'prompt-input');
+  let tree = fixture.render(fixture.props);
+  assert.match(input(tree).props.value, /cyberpunk/);
+  buttonIn(tree, 'Image to Pano').props.onClick();
+  fixture.render(fixture.props);
+  tree = fixture.render(fixture.props);
+  assert.equal(input(tree).props.value, '');
+  assert.equal(elementsIn(tree).find(element => element.type === 'select' && element.props.id === 'environment-style').props.value, 'custom');
+  input(tree).props.onChange({ target: { value: 'Keep the original room and add warm lighting' } });
+  tree = fixture.render(fixture.props);
+  buttonIn(tree, 'Text Prompt').props.onClick();
+  tree = fixture.render(fixture.props);
+  buttonIn(tree, 'Image to Pano').props.onClick();
+  tree = fixture.render(fixture.props);
+  assert.equal(input(tree).props.value, 'Keep the original room and add warm lighting');
+});
+
+test('image mode launched externally starts with an empty prompt and a custom style', testContext => {
+  const fixture = studioHarness(testContext);
+  const tree = fixture.render({ ...fixture.props, externalInputMode: 'image' });
+  assert.equal(elementsIn(tree).find(element => element.type === 'textarea').props.value, '');
+  assert.equal(elementsIn(tree).find(element => element.type === 'select' && element.props.id === 'environment-style').props.value, 'custom');
+});
+
+test('switching to image mode preserves a manually selected environment style', testContext => {
+  const fixture = studioHarness(testContext);
+  let tree = fixture.render(fixture.props);
+  const style = tree => elementsIn(tree).find(element => element.type === 'select' && element.props.id === 'environment-style');
+  style(tree).props.onChange({ target: { value: 'interior' } });
+  tree = fixture.render(fixture.props);
+  buttonIn(tree, 'Image to Pano').props.onClick();
+  fixture.render(fixture.props);
+  tree = fixture.render(fixture.props);
+  assert.equal(style(tree).props.value, 'interior');
+  assert.equal(elementsIn(tree).find(element => element.type === 'textarea').props.value, '');
+});
+
+test('homepage keeps the interactive coastal panorama over its static cover', testContext => {
+  const fixture = studioHarness(testContext);
+  const tree = fixture.render({ ...fixture.props, isViewerHomepage: true });
+  const heroPanorama = elementsIn(tree).find(element => element.type === 'hero-panorama');
+  assert.ok(heroPanorama, 'homepage panorama layer missing');
+  assert.equal(heroPanorama.props.textureUrl, '/coastal-cover.png');
+  assert.equal(elementsIn(tree).some(element => element.type === 'sphere-preview'), false);
+});
 
 test('studio hero renders the interactive panorama over a static cover fallback and defers the full viewer until requested', testContext => {
   const fixture = studioHarness(testContext);
@@ -1144,7 +1302,8 @@ test('auth dialog stays English, uses configured trial credits and ignores a lat
   assert.ok(!elementText(tree).includes('9 starter credits'), 'Sign-in must not imply it grants new trial credits');
   buttonIn(tree, 'Create account').props.onClick();
   tree = render();
-  assert.ok(elementText(tree).includes('9 starter credits'));
+  assert.ok(elementText(tree).includes('Date of birth'));
+  assert.ok(!elementsIn(tree).some(element => element.props.id === 'auth-email'));
   buttonIn(tree, 'Sign in').props.onClick();
   tree = render();
   assert.ok(!/\p{Script=Han}/u.test(elementText(tree)));
@@ -1161,17 +1320,26 @@ test('auth dialog stays English, uses configured trial credits and ignores a lat
 });
 
 function authDialogHarness(testContext, props = {}, api = {}) {
+  setGlobal(testContext, 'requestAnimationFrame', callback => callback());
   setGlobal(testContext, 'localStorage', memoryStorage());
   setGlobal(testContext, 'document', { activeElement: { focus() {} } });
   setGlobal(testContext, 'window', new EventTarget());
   const harness = componentHarness('../src/components/commercial/UserAuthModal.tsx', 'UserAuthModal', {
-    '../../utils/commercialApi': { ...commercialApi, ...api },
+    '../../utils/commercialApi': { ...commercialApi, fetchAuthConfiguration: async () => ({ registrationAvailable: true, turnstileSiteKey: 'synthetic-site' }), ...api },
   });
   const defaults = { isOpen: true, initialMode: 'register', currentUser: accountFixture('usr_guest_preview'), onClose() {}, onAuthSuccess() {}, ...props };
   return {
     render: overrides => harness.render({ ...defaults, ...overrides }, tree => { if (tree) tree.props.ref.current = { showModal() {}, close() {} }; }),
     unmount: () => harness.unmount(),
   };
+}
+
+function completeAgeScreen(fixture) {
+  let tree = fixture.render();
+  elementsIn(tree).find(element => element.props.id === 'auth-birth-date').props.onChange({ target: { value: '1990-01-01' } });
+  tree = fixture.render();
+  elementsIn(tree).find(element => element.type === 'form').props.onSubmit({ preventDefault() {} });
+  return fixture.render();
 }
 
 test('registration allows blank optional name, trims email and reports successful registration intent', async testContext => {
@@ -1187,6 +1355,10 @@ test('registration allows blank optional name, trims email and reports successfu
     },
   });
   let tree = fixture.render();
+  await flushPromises();
+  tree = completeAgeScreen(fixture);
+  elementsIn(tree).find(element => element.type === 'verification-challenge').props.onToken('synthetic-proof');
+  tree = fixture.render();
   const field = id => elementsIn(tree).find(element => element.props.id === id);
   assert.equal(field('auth-name').props.required, undefined);
   field('auth-email').props.onChange({ target: { value: ' new@example.test ' } });
@@ -1195,14 +1367,14 @@ test('registration allows blank optional name, trims email and reports successfu
   await elementsIn(tree).find(element => element.type === 'form').props.onSubmit({ preventDefault() {} });
   assert.equal(result[1], 'register');
   assert.equal(result[0].id, accountFixture().id);
-  assert.equal(closes, 1);
-  assert.equal(elementsIn(fixture.render()).find(element => element.props.id === 'auth-password').props.value, '');
+  assert.equal(closes, 0);
+  assert.equal(elementsIn(fixture.render()).find(element => element.props.id === 'auth-birth-date').props.value, '');
   fixture.unmount();
 });
 
 test('show-password control preserves value and mode switching conceals and clears passwords', testContext => {
   const fixture = authDialogHarness(testContext);
-  let tree = fixture.render();
+  let tree = completeAgeScreen(fixture);
   elementsIn(tree).find(element => element.props.id === 'auth-password').props.onChange({ target: { value: 'not-a-real-password' } });
   buttonIn(tree, 'Show').props.onClick();
   tree = fixture.render();
@@ -1234,7 +1406,7 @@ for (const result of ['success', 'error']) {
     });
     fixture.render();
     await flushPromises();
-    const tree = fixture.render();
+    const tree = completeAgeScreen(fixture);
     const text = elementText(tree);
     assert.ok(text.includes('Studio · Annual billing'));
     assert.ok(text.includes('No payment is taken'));
@@ -1250,7 +1422,23 @@ test('account creation feedback uses actual balance and guest logout does not sh
   const context = { pendingCheckout: null, updateCurrentUser() {}, setAuthNotice: value => notices.push(value) };
   const action = callbackWithContext(sourceCallback('../src/App.tsx', 'handleAuthSuccess'), context);
   action({ ...accountFixture(), creditsBalance: 7 }, 'register');
-  assert.deepEqual(notices, ['Account created. You are signed in with 7 credits available.']);
+  assert.deepEqual(notices, ['register']);
+  const source = ts.createSourceFile('App.tsx', fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let notice;
+  const visit = node => {
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
+      && node.left.getText(source) === 'authNotice' && ts.isJsxElement(node.right)) notice = node.right;
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  assert.ok(notice, 'exercise the actual notice rendered by App');
+  const code = ts.transpileModule(`const notice = ${notice.getText(source)};`, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2023 },
+  }).outputText;
+  const renderNotice = new Function('authNotice', 'currentUser', 't', 'require', 'exports', code + '\nreturn notice;');
+  const tree = renderNotice('register', { ...accountFixture(), creditsBalance: 7 }, text => text,
+    createRequire(import.meta.url), {});
+  assert.ok(elementText(tree).includes('Account created. Verify your email to receive starter credits.'));
   action(accountFixture('usr_guest_preview'));
   assert.equal(notices.length, 1);
 });
@@ -1413,6 +1601,76 @@ test('embed preview and iframe share params; native dialog closes and restores f
   assert.equal(restored, 1);
 });
 
+test('local and invalid panorama URLs cannot preview or copy an example embed', async t => {
+  setGlobal(t, 'window', { location: { origin: 'https://studio.example' } });
+  setGlobal(t, 'document', { activeElement: { focus() {} } });
+  let copies = 0;
+  setGlobal(t, 'navigator', { clipboard: { writeText: async () => { copies++; } } });
+  const harness = componentHarness('../src/components/commercial/EmbedModal.tsx', 'EmbedModal');
+  const attach = tree => { tree.props.ref.current = { showModal() {}, close() {} }; };
+  for (const url of ['blob:https://studio.example/123', 'data:image/png;base64,AA==', '', 'https://']) {
+    const tree = harness.render({ isOpen: true, currentPanoramaUrl: url, onClose() {} }, attach);
+    assert.match(elementText(tree), /sharing dialog, create a share link/);
+    assert.match(elementText(tree), /does not automatically connect/);
+    assert.equal(elementsIn(tree).some(e => e.type === 'a' && elementText(e).includes('Test Preview')), false);
+    assert.equal(elementsIn(tree).some(e => e.type === 'code'), false);
+    const copy = buttonIn(tree, 'Copy Embed Code');
+    assert.equal(copy.props.disabled, true);
+    await copy.props.onClick();
+  }
+  assert.equal(copies, 0);
+  harness.unmount();
+});
+
+test('created shares open embed options with the public image endpoint', async t => {
+  const id = 'a'.repeat(32);
+  setGlobal(t, 'window', { location: { origin: 'https://studio.example', pathname: '/' } });
+  setGlobal(t, 'document', { activeElement: { focus() {} } });
+  setGlobal(t, 'localStorage', { getItem: () => 'account-token' });
+  setGlobal(t, 'navigator', { clipboard: { writeText: async () => {} } });
+  t.mock.method(globalThis, 'fetch', async (url, init = {}) => {
+    if (url === 'blob:local') return new Response(new Blob(['image'], { type: 'image/png' }));
+    if (init.method === 'POST') return Response.json({ share: { id, title: 'My panorama', width: 2, height: 1, allowDownload: true, createdAt: Date.now() } });
+    return Response.json({ shares: [] });
+  });
+  const EmbedModal = () => null;
+  const harness = componentHarness('../src/components/commercial/SharePanorama.tsx', 'SharePanoramaModal', {
+    '../SphereViewer': { SphereViewer() {} }, './EmbedModal': { EmbedModal },
+    '../../utils/imageOptimizer': { preparePanoramaShare: async blob => ({ blob, width: 2, height: 1, compressed: false }) },
+  });
+  const attach = tree => { tree.props.ref.current = { showModal() {}, close() {} }; };
+  const props = { isOpen: true, accountId: 'account', imageUrl: 'blob:local', onClose() {} };
+  harness.render(props, attach);
+  await flushPromises();
+  let tree = harness.render(props, attach);
+  await buttonIn(tree, 'Create share link').props.onClick();
+  tree = harness.render(props, attach);
+  buttonIn(tree, 'Embed code').props.onClick();
+  tree = harness.render(props, attach);
+  const modal = elementsIn(tree).find(e => e.type === EmbedModal);
+  assert.equal(modal.props.isOpen, true);
+  assert.equal(modal.props.currentPanoramaUrl, `https://studio.example/api/shares/${id}/image`);
+  harness.unmount();
+});
+
+test('embed code preserves selected aspect ratios and full-width height', t => {
+  setGlobal(t, 'window', { location: { origin: 'https://studio.example' } });
+  setGlobal(t, 'document', { activeElement: { focus() {} } });
+  const harness = componentHarness('../src/components/commercial/EmbedModal.tsx', 'EmbedModal');
+  const props = { isOpen: true, currentPanoramaUrl: 'https://images.example/pano.jpg', onClose() {} };
+  const attach = tree => { tree.props.ref.current = { showModal() {}, close() {} }; };
+  const code = tree => elementsIn(tree).find(e => e.type === 'code').props.children;
+  let tree = harness.render(props, attach);
+  assert.match(code(tree), /width:100%;height:auto;aspect-ratio:16\/9/);
+  buttonIn(tree, '4:3').props.onClick();
+  tree = harness.render(props, attach);
+  assert.match(code(tree), /width:100%;height:auto;aspect-ratio:4\/3/);
+  buttonIn(tree, '100%').props.onClick();
+  tree = harness.render(props, attach);
+  assert.match(code(tree), /width:100%;height:450px/);
+  harness.unmount();
+});
+
 test('embed viewer passes autoplay to SphereViewer without changing the texture', () => {
   const SphereViewer = () => null;
   const harness = componentHarness('../src/components/commercial/EmbedViewer.tsx', 'EmbedViewer', {
@@ -1422,6 +1680,105 @@ test('embed viewer passes autoplay to SphereViewer without changing the texture'
   const viewer = elementsIn(tree).find(element => element.type === SphereViewer);
   assert.equal(viewer.props.textureUrl, 'sunset');
   assert.equal(viewer.props.initialAutoRotate, true);
+});
+
+test('embed copy reports failures and only confirms the current code after clipboard success', async t => {
+  setGlobal(t, 'window', { location: { origin: 'https://studio.example' } });
+  setGlobal(t, 'document', { activeElement: { focus() {} } });
+  let write = async () => { throw new Error('denied'); };
+  setGlobal(t, 'navigator', { clipboard: { writeText: text => write(text) } });
+  const harness = componentHarness('../src/components/commercial/EmbedModal.tsx', 'EmbedModal');
+  const props = { isOpen: true, currentPanoramaUrl: 'https://images.example/a.png', onClose() {} };
+  const attach = tree => { if (tree) tree.props.ref.current = { showModal() {}, close() {} }; };
+  let tree = harness.render(props, attach);
+  await buttonIn(tree, 'Copy Embed Code').props.onClick();
+  tree = harness.render(props, attach);
+  assert.match(elementText(tree), /Copy failed/);
+  assert.doesNotMatch(elementText(tree), /Copied to Clipboard/);
+  let copied = '';
+  write = async text => { copied = text; };
+  await buttonIn(tree, 'Copy Embed Code').props.onClick();
+  tree = harness.render(props, attach);
+  assert.match(elementText(tree), /Copied to Clipboard/);
+  assert.match(copied, /images.example/);
+  buttonIn(tree, '4:3').props.onClick();
+  harness.render(props, attach);
+  tree = harness.render(props, attach);
+  assert.doesNotMatch(elementText(tree), /Copied to Clipboard/);
+  setGlobal(t, 'navigator', {});
+  await buttonIn(tree, 'Copy Embed Code').props.onClick();
+  tree = harness.render(props, attach);
+  assert.match(elementText(tree), /Copy failed/);
+  harness.unmount();
+});
+
+test('viewer opens sharing for the current local image and account', t => {
+  setGlobal(t, 'window', new EventTarget());
+  setGlobal(t, 'Image', class {});
+  const SharePanoramaModal = () => null;
+  const harness = componentHarness('../src/components/ViewerTab.tsx', 'ViewerTab', {
+    './commercial/SharePanorama': { SharePanoramaModal },
+    './commercial/EmbedModal': { EmbedModal: () => null },
+    './SphereViewer': { SphereViewer: () => null },
+    '../utils/adminStorage': { getCurrentUser: () => ({ id: 'usr_fixture' }) },
+    '../utils/proceduralPanoramas': { PRESET_PANORAMAS: [] },
+    '../utils/imageOptimizer': {}, '../utils/seamHealer': {},
+    '../utils/imageEnhancer': {}, '../utils/poleRepair': {},
+  });
+  const props = { currentPanoramaUrl: 'data:image/png;base64,AA==', onPanoramaChange() {}, onNavigateTab() {} };
+  let tree = harness.render(props);
+  buttonIn(tree, 'Share your panorama').props.onClick();
+  tree = harness.render(props);
+  const modal = elementsIn(tree).find(element => element.type === SharePanoramaModal);
+  assert.equal(modal.props.isOpen, true);
+  assert.equal(modal.props.imageUrl, props.currentPanoramaUrl);
+  assert.equal(modal.props.accountId, 'usr_fixture');
+  assert.match(elementText(tree), /publishing a share uploads a sharing copy/);
+  harness.unmount();
+});
+
+test('viewer paste ignores open dialogs and editable fields while preserving normal image paste', t => {
+  const win = new EventTarget();
+  setGlobal(t, 'window', win);
+  let dialogOpen = false;
+  setGlobal(t, 'document', { querySelector: () => dialogOpen ? {} : null });
+  setGlobal(t, 'Image', class {});
+  setGlobal(t, 'Element', class { constructor(editable = false) { this.editable = editable; } closest() { return this.editable ? this : null; } });
+  setGlobal(t, 'FileReader', class { readAsDataURL() { this.onload({ target: { result: 'data:image/png;base64,new' } }); } });
+  const harness = componentHarness('../src/components/ViewerTab.tsx', 'ViewerTab', {
+    './commercial/SharePanorama': { SharePanoramaModal: () => null }, './commercial/EmbedModal': { EmbedModal: () => null },
+    './SphereViewer': { SphereViewer: () => null }, '../utils/adminStorage': { getCurrentUser: () => ({ id: 'user' }) },
+    '../utils/proceduralPanoramas': { PRESET_PANORAMAS: [] }, '../utils/imageOptimizer': {}, '../utils/seamHealer': {},
+    '../utils/imageEnhancer': {}, '../utils/poleRepair': {},
+  });
+  const changes = [];
+  const props = { currentPanoramaUrl: 'data:image/png;base64,old', onPanoramaChange: url => changes.push(url), onNavigateTab() {} };
+  let tree = harness.render(props);
+  const paste = target => {
+    const event = new Event('paste');
+    Object.defineProperty(event, 'target', { value: target });
+    Object.defineProperty(event, 'clipboardData', { value: { items: [{ type: 'image/png', getAsFile: () => ({}) }] } });
+    win.dispatchEvent(event);
+  };
+  paste(new Element(true));
+  dialogOpen = true; paste(new Element()); dialogOpen = false;
+  buttonIn(tree, 'Embed').props.onClick();
+  tree = harness.render(props); paste(new Element());
+  const embed = elementsIn(tree).find(e => typeof e.type === 'function' && e.props.currentPanoramaUrl === props.currentPanoramaUrl && e.props.isOpen);
+  embed.props.onClose();
+  tree = harness.render(props);
+  buttonIn(tree, 'Share your panorama').props.onClick();
+  tree = harness.render(props); paste(new Element());
+  const share = elementsIn(tree).find(e => typeof e.type === 'function' && e.props.accountId === 'user');
+  share.props.onClose();
+  tree = harness.render(props);
+  buttonIn(tree, 'Add Hotspot').props.onClick();
+  tree = harness.render(props); paste(new Element());
+  assert.deepEqual(changes, []);
+  buttonIn(tree, 'Cancel').props.onClick();
+  harness.render(props); paste(new Element());
+  assert.deepEqual(changes, ['data:image/png;base64,new']);
+  harness.unmount();
 });
 
 test('viewer keyboard shortcuts only engage while the viewer is the interaction context', () => {
@@ -1466,7 +1823,7 @@ test('viewer keyboard shortcuts only engage while the viewer is the interaction 
   assert.deepEqual(keysPressedRef.current, {});
 });
 
-test('D1: guest trial minting is rate limited per client address', async testContext => {
+test('D1: guest trial minting remains disabled across edge isolates', async testContext => {
   const database = new DatabaseSync(':memory:');
   const db = sqliteD1(database);
   testContext.after(() => database.close());
@@ -1474,9 +1831,9 @@ test('D1: guest trial minting is rate limited per client address', async testCon
     request: new Request('https://review.example/api/user/guest', { method: 'POST' }),
     env: { DB: db },
   });
-  assert.equal((await mint()).status, 200);
+  assert.equal((await mint()).status, 403);
   __resetEdgeRateLimits(); // A new edge isolate cannot renew the D1 allowance.
-  assert.equal((await mint()).status, 429);
+  assert.equal((await mint()).status, 403);
 });
 
 test('D1: repeated failed sign-ins trip the user auth limiter', async testContext => {
@@ -1524,6 +1881,11 @@ test('PayPal checkout reads server prices, has no local card form, and redirects
   tree = harness.render(props);
   assert.ok(elementText(tree).includes('$118.80 USD / year'));
   assert.ok(elementText(tree).includes('12,000 credits'));
+  const terms = elementsIn(tree).find(element => element.props.id === 'checkout-renewal-terms');
+  const disclosure = renderToStaticMarkup(terms);
+  assert.ok(disclosure.includes('$118.80 USD each year. Automatically renews until cancelled.'));
+  assert.ok(disclosure.includes('Cancel before your next billing date'));
+  assert.equal(buttonIn(tree, 'Subscribe with PayPal').props['aria-describedby'], 'checkout-renewal-terms');
   assert.ok(elementText(tree).includes('Approval is not a payment receipt'));
   assert.equal(elementsIn(tree).filter(element => element.type === 'input').every(input => input.props.type === 'radio'), true);
   await buttonIn(tree, 'Subscribe with PayPal').props.onClick();
@@ -1590,6 +1952,16 @@ function checkoutHarness(testContext, request, overrides = {}) {
   return { storage, browser, calls, destinations, props, render, harness };
 }
 
+test('checkout cannot continue a pending approval without its stored amount', async testContext => {
+  const fixture = checkoutHarness(testContext, async () => ({ subscription: {
+    id: 'local-missing-amount', plan: 'pro', billingCycle: 'monthly', status: 'APPROVAL_PENDING',
+  } }));
+  await flushPromises();
+  const tree = fixture.render();
+  assert.equal(buttonIn(tree, 'Continue PayPal approval').props.disabled, true);
+  assert.ok(elementText(tree).includes('Pricing is unavailable. Please try again.'));
+});
+
 test('guest checkout presents sign-in without fetching or creating a subscription', async testContext => {
   let signIns = 0;
   const fixture = checkoutHarness(testContext, () => assert.fail('Guests must not call subscription endpoints'), {
@@ -1617,13 +1989,15 @@ for (const [status, explanation] of [['ACTIVE', 'You do not need to subscribe ag
 
 test('checkout resumes the saved monthly plan instead of the yearly default', async testContext => {
   const fixture = checkoutHarness(testContext, async route => route === 'subscription'
-    ? { subscription: { id: 'local-A', plan: 'enterprise', billingCycle: 'monthly', status: 'APPROVAL_PENDING' } }
+    ? { subscription: { id: 'local-A', plan: 'enterprise', billingCycle: 'monthly', amountCents: 3200, status: 'APPROVAL_PENDING' } }
     : { approvalUrl: 'https://www.sandbox.paypal.com/checkoutnow?token=TEST' });
   assert.equal(buttonIn(fixture.render(), 'Subscribe with PayPal').props.disabled, true);
   await flushPromises();
   const tree = fixture.render();
   assert.equal(elementsIn(tree).some(element => element.type === 'fieldset'), false);
   assert.ok(elementText(tree).includes('ENTERPRISE · monthly · APPROVAL_PENDING'));
+  const disclosure = renderToStaticMarkup(elementsIn(tree).find(element => element.props.id === 'checkout-renewal-terms'));
+  assert.ok(disclosure.includes('$32.00 USD each month'), 'saved approval terms must use the stored charge, not the $49 catalog offer');
   assert.equal(buttonIn(tree, 'Continue PayPal approval').props.disabled, false);
   await buttonIn(tree, 'Continue PayPal approval').props.onClick();
   assert.deepEqual(fixture.calls.at(-1), { route: 'create-subscription', body: { plan: 'enterprise', billingCycle: 'monthly' }, token: 'account-A' });
@@ -1684,7 +2058,7 @@ for (const operation of ['upscale', 'heal', 'export', 'context', 'context2K', 'c
     } };
     setGlobal(testContext, 'document', { createElement: () => canvas });
     const context = {
-      generationRef: { current: { mounted: true, request: 0 } },
+    generationRef: { current: { mounted: true, request: 0 } }, originalOwner: { current: null },
       window: { dispatchEvent: event => { state.refresh = event.type; } },
       currentUser: user, localStorage: { getItem: () => 'owner-token' }, creditsCost: 2,
       resolution: operation === 'context' ? '1K' : operation === 'context4K' ? '4K' : '2K', seamCorrection: true,
@@ -1712,7 +2086,7 @@ for (const operation of ['upscale', 'heal', 'export', 'context', 'context2K', 'c
       onPanoramaChange: value => { state.panorama = value; }, onUserChange: value => { state.user = value; },
       setIsGenerating: value => { state.generating = value; }, setApiError: value => { state.error = value; },
       setGenerationStage: value => { state.stage = value; }, setGenerationElapsed() {},
-      setGenerationTiming: value => { state.timing = value; }, setOriginalRawUrl() {}, setEnhanced4kUrl() {},
+      setGenerationTiming: value => { state.timing = value; }, setOriginalRawUrl() {}, setWorkPrompt() {}, setSaveStatus() {}, setResultQuality() {}, setEnhanced4kUrl() {},
       setFeedbackNotice() {}, setIsCheckoutOpen() {}, setTimeout: () => 0, confetti() {},
     };
     const generate = callbackWithContext(sourceCallback('../src/components/GeneratorTab.tsx', 'handleGenerate'), context);
@@ -1728,35 +2102,89 @@ for (const operation of ['upscale', 'heal', 'export', 'context', 'context2K', 'c
   });
 }
 
-test('logout initializes a server guest and discards guest replies after login or another logout', async testContext => {
-  const replies = [];
+test('logout returns to zero-credit anonymous browsing without minting a guest token', async testContext => {
+  let guestCalls = 0;
   const harness = appHarness(testContext, {
-    initServerGuestUser: () => new Promise(resolve => replies.push(resolve)),
+    initServerGuestUser: () => { guestCalls++; },
     fetchServerUser: async () => ({ success: false }),
   });
-  const browser = new EventTarget();
-  setGlobal(testContext, 'window', browser);
+  const browser = new EventTarget(); setGlobal(testContext, 'window', browser);
   localStorage.setItem('panorama_server_user_token', 'account-token');
   harness.context.updateCurrentUser(accountFixture());
-  const cleanup = harness.effect();
-  testContext.after(cleanup);
+  const cleanup = harness.effect(); testContext.after(cleanup);
   const logout = callbackWithContext(sourceCallback('../src/components/commercial/UserAuthModal.tsx', 'handleLogout'), {
     onAuthSuccess: harness.context.updateCurrentUser, onClose() {},
   });
-  logout();
-  assert.equal(replies.length, 1);
-  assert.equal(harness.state.user.creditsBalance, 0);
-  localStorage.setItem('panorama_server_user_token', 'new-account-token');
-  harness.context.updateCurrentUser(accountFixture('new-account'));
-  browser.dispatchEvent(new Event('panorama-session-changed'));
-  logout();
-  replies[0]({ success: true, user: accountFixture('usr_guest_stale'), token: 'stale-token' });
-  await flushPromises();
+  logout(); await flushPromises();
+  assert.equal(guestCalls, 0);
   assert.equal(localStorage.getItem('panorama_server_user_token'), null);
-  replies[1]({ success: true, user: accountFixture('usr_guest_live'), token: 'live-token' });
-  await flushPromises();
-  assert.equal(localStorage.getItem('panorama_server_user_token'), 'live-token');
-  assert.equal(harness.state.user.id, 'usr_guest_live');
+  assert.equal(harness.state.user.id, 'usr_guest');
+  assert.equal(harness.state.user.creditsBalance, 0);
+});
+
+for (const nextToken of [null, 'other-account-token']) {
+  test(`session change to ${nextToken ?? 'guest'} clears only a private global preview`, async t => {
+    const browser = new EventTarget();
+    const harness = appHarness(t, { fetchServerUser: async () => ({ success: false }) });
+    setGlobal(t, 'window', browser);
+    localStorage.setItem('panorama_server_user_token', 'account-token');
+    harness.context.panoramaOwner.current = 'account-token';
+    const cleanup = harness.effect(); t.after(cleanup);
+    if (nextToken) localStorage.setItem('panorama_server_user_token', nextToken);
+    else localStorage.removeItem('panorama_server_user_token');
+    browser.dispatchEvent(new Event('panorama-session-changed'));
+    assert.equal(harness.state.panorama, 'public-sample');
+    assert.equal(harness.context.panoramaOwner.current, null);
+    assert.equal(harness.state.viewerSession, 1);
+    harness.state.panorama = 'local-upload';
+    browser.dispatchEvent(new Event('panorama-session-changed'));
+    assert.equal(harness.state.panorama, 'local-upload');
+    assert.equal(harness.state.viewerSession, 1);
+  });
+}
+
+test('generator forgets private originals on session change but keeps guest local uploads', async t => {
+  const fixture = studioHarness(t);
+  setGlobal(t, 'localStorage', memoryStorage());
+  localStorage.setItem('panorama_server_user_token', 'account-token');
+  const changes = [];
+  fixture.props.onPanoramaChange = (url, owner) => changes.push([url, owner]);
+  let tree = fixture.render(fixture.props);
+  const works = elementsIn(tree).find(element => typeof element.type === 'function' && element.props.accountId && element.props.onOpen);
+  await works.props.onOpen('private-original', false, new AbortController().signal, 'private prompt');
+  tree = fixture.render(fixture.props);
+  assert.ok(elementsIn(tree).some(element => element.type === 'button' && elementText(element).includes('Download model original')));
+  localStorage.removeItem('panorama_server_user_token');
+  window.dispatchEvent(new Event('panorama-session-changed'));
+  tree = fixture.render(fixture.props);
+  assert.ok(!elementsIn(tree).some(element => element.type === 'button' && elementText(element).includes('Download model original')));
+  assert.deepEqual(changes[0], ['private-original', 'account-token']);
+  setGlobal(t, 'FileReader', class { readAsDataURL() { this.onload({ target: { result: 'local-image' } }); } });
+  setGlobal(t, 'document', { querySelector: () => null });
+  setGlobal(t, 'Element', class { closest() { return null; } });
+  const paste = new Event('paste');
+  Object.defineProperty(paste, 'clipboardData', { value: { items: [{ type: 'image/png', getAsFile: () => ({ type: 'image/png' }) }] } });
+  window.dispatchEvent(paste);
+  tree = fixture.render(fixture.props);
+  window.dispatchEvent(new Event('panorama-session-changed'));
+  tree = fixture.render(fixture.props);
+  assert.ok(elementsIn(tree).some(element => element.type === 'button' && elementText(element).includes('Download model original')));
+  assert.deepEqual(changes.at(-1), ['local-image', null]);
+});
+
+test('late seam processing cannot restore a private preview after the account changes', () => {
+  let pendingImage;
+  const changes = [];
+  const context = {
+    currentPanoramaUrl: 'private-original', originalRawUrl: 'private-original',
+    getPanoramaOwner: () => 'old-token', generationRef: { current: { mounted: true, request: 1 } },
+    localStorage: { getItem: () => 'new-token' },
+    Image: class { constructor() { pendingImage = this; } },
+    onPanoramaChange: value => changes.push(value),
+  };
+  callbackWithContext(sourceCallback('../src/components/GeneratorTab.tsx', 'handleManualHealSeam'), context)();
+  pendingImage.onload();
+  assert.deepEqual(changes, []);
 });
 
 test('payment and generation profile refreshes apply only the newest request in the current session', async testContext => {
@@ -1792,11 +2220,12 @@ function generatorRegressionContext(overrides = {}) {
   const context = {
     currentUser: user, getCurrentUser: () => user,
     localStorage: { getItem: () => 'account-token' },
-    generationRef: { current: { mounted: true, request: 0 } },
+    generationRef: { current: { mounted: true, request: 0, thumbnails: new Set() } }, originalOwner: { current: null },
+    saveWorkThumbnail: async () => '',
     creditsCost: 2, resolution: '2K', seamCorrection: false,
     prompt: 'Synthetic', selectedStyle: 'test', referenceImages: [], STYLE_PRESETS: [],
     getModelExecutionPipeline: () => ({ mode: 'single', endpoints: [{ id: 'test', name: 'Test', model: 'test-model' }] }),
-    buildPanoramaPrompt: prompt => prompt,
+    buildPanoramaPrompt: loadTsModule('../src/utils/geminiClient.ts', { './adminStorage': adminStorage }).buildPanoramaPrompt,
     inspectImageResolution,
     Image: class { naturalWidth = 1792; naturalHeight = 1024; set src(value) { queueMicrotask(() => this.onload()); } },
     enhanceAndUpscalePanorama: () => ({ toDataURL: () => 'enhanced' }),
@@ -1805,14 +2234,137 @@ function generatorRegressionContext(overrides = {}) {
     onUserChange: () => assert.fail('Server generations must refresh instead of spreading old users'),
     window: { dispatchEvent() {} },
     setTimeout() {}, confetti() {},
-    ...Object.fromEntries(['setIsGenerating', 'setApiError', 'setGenerationStage', 'setGenerationElapsed', 'setGenerationTiming', 'setOriginalRawUrl', 'setEnhanced4kUrl', 'setFeedbackNotice', 'setIsCheckoutOpen']
+    ...Object.fromEntries(['setIsGenerating', 'setApiError', 'setGenerationStage', 'setGenerationElapsed', 'setGenerationTiming', 'setOriginalRawUrl', 'setWorkPrompt', 'setSaveStatus', 'setResultQuality', 'setEnhanced4kUrl', 'setFeedbackNotice', 'setIsCheckoutOpen']
       .map(name => [name, value => state.push([name, value])])),
     ...overrides,
   };
   return { context, state, generate: callbackWithContext(sourceCallback('../src/components/GeneratorTab.tsx', 'handleGenerate'), context) };
 }
 
-for (const source of ['updated-server', 'legacy-server', 'direct']) {
+test('each saved generation attempt starts a non-blocking thumbnail with its own original and id', async () => {
+  const thumbnails = [];
+  let calls = 0;
+  const fixture = generatorRegressionContext({
+    getModelExecutionPipeline: () => ({ mode: 'failover', endpoints: [{ name: 'first' }, { name: 'second' }] }),
+    generateWithGemini: async () => ++calls === 1
+      ? { imageUrl: 'first-raw', library: { saved: true, id: 'first-id' }, imageResolution: { status: 'below-request', panoramaWidth: 100 }, creditsDeducted: 0, creditsRefunded: 2 }
+      : { imageUrl: 'second-raw', library: { saved: true, id: 'second-id' }, imageResolution: { status: 'met', panoramaWidth: 200 }, creditsDeducted: 2, remainingCredits: 7 },
+    saveWorkThumbnail: (id, url, token, signal) => {
+      thumbnails.push({ id, url, token, signal });
+      return id === 'first-id' ? Promise.reject(new Error('thumbnail failed')) : new Promise(() => {});
+    },
+  });
+  await fixture.generate();
+  assert.deepEqual(thumbnails.map(({ id, url, token }) => [id, url, token]), [
+    ['first-id', 'first-raw', 'account-token'], ['second-id', 'second-raw', 'account-token'],
+  ]);
+  assert.ok(fixture.state.some(([key, value]) => key === 'panorama' && value === 'enhanced'));
+  assert.equal(fixture.state.find(([key]) => key === 'setSaveStatus')?.[1].status, 'saved');
+  assert.ok(!fixture.state.some(([key, value]) => key === 'setApiError' && value));
+  await flushPromises();
+  assert.equal(fixture.context.generationRef.current.thumbnails.size, 1);
+});
+
+test('thumbnail generation skips unsaved and unidentified works and stale responses', async () => {
+  let calls = 0;
+  for (const library of [{ saved: false, id: 'id' }, { saved: true }, undefined]) {
+    const fixture = generatorRegressionContext({
+      generateWithGemini: async () => ({ imageUrl: 'raw', library }),
+      saveWorkThumbnail: async () => { calls++; },
+    });
+    await fixture.generate();
+  }
+  let finish;
+  const fixture = generatorRegressionContext({
+    generateWithGemini: () => new Promise(resolve => { finish = resolve; }),
+    saveWorkThumbnail: async () => { calls++; },
+  });
+  const pending = fixture.generate();
+  fixture.context.generationRef.current.request++;
+  finish({ imageUrl: 'raw', library: { saved: true, id: 'id' } });
+  await pending;
+  assert.equal(calls, 0);
+});
+
+test('session changes, storage changes and unmount cancel pending thumbnails', () => {
+  const source = fs.readFileSync(new URL('../src/components/GeneratorTab.tsx', import.meta.url), 'utf8');
+  const start = source.indexOf('  useEffect(() => {\n    const generation = generationRef.current;');
+  const end = source.indexOf('  }, [currentUser.id]);', start);
+  assert.ok(start >= 0 && end > start);
+  const effect = source.slice(start + '  useEffect('.length, end) + '  }';
+  for (const action of ['session', 'storage', 'unmount']) {
+    const window = new EventTarget();
+    const first = new AbortController();
+    const second = new AbortController();
+    const generationRef = { current: { mounted: false, request: 0, processing: null, thumbnails: new Set([first, second]) } };
+    const cleanup = callbackWithContext(effect, { generationRef, window, originalOwner: { current: null }, setIsGenerating() {}, setIsShareOpen() {} })();
+    if (action === 'session') window.dispatchEvent(new Event('panorama-session-changed'));
+    else if (action === 'storage') { const event = new Event('storage'); event.key = 'panorama_server_user_token'; window.dispatchEvent(event); }
+    else cleanup();
+    assert.equal(first.signal.aborted, true);
+    assert.equal(second.signal.aborted, true);
+    assert.equal(generationRef.current.thumbnails.size, 0);
+    if (action !== 'unmount') cleanup();
+  }
+});
+
+for (const [library, expected] of [[{ saved: true }, 'saved'], [{ saved: false, error: 'full' }, 'unsaved'], [undefined, 'unknown']]) {
+  test(`generation reports ${expected} library status for the displayed result`, async () => {
+    const fixture = generatorRegressionContext({
+      generateWithGemini: async () => ({ imageUrl: 'raw', library, remainingCredits: 7, creditsDeducted: 2 }),
+      inspectImageResolution: () => ({ status: 'met', width: 2048, height: 1024 }),
+    });
+    await fixture.generate();
+    assert.deepEqual(fixture.state.find(([key]) => key === 'setSaveStatus')?.[1], { url: 'enhanced', status: expected });
+  });
+}
+
+test('generator preserves attached photos across failover and asks to extend their actual scene', async () => {
+  const refs = [{ name: 'room.png', preview: 'data:image/png;base64,AA==' }];
+  const calls = [];
+  const builderCalls = [];
+  const { buildPanoramaPrompt } = loadTsModule('../src/utils/geminiClient.ts', { './adminStorage': adminStorage });
+  const fixture = generatorRegressionContext({
+    prompt: 'Keep the original room', referenceImages: refs,
+    STYLE_PRESETS: [{ id: 'test', promptSuffix: 'watercolor illustration' }],
+    buildPanoramaPrompt: (...args) => {
+      builderCalls.push(args);
+      return buildPanoramaPrompt(...args);
+    },
+    getModelExecutionPipeline: () => ({ mode: 'failover', endpoints: [
+      { id: 'gemini', name: 'Gemini', model: 'gemini-3.1-flash-image' },
+      { id: 'gpt', name: 'GPT', model: 'gpt-image-2.5' },
+    ] }),
+    generateWithGemini: async (prompt, config, photos) => {
+      calls.push({ prompt, config, photos });
+      if (config.endpointId === 'gemini') throw new Error('Model unavailable');
+      return { imageUrl: `data:image/png;base64,${pngMetadata(2048, 1024)}`, remainingCredits: 2, creditsDeducted: 2 };
+    },
+  });
+  await fixture.generate();
+  assert.equal(calls.length, 2);
+  assert.deepEqual(builderCalls, [['Keep the original room', 'watercolor illustration', true]]);
+  for (const call of calls) {
+    assert.deepEqual(call.photos, refs.map(ref => ref.preview));
+    assert.equal(call.prompt, buildPanoramaPrompt('Keep the original room', 'watercolor illustration', true));
+    assert.match(call.prompt, /source scene/);
+    assert.match(call.prompt, /Preserve recognizable subjects/);
+    assert.match(call.prompt, /Keep the original room/);
+  }
+  assert.ok(fixture.state.some(([key, value]) => key === 'panorama' && value === 'enhanced'));
+});
+
+test('a stale credit balance cannot start any model request without a registered session', async () => {
+  let prompted = 0;
+  const fixture = generatorRegressionContext({ localStorage: { getItem: () => null },
+    window: { dispatchEvent: () => prompted++ }, generateWithGemini: () => assert.fail('Anonymous generation must not reach a model'),
+  });
+  await fixture.generate();
+  assert.equal(prompted, 1);
+  assert.ok(fixture.state.some(([name, text]) => name === 'setApiError' && text.includes('Register and verify')));
+});
+
+for (const source of ['updated-server', 'legacy-server']) {
   test(`undersized ${source} result retries the next model only when refund-confirmed and reports only confirmed refunds`, async () => {
     let calls = 0;
     const imageUrl = `data:image/png;base64,${pngMetadata(1774, 887)}`;
@@ -2050,7 +2602,7 @@ for (const outcome of ['success', 'error', 'aborted', 'superseded', 'unmounted']
     const state = [];
     const generationRef = { current: { mounted: true, request: 0, processing: null } };
     const handler = callbackWithContext(sourceCallback('../src/components/GeneratorTab.tsx', 'handleEnhanceClarity'), {
-      generationRef, currentPanoramaUrl: 'native-crop', originalRawUrl: 'model-original',
+      generationRef, currentPanoramaUrl: 'native-crop', originalRawUrl: 'model-original', getPanoramaOwner: () => null,
       processPanoramaImage: (url, options, seam, signal) => {
         assert.equal(url, 'native-crop');
         assert.deepEqual(options, { scaleFactor: 1, sharpness: 0.2, contrastBoost: 1 });
@@ -2160,6 +2712,24 @@ for (const resolution of ['1K', '2K', '4K']) {
   }
 }
 
+test('local direct GPT sends reference files as multipart edits and displays the returned image', async testContext => {
+  setGlobal(testContext, 'window', { location: { hostname: 'localhost' } });
+  let calls = 0;
+  testContext.mock.method(globalThis, 'fetch', async (url, options) => {
+    calls++;
+    assert.equal(url, 'http://localhost:8317/v1/images/edits');
+    const form = await new Request(url, options).formData();
+    assert.deepEqual(Buffer.from(await form.getAll('image[]')[0].arrayBuffer()), Buffer.from([0]));
+    return imageResponse();
+  });
+  const { generateWithGemini } = loadTsModule('../src/utils/geminiClient.ts', { './adminStorage': {} });
+  const result = await generateWithGemini('Expand this room', {
+    baseUrl: 'http://localhost:8317', apiKey: 'synthetic-key', model: 'gpt-image-2.5', resolution: '1K',
+  }, ['data:image/png;base64,AA==']);
+  assert.equal(result.imageUrl, 'data:image/png;base64,AA==');
+  assert.equal(calls, 1);
+});
+
 test('local GPT rejects a size error without silently downgrading or generating a second image', async testContext => {
   setGlobal(testContext, 'window', { location: { hostname: 'localhost' } });
   let calls = 0;
@@ -2215,6 +2785,60 @@ test('panorama prompt respects the chosen style without injecting photorealism o
   assert.match(prompt, /watercolor illustration/);
   assert.match(prompt, /matching left and right edges/);
   assert.doesNotMatch(prompt, /photorealistic|8k|ultra sharp/i);
+});
+
+test('panorama prompt keeps text-only output exactly unchanged with an omitted or false reference flag', () => {
+  const { buildPanoramaPrompt } = loadTsModule('../src/utils/geminiClient.ts', { './adminStorage': adminStorage });
+  const constraints = ', full 360 degree equirectangular projection panorama, 360 spherical VR skybox, 2:1 ratio texture map, seamless horizontal wrap, continuous 360 panoramic loop, matching left and right edges, level horizontal horizon at 50% vertical center, flat camera zero pitch, full frame edge to edge, no borders, no circular lens, no black frame, no vignettes';
+  for (const [description, style, expected] of [
+    ['  Alpine lake  ', '', 'Alpine lake'],
+    ['Alpine lake', 'watercolor illustration', 'Alpine lake, watercolor illustration'],
+    ['', '', ''],
+    ['  ', 'ink drawing', ', ink drawing'],
+  ]) {
+    assert.equal(buildPanoramaPrompt(description, style), expected + constraints);
+    assert.equal(buildPanoramaPrompt(description, style, false), expected + constraints);
+  }
+});
+
+test('reference panorama prompt accepts an empty description and defines one generic spherical scene', () => {
+  const { buildPanoramaPrompt } = loadTsModule('../src/utils/geminiClient.ts', { './adminStorage': adminStorage });
+  const prompt = buildPanoramaPrompt('', '', true);
+  assert.equal(buildPanoramaPrompt('  \n ', '', true), prompt);
+  assert.notEqual(prompt, buildPanoramaPrompt('', '', false), 'reference mode must provide scene reconstruction instructions without requiring a typed description');
+  assert.doesNotMatch(prompt, /Apply these requested changes:|Visual style:|\b(golf|cart|car|clubhouse|vehicle)\b/i);
+  assert.equal(prompt, prompt.trim());
+});
+
+test('reference panorama prompt retains user changes, requested copies and the chosen style', () => {
+  const { buildPanoramaPrompt } = loadTsModule('../src/utils/geminiClient.ts', { './adminStorage': adminStorage });
+  const changes = 'Add a second copy of the sculpture and change the walls to blue';
+  const style = 'watercolor illustration';
+  assert.ok(buildPanoramaPrompt(`  ${changes}  `, style, true)
+    .endsWith(` Apply these requested changes: ${changes} Visual style: ${style}`));
+  const styleOnly = buildPanoramaPrompt('', style, true);
+  assert.ok(styleOnly.endsWith(` Visual style: ${style}`));
+  assert.doesNotMatch(styleOnly, /Apply these requested changes:/);
+});
+
+test('generator prompt without reference photos uses the text-only builder with its selected style', async () => {
+  const { buildPanoramaPrompt } = loadTsModule('../src/utils/geminiClient.ts', { './adminStorage': adminStorage });
+  const builderCalls = [];
+  const fixture = generatorRegressionContext({
+    prompt: 'Alpine lake', STYLE_PRESETS: [{ id: 'test', promptSuffix: 'ink drawing' }],
+    buildPanoramaPrompt: (...args) => {
+      builderCalls.push(args);
+      return buildPanoramaPrompt(...args);
+    },
+    generateWithGemini: async (prompt, config, photos) => {
+      assert.equal(prompt, buildPanoramaPrompt('Alpine lake', 'ink drawing'));
+      assert.deepEqual(photos, []);
+      return { imageUrl: `data:image/png;base64,${pngMetadata(2048, 1024)}`, remainingCredits: 2, creditsDeducted: 2 };
+    },
+  });
+  await fixture.generate();
+  assert.deepEqual(builderCalls, [['Alpine lake', 'ink drawing', false]]);
+  assert.ok(fixture.state.some(([key, value]) => key === 'panorama' && value === 'enhanced'));
 });
 
 test('an undersized result keeps the fallback failure visible with both attempts in timing', async () => {
@@ -2332,4 +2956,289 @@ test('private works discards late account data and closes pending requests', asy
   assert.ok(text.includes('Private B')); assert.ok(!text.includes('Private A'));
   assert.ok(text.includes('Download original')); assert.ok(text.includes('Open panorama'));
   harness.unmount(); assert.equal(pending[1].init.signal.aborted, true);
+});
+
+for (const backend of ['Node', 'D1']) {
+  test(`${backend}: slow generation plus 56-second review succeeds within the shared workflow and lease`, async t => {
+    let generationStarted, reviewStarted, reviewSignal;
+    const generating = new Promise(resolve => { generationStarted = resolve; });
+    const reviewing = new Promise(resolve => { reviewStarted = resolve; });
+    const fixture = await withBackend(t, backend, async () => {
+      generationStarted();
+      await new Promise(resolve => setTimeout(resolve, 140000));
+      return imageResponse();
+    }, async (_url, { signal }) => {
+      reviewSignal = signal;
+      reviewStarted();
+      await new Promise(resolve => setTimeout(resolve, 56000));
+      return Response.json({ choices: [{ message: { content: '{"passed":true,"issues":[],"explanation":"Coherent."}' } }] });
+    });
+    const logs = generationClock(t);
+    const started = Date.now();
+    const request = fixture.generate({ resolution: '2K' });
+    await generating;
+    assert.equal(fixture.leases()[0].expires_at, started + GENERATION_LEASE_MS);
+    t.mock.timers.tick(140000);
+    await reviewing;
+    t.mock.timers.tick(30001);
+    assert.equal(reviewSignal.aborted, false, 'review must survive both the old 30s review and 150s workflow limits');
+    t.mock.timers.tick(25999);
+    const result = await request;
+    assert.equal(result.status, 200);
+    assert.equal(result.data.quality.status, 'passed');
+    assert.equal(result.data.quality.attempts, 1);
+    assert.equal(result.data.creditsDeducted, 2);
+    assert.equal(result.data.creditsRefunded, 0);
+    assert.equal((await fixture.profile()).creditsBalance, 2);
+    assert.deepEqual(fixture.leases(), []);
+    const reviewLogs = logs.mock.calls.filter(call => call.arguments[0] === '[panorama-review]');
+    assert.equal(reviewLogs.length, 1);
+    assert.equal(JSON.parse(reviewLogs[0].arguments[1]).durationMs, 56000);
+  });
+
+  for (const phase of ['headers', 'body']) {
+    test(`${backend}: review ${phase} timeout refunds once, preserves adjustments and releases the lease`, async t => {
+      let reviewStarted, reviewSignal, imageCalls = 0;
+      const reviewing = new Promise(resolve => { reviewStarted = resolve; });
+      const fixture = await withBackend(t, backend, () => { imageCalls++; return imageResponse(); }, (_url, { signal }) => {
+        reviewSignal = signal;
+        const pending = () => new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(new Error('PRIVATE_PROVIDER_EXCEPTION')), { once: true });
+          reviewStarted();
+        });
+        return phase === 'headers' ? pending() : { ok: true, status: 200, json: pending };
+      });
+      const logs = generationClock(t);
+      const started = Date.now();
+      const request = fixture.generate({ resolution: '4K' });
+      await reviewing;
+      assert.equal(fixture.leases()[0].expires_at, started + 270000);
+      assert.equal((await fixture.profile()).creditsBalance, 0);
+      assert.equal((await fixture.adjustCredits(5)).status, 200);
+      t.mock.timers.tick(89999);
+      assert.equal(reviewSignal.aborted, false);
+      t.mock.timers.tick(1);
+      const result = await request;
+      assert.equal(result.status, 503);
+      assert.equal(result.data.code, 'GENERATION_REVIEW_UNAVAILABLE');
+      assert.equal(result.data.quality.attempts, 1);
+      assert.equal(result.data.creditsDeducted, 0);
+      assert.equal(result.data.creditsRefunded, 4);
+      assert.equal(result.data.remainingCredits, 9);
+      assert.equal((await fixture.profile()).creditsBalance, 9);
+      assert.equal((await fixture.profile()).apiCallsCount, 1);
+      assert.equal(imageCalls, 1);
+      assert.deepEqual(fixture.leases(), []);
+      const reviewLogs = logs.mock.calls.filter(call => call.arguments[0] === '[panorama-review]');
+      assert.equal(reviewLogs.length, 1);
+      assert.equal(JSON.parse(reviewLogs[0].arguments[1]).reason, 'timeout');
+      assert.doesNotMatch(JSON.stringify([result, reviewLogs.map(call => call.arguments)]), /PRIVATE_PROVIDER_EXCEPTION/);
+      if (backend === 'D1') assert.deepEqual((await fixture.call('works', undefined, fixture.token)).data.works, []);
+    });
+  }
+
+  test(`${backend}: retry review obeys the earlier 240-second parent deadline and refunds once`, async t => {
+    let generationStarted, firstReviewStarted, secondReviewStarted, secondSignal, reviews = 0, imageCalls = 0;
+    const generating = new Promise(resolve => { generationStarted = resolve; });
+    const firstReview = new Promise(resolve => { firstReviewStarted = resolve; });
+    const secondReview = new Promise(resolve => { secondReviewStarted = resolve; });
+    const fixture = await withBackend(t, backend, async () => {
+      if (++imageCalls === 1) {
+        generationStarted();
+        await new Promise(resolve => setTimeout(resolve, 140000));
+      }
+      return imageResponse();
+    }, async (_url, { signal }) => {
+      if (++reviews === 1) {
+        firstReviewStarted();
+        await new Promise(resolve => setTimeout(resolve, 80000));
+        return Response.json({ choices: [{ message: { content: '{"passed":false,"issues":["collage"],"explanation":"Band."}' } }] });
+      }
+      secondSignal = signal;
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+        secondReviewStarted();
+      });
+    });
+    const logs = generationClock(t);
+    const started = Date.now();
+    const request = fixture.generate({ resolution: '2K' });
+    await generating;
+    t.mock.timers.tick(140000);
+    await firstReview;
+    t.mock.timers.tick(80000);
+    await secondReview;
+    t.mock.timers.tick(19999);
+    assert.equal(secondSignal.aborted, false);
+    assert.equal(fixture.leases()[0].expires_at, started + 270000);
+    t.mock.timers.tick(1);
+    assert.equal(Date.now() - started, GENERATION_WORKFLOW_TIMEOUT_MS);
+    const result = await request;
+    assert.equal(result.status, 503);
+    assert.equal(result.data.code, 'GENERATION_REVIEW_UNAVAILABLE');
+    assert.equal(result.data.quality.attempts, 2);
+    assert.equal(result.data.creditsDeducted, 0);
+    assert.equal(result.data.creditsRefunded, 2);
+    assert.equal((await fixture.profile()).creditsBalance, 4);
+    assert.equal((await fixture.profile()).apiCallsCount, 2);
+    assert.equal(imageCalls, 2);
+    assert.deepEqual(fixture.leases(), []);
+    const reviewLogs = logs.mock.calls.filter(call => call.arguments[0] === '[panorama-review]').map(call => JSON.parse(call.arguments[1]));
+    assert.deepEqual(reviewLogs.map(entry => [entry.status, entry.reason, entry.durationMs]), [
+      ['failed', null, 80000], ['unavailable', 'parent_abort', 20000],
+    ]);
+  });
+
+  test(`${backend}: quality failure on attempt 1 retries once with static correction and reference images, then passes with a single debit`, async testContext => {
+    const imagePayloads = [];
+    let reviews = 0;
+    const fixture = await withBackend(
+      testContext,
+      backend,
+      (_url, options) => {
+        imagePayloads.push(JSON.parse(options.body));
+        return Response.json({ choices: [{ message: { images: [{ image_url: { url: 'data:image/png;base64,AA==' } }] } }] });
+      },
+      () => {
+        reviews++;
+        const verdict = reviews === 1
+          ? { passed: false, issues: ['collage', 'duplicate_subject'], explanation: 'UNTRUSTED_EXPLANATION_TEXT' }
+          : { passed: true, issues: [], explanation: 'Clean retry.' };
+        return Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(verdict) } }] });
+      }
+    );
+    const result = await fixture.generate({
+      endpointId: 'gemini-proxy',
+      resolution: '2K',
+      prompt: 'Extend the golf cart scene',
+      referenceImages: ['data:image/png;base64,AA=='],
+    });
+    assert.equal(result.status, 200);
+    assert.equal(imagePayloads.length, 2);
+    assert.equal(reviews, 2);
+    assert.equal(imagePayloads[0].messages[0].content[1].image_url.url, 'data:image/png;base64,AA==');
+    assert.equal(imagePayloads[1].messages[0].content[1].image_url.url, 'data:image/png;base64,AA==');
+    assert.match(imagePayloads[1].messages[0].content[0].text, /Panorama quality corrections:/);
+    assert.match(imagePayloads[1].messages[0].content[0].text, /remove stacked bands, panels, collages and multiple horizons/);
+    assert.doesNotMatch(imagePayloads[1].messages[0].content[0].text, /UNTRUSTED_EXPLANATION_TEXT/);
+    assert.deepEqual(result.data.quality, {
+      status: 'passed',
+      issues: [],
+      explanation: 'Clean retry.',
+      reviewModel: 'gemini-3-flash',
+      attempts: 2,
+    });
+    assert.equal(result.data.creditsDeducted, 2);
+    assert.equal(result.data.creditsRefunded, 0);
+    assert.equal(result.data.remainingCredits, 2);
+    const profile = await fixture.profile();
+    assert.equal(profile.creditsBalance, 2);
+    assert.equal(profile.apiCallsCount, 2);
+  });
+
+  test(`${backend}: two quality failures reject with 422, refund once preserving admin adjustments, and do not save work`, async testContext => {
+    let imageCalls = 0;
+    let fixture;
+    fixture = await withBackend(
+      testContext,
+      backend,
+      async () => {
+        if (++imageCalls === 1) assert.equal((await fixture.adjustCredits(5)).status, 200);
+        return imageResponse();
+      },
+      () => Response.json({
+        choices: [{
+          finish_reason: 'stop',
+          message: { content: JSON.stringify({ passed: false, issues: ['collage'], explanation: 'Stacked band remains.' }) },
+        }],
+      })
+    );
+    const result = await fixture.generate({ resolution: '2K' });
+    assert.equal(result.status, 422);
+    assert.equal(result.data.code, 'GENERATION_QUALITY_REJECTED');
+    assert.equal(result.data.quality.status, 'failed');
+    assert.equal(result.data.quality.attempts, 2);
+    assert.equal(result.data.creditsDeducted, 0);
+    assert.equal(result.data.creditsRefunded, 2);
+    assert.equal(result.data.remainingCredits, 9);
+    assert.equal(imageCalls, 2);
+    const profile = await fixture.profile();
+    assert.equal(profile.creditsBalance, 9);
+    assert.equal(profile.apiCallsCount, 2);
+    if (backend === 'D1') {
+      const works = await fixture.call('works', undefined, fixture.token);
+      assert.deepEqual(works.data.works, []);
+    }
+  });
+
+  test(`${backend}: unavailable quality review stops after attempt 1 with 503 and refunds without retrying`, async testContext => {
+    let imageCalls = 0;
+    const fixture = await withBackend(
+      testContext,
+      backend,
+      () => {
+        imageCalls++;
+        return imageResponse();
+      },
+      () => Response.json({ error: 'Reviewer down' }, { status: 500 })
+    );
+    const result = await fixture.generate({ resolution: '2K' });
+    assert.equal(result.status, 503);
+    assert.equal(result.data.code, 'GENERATION_REVIEW_UNAVAILABLE');
+    assert.equal(result.data.quality.status, 'unavailable');
+    assert.equal(result.data.quality.attempts, 1);
+    assert.equal(result.data.creditsDeducted, 0);
+    assert.equal(result.data.creditsRefunded, 2);
+    assert.equal(result.data.remainingCredits, 4);
+    assert.equal(imageCalls, 1);
+    assert.equal((await fixture.profile()).creditsBalance, 4);
+  });
+}
+
+test('generateWithGemini throws PanoramaQualityError on 422 and 503 without falling back to direct endpoints', async testContext => {
+  setGlobal(testContext, 'window', { location: { hostname: 'review.example' } });
+  const { generateWithGemini } = loadTsModule('../src/utils/geminiClient.ts', { './adminStorage': {} });
+  for (const [status, code, match] of [
+    [422, 'GENERATION_QUALITY_REJECTED', /did not pass the AI quality check/],
+    [503, 'GENERATION_REVIEW_UNAVAILABLE', /AI quality check could not be completed/],
+  ]) {
+    let calls = 0;
+    testContext.mock.method(globalThis, 'fetch', async url => {
+      calls++;
+      assert.equal(url, '/api/generate');
+      return Response.json({ success: false, code, creditsDeducted: 0, creditsRefunded: 4, remainingCredits: 4 }, { status });
+    });
+    await assert.rejects(
+      () => generateWithGemini('Prompt', { baseUrl: 'http://127.0.0.1:8317', apiKey: '', model: 'gemini-3.1-flash-image', sessionToken: 'tok' }),
+      err => err.name === 'PanoramaQualityError' && match.test(err.message)
+    );
+    assert.equal(calls, 1);
+  }
+});
+
+test('GeneratorTab stops model failover on PanoramaQualityError, refreshes profile and preserves current preview', async () => {
+  const calls = [];
+  let refreshed = 0;
+  const fixture = generatorRegressionContext({
+    window: { dispatchEvent: event => { if (event.type === 'panorama-user-refresh') refreshed++; } },
+    getModelExecutionPipeline: () => ({
+      mode: 'failover',
+      endpoints: [
+        { id: 'gemini', name: 'Gemini', model: 'gemini-3.1-flash-image' },
+        { id: 'gpt', name: 'GPT', model: 'gpt-image-2.5' },
+      ],
+    }),
+    generateWithGemini: async (_prompt, config) => {
+      calls.push(config.endpointId);
+      const error = new Error('The panorama did not pass the AI quality check after one retry. Your credits were returned.');
+      error.name = 'PanoramaQualityError';
+      throw error;
+    },
+    confetti: () => assert.fail('Rejected quality must not trigger confetti'),
+  });
+  await fixture.generate();
+  assert.deepEqual(calls, ['gemini']);
+  assert.equal(refreshed, 1);
+  assert.equal(fixture.state.some(([key]) => key === 'panorama'), false);
+  assert.ok(fixture.state.some(([key, value]) => key === 'setApiError' && value?.includes('did not pass the AI quality check')));
 });

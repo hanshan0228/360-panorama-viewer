@@ -1,3 +1,9 @@
+import { IMAGE_GENERATION_TIMEOUT_MS } from '../src/utils/imageModelRequest.mjs';
+import { PANORAMA_REVIEW_TIMEOUT_MS } from './panoramaQuality.mjs';
+
+export const GENERATION_WORKFLOW_TIMEOUT_MS = IMAGE_GENERATION_TIMEOUT_MS + PANORAMA_REVIEW_TIMEOUT_MS;
+export const GENERATION_LEASE_MS = GENERATION_WORKFLOW_TIMEOUT_MS + 30000;
+
 // Shared, persistent limits: never use KV or per-isolate memory to authorize spending.
 export const riskSchema = [
  `CREATE TABLE IF NOT EXISTS risk_counters (key TEXT PRIMARY KEY, used INTEGER NOT NULL, expires_at INTEGER NOT NULL)`,
@@ -43,7 +49,7 @@ export async function acquireGeneration(db, user, source, cost, env = {}) {
  const reserved = await db.prepare(`INSERT INTO generation_leases (id,owner_id,expires_at) SELECT ?,?,? WHERE
  (SELECT COUNT(*) FROM generation_leases WHERE expires_at > ?) < ? AND
  (SELECT COUNT(*) FROM generation_leases WHERE owner_id = ? AND expires_at > ?) < 2`)
- .bind(id,user.id,now+240000,now,positiveLimit(env.MAX_CONCURRENT_GENERATIONS,4),user.id,now).run();
+ .bind(id,user.id,now+GENERATION_LEASE_MS,now,positiveLimit(env.MAX_CONCURRENT_GENERATIONS,4),user.id,now).run();
  if (!reserved.meta.changes) return { error: 'Generation is busy. Please wait and retry. No credits were charged.' };
  const release = () => db.prepare('DELETE FROM generation_leases WHERE id = ?').bind(id).run();
  try {

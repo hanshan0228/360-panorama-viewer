@@ -1,0 +1,33 @@
+[
+  {
+    "id": "known-bad",
+    "expected": "failed",
+    "elapsedSeconds": 9.976,
+    "result": {
+      "status": "failed",
+      "issues": [
+        "collage",
+        "duplicate_subject"
+      ],
+      "explanation": "The candidate panorama exhibits severe structural errors: there is a major collage line/duplicate horizon glitch across the middle of the sky and golf course area, and an unintended duplicate foreground steering wheel and dashboard appear at the bottom right that were not present in the reference image.",
+      "reviewModel": "gemini-3-flash"
+    },
+    "input": "/Users/han/Downloads/cartarmor-hero-lifestyle-v2-1536.webp",
+    "generated": "/Users/han/Documents/ChatGPT/pp/panorama-generator/docs/reference-photo-trial-2026-10-27/gemini-original.jpg",
+    "timestamp": "2026-10-27T05:26:19.291Z"
+  },
+  {
+    "id": "improved",
+    "expected": "passed",
+    "elapsedSeconds": 10.548,
+    "result": {
+      "status": "passed",
+      "issues": [],
+      "explanation": "The candidate panorama successfully expands the reference image into a full 360-degree equirectangular environment. The golf cart and surrounding golf course/clubhouse scene are correctly preserved with consistent lighting and geometry, and no structural defects or seams are present.",
+      "reviewModel": "gemini-3-flash"
+    },
+    "input": "/Users/han/Downloads/cartarmor-hero-lifestyle-v2-1536.webp",
+    "generated": "/Users/han/Documents/ChatGPT/pp/panorama-generator/docs/reference-photo-optimization-2026-10-27/production-prompt/model-original.jpg",
+    "timestamp": "2026-10-27T05:26:19.949Z"
+  }
+]

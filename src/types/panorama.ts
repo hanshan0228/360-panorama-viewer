@@ -130,6 +130,7 @@ export interface ManagedUser {
   joinedAt: string;
   lastActiveAt: string;
   apiCallsCount: number;
+  emailVerified?: boolean;
 }
 
 export interface SystemBillingConfig {

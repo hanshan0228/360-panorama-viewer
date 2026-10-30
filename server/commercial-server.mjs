@@ -1,4 +1,7 @@
-import { consumeJsonLimit, claimJsonTrial, positiveLimit } from './risk.mjs';
+import { reviewPanorama, buildQualityRetryPrompt, DEFAULT_PANORAMA_REVIEW_MODEL } from './panoramaQuality.mjs';
+import { verificationConfig, checkVerificationChallenge, createJsonVerificationLedger, handleEmailVerification, sendVerificationEmail } from './emailVerification.mjs';
+import { consumeJsonLimit, positiveLimit, GENERATION_WORKFLOW_TIMEOUT_MS, GENERATION_LEASE_MS } from './risk.mjs';
+import { registrationAgeError, AGE_SCREEN_DENIED } from '../src/utils/registrationAge.mjs';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,7 +14,7 @@ const STORE_FILE = fileURLToPath(new URL('./data/store.json', import.meta.url));
 
 function freeCredits(config) {
   const value = config?.freeMonthlyCredits;
-  return Number.isSafeInteger(value) && value >= 0 ? value : 4;
+  return Number.isSafeInteger(value) && value >= 0 ? value : 8;
 }
 
 export function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
@@ -148,6 +151,8 @@ export function createCommercialServer(options = {}) {
   const userSessions = new Map();
   const failures = new Map();
   const rateBuckets = new Map();
+  const verificationLedger = createJsonVerificationLedger(() => readStore(file), store => persist(store, file));
+  const publicUser = async user => ({ ...stripUserSecrets(user), emailVerified: Boolean((await verificationLedger.state(user.id))?.verified_at) });
   return http.createServer(async (req, res) => {
     try {
       const pathname = new URL(req.url, 'http://localhost').pathname;
@@ -177,42 +182,27 @@ export function createCommercialServer(options = {}) {
         return sendJson(res, response.status, await response.json());
       }
 
-      // Guest User Session Initialization (Auto-grants 4 trial credits)
+      if (pathname === '/api/user/auth-config' && req.method === 'GET') {
+        return sendJson(res, 200, verificationConfig(env));
+      }
       if (pathname === '/api/user/guest' && req.method === 'POST') {
-        if (env.FREE_TRIAL_ENABLED === 'false') return sendJson(res, 429, { error: 'Guest trials are temporarily paused. Sign in to continue.' });
-        const guestIp = req.socket.remoteAddress || 'unknown';
-        if (rateLimitExceeded(rateBuckets, `guest:hour:${guestIp}`, 5, 3600000)
-          || rateLimitExceeded(rateBuckets, `guest:day:${guestIp}`, 20, 86400000)) {
-          return sendJson(res, 429, { success: false, error: 'Too many trial accounts from this address. Sign in or try again later.' });
-        }
-        recordRateHit(rateBuckets, `guest:hour:${guestIp}`);
-        recordRateHit(rateBuckets, `guest:day:${guestIp}`);
-        const guestId = 'usr_guest_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
-        const guestEmail = `guest_${guestId}@guest.360panoramaviewer.com`;
-        const store = readStore(file);
-        store.users = store.users || [];
-        const source = crypto.createHash('sha256').update(guestIp).digest('hex');
-        if (!consumeJsonLimit(store,'guest-create-global',200,86400000) || !consumeJsonLimit(store,'guest-create:'+source,1,7*86400000,1,Date.now(),true)) {
-          persist(store,file); return sendJson(res,429,{error:'This network has already initialized a trial. Sign in to continue.'});
-        }
-        const credits = claimJsonTrial(store, source, freeCredits(store.billing_config));
-        const guestUser = {
-          id: guestId,
-          email: guestEmail,
-          name: 'Free Trial Guest',
-          plan: 'free',
-          creditsBalance: credits,
-          creditsTotal: credits,
-          apiCallsCount: 0,
-          status: 'active',
-          createdAt: new Date().toISOString(),
-        };
-        store.users.push(guestUser);
-        persist(store, file);
-
-        const guestToken = crypto.randomBytes(32).toString('hex');
-        userSessions.set(guestToken, { userId: guestId, expires: Date.now() + 7 * 86400000 });
-        return sendJson(res, 200, { success: true, user: stripUserSecrets(guestUser), token: guestToken });
+        return sendJson(res, 403, { success: false, code: 'REGISTRATION_REQUIRED', error: 'Register and verify your email to receive starter credits.' });
+      }
+      if (pathname === '/api/user/verify-email' || pathname === '/api/user/send-verification') {
+        const request = new Request(new URL(req.url, 'http://localhost'), {
+          method: req.method, headers: { 'Content-Type': 'application/json' },
+          ...(req.method === 'POST' ? { body: await readRawBody(req) } : {}),
+        });
+        const response = await handleEmailVerification({ request, env, ledger: verificationLedger, fetcher: fetchUpstream,
+          source: crypto.createHash('sha256').update(req.socket.remoteAddress || 'unknown').digest('hex'),
+          freeCredits: () => freeCredits(readStore(file).billing_config),
+          authenticate: async () => {
+            const session = userSessions.get(token);
+            return session?.expires > Date.now() ? readStore(file).users?.find(user => user.id === session.userId) : null;
+          },
+        });
+        res.writeHead(response.status, Object.fromEntries(response.headers));
+        return res.end(Buffer.from(await response.arrayBuffer()));
       }
 
       // User Authentication and Identity Management with Password support
@@ -223,13 +213,17 @@ export function createCommercialServer(options = {}) {
           return sendJson(res, 429, { success: false, error: 'Too many failed sign-in attempts. Try again later.' });
         }
         const body = JSON.parse((await readRawBody(req)).toString());
-        const { email, name, password, mode } = body || {};
+        const { email, name, password, mode, turnstileToken } = body || {};
         if (password !== undefined && typeof password !== 'string') return sendJson(res, 400, { success: false, error: 'Password must be a string' });
         if (mode !== undefined && mode !== 'login' && mode !== 'register') return sendJson(res, 400, { success: false, error: 'Invalid authentication mode' });
-        if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        if (mode === 'register') {
+          const error = registrationAgeError(body.birthDate);
+          if (error) return sendJson(res, error === AGE_SCREEN_DENIED ? 403 : 400, { success: false, error });
+        }
+        if (typeof email !== 'string' || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
           return sendJson(res, 400, { success: false, error: 'Valid email address is required' });
         }
-        const store = readStore(file);
+        let store = readStore(file);
         store.users = store.users || [];
         const authSource = crypto.createHash('sha256').update(authIp).digest('hex');
         const authAllowed = consumeJsonLimit(store,'auth-global',2000,86400000) && consumeJsonLimit(store,'auth-source:'+authSource,30,600000);
@@ -241,6 +235,8 @@ export function createCommercialServer(options = {}) {
           return sendJson(res, 401, { success: false, error: 'Email or password is incorrect.' });
         }
         if (user && mode === 'register') return sendJson(res, 409, { success: false, error: 'An account already exists for this email. Sign in instead.' });
+        let verificationSent;
+        if (user?.id.startsWith('usr_guest')) return sendJson(res, 403, { error: 'Register a new account with your own email address.' });
         if (user) {
           if (user.password_hash) {
             if (!password) {
@@ -256,17 +252,25 @@ export function createCommercialServer(options = {}) {
             return sendJson(res, 403, { success: false, error: 'This managed account has no password yet. Contact your administrator.' });
           }
         } else {
+          const ageError = registrationAgeError(body.birthDate);
+          if (ageError) return sendJson(res, ageError === AGE_SCREEN_DENIED ? 403 : 400, { success: false, error: ageError });
           if (rateLimitExceeded(rateBuckets, `register:${authIp}`, 5, 3600000)) {
             return sendJson(res, 429, { success: false, error: 'Too many new accounts from this address. Try again later.' });
           }
           if (typeof password !== 'string' || password.length < 6 || password.length > 1024) {
             return sendJson(res, 400, { success: false, error: 'New accounts require a password between 6 and 1024 characters.' });
           }
+          try { await checkVerificationChallenge(env, turnstileToken, 'register', fetchUpstream); }
+          catch (error) { return sendJson(res, error.status || 503, { success: false, error: error.message }); }
+          store = readStore(file);
+          if (store.users?.some(user => user.email?.toLowerCase() === email.toLowerCase())) {
+            return sendJson(res, 409, { error: 'An account already exists for this email. Sign in instead.' });
+          }
           const source = crypto.createHash('sha256').update(authIp).digest('hex');
           if (!consumeJsonLimit(store,'register-create-global',100,86400000) || !consumeJsonLimit(store,'register-create:'+source,5,86400000)) {
             persist(store,file); return sendJson(res,429,{error:'Account creation safety limit reached. Try later.'});
           }
-          const credits = claimJsonTrial(store, source, freeCredits(store.billing_config), env.FREE_TRIAL_ENABLED !== 'false');
+          const credits = 0;
           user = {
             id: 'usr_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12),
             email: email.toLowerCase(),
@@ -280,13 +284,19 @@ export function createCommercialServer(options = {}) {
             createdAt: new Date().toISOString(),
           };
           store.users.push(user);
+          store.emailVerifications ||= {};
+          store.emailVerifications[user.id] = { user_id: user.id, email: user.email, source, eligible: 1 };
           persist(store, file);
           recordRateHit(rateBuckets, `register:${authIp}`);
+          try {
+            await sendVerificationEmail({ ledger: verificationLedger, user, source, env, fetcher: fetchUpstream });
+            verificationSent = true;
+          } catch { verificationSent = false; }
         }
         rateBuckets.delete(authFailKey);
         const userToken = crypto.randomBytes(32).toString('hex');
         userSessions.set(userToken, { userId: user.id, expires: Date.now() + 7 * 86400000 });
-        return sendJson(res, 200, { success: true, user: stripUserSecrets(user), token: userToken });
+        return sendJson(res, 200, { success: true, user: await publicUser(user), token: userToken, ...(verificationSent === undefined ? {} : { verificationSent }) });
       }
 
       if (pathname === '/api/user/me' && req.method === 'GET') {
@@ -298,7 +308,8 @@ export function createCommercialServer(options = {}) {
         const store = readStore(file);
         const user = store.users?.find((u) => u.id === session.userId);
         if (!user) return sendJson(res, 404, { success: false, error: 'User not found' });
-        return sendJson(res, 200, { success: true, user: stripUserSecrets(user) });
+        if (user.id.startsWith('usr_guest')) return sendJson(res, 401, { error: 'Register and verify your email to continue.' });
+        return sendJson(res, 200, { success: true, user: await publicUser(user) });
       }
 
       if (pathname === '/api/user/deduct-credits' && req.method === 'POST') {
@@ -341,7 +352,7 @@ export function createCommercialServer(options = {}) {
         }
 
         if (!token) {
-          return sendJson(res, 401, { success: false, error: 'Sign in or initialize a trial session before generating a panorama.' });
+          return sendJson(res, 401, { success: false, error: 'Sign in to a registered account before generating a panorama.' });
         }
 
         const session = userSessions.get(token);
@@ -358,6 +369,11 @@ export function createCommercialServer(options = {}) {
         if (user.status !== 'active') {
           return sendJson(res, 403, { success: false, error: 'This account is suspended and cannot generate images.' });
         }
+        if (user.id.startsWith('usr_guest')) return sendJson(res, 403, { success: false, code: 'REGISTRATION_REQUIRED', error: 'Register and verify your email before generating images.' });
+        if (!['pro', 'enterprise'].includes(user.plan) && !(await verificationLedger.state(user.id))?.verified_at) {
+          return sendJson(res, 403, { success: false, code: 'EMAIL_VERIFICATION_REQUIRED', error: 'Verify your email before generating images.' });
+        }
+
 
         const resolution = body.resolution ?? '4K';
         const defaultCosts = { '1K': 1, '2K': 2, '4K': 4 };
@@ -402,10 +418,6 @@ export function createCommercialServer(options = {}) {
         } catch (error) {
           return sendJson(res, 400, { success: false, error: error instanceof Error ? error.message : 'Invalid model configuration' });
         }
-        const { url: targetUrl, headers, payload, mode } = upstreamRequest;
-        const isGoogleOfficial = mode.startsWith('google-');
-        const isImagen = mode === 'google-imagen';
-        const isChatMode = mode === 'chat';
 
         if (env.GENERATION_ENABLED === 'false') return sendJson(res,429,{error:'Generation is temporarily paused. No credits were charged.'});
         const leaseId = crypto.randomUUID(), now = Date.now();
@@ -415,7 +427,7 @@ export function createCommercialServer(options = {}) {
         const budgets = [['generation-attempts',200,1],['generation-all',positiveLimit(env.MAX_DAILY_GENERATION_CREDITS,1000),cost]];
         if (!user.plan || user.plan === 'free' || user.id.startsWith('usr_guest')) budgets.push(['generation-free-attempts',25,1],['generation-free',positiveLimit(env.MAX_DAILY_FREE_CREDITS,100),cost], ['generation-source:'+source,20,cost], ['generation-user:'+user.id,10,1]);
         for (const [key,limit,amount] of budgets) if (!consumeJsonLimit(store,key,limit,86400000,amount)) { persist(store,file); return sendJson(res,429,{error:'Daily generation safety limit reached. No credits were charged.'}); }
-        store.riskLeases.push({id:leaseId, owner_id:user.id, expires_at:now+240000});
+        store.riskLeases.push({id:leaseId, owner_id:user.id, expires_at:now+GENERATION_LEASE_MS});
         // ponytail: synchronous reservations cover one Node process; use D1 for multiple instances.
         user.creditsBalance -= cost;
         persist(store, file);
@@ -423,86 +435,132 @@ export function createCommercialServer(options = {}) {
         let responseStatus = 200;
         let responseData;
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), IMAGE_GENERATION_TIMEOUT_MS);
+        const timer = setTimeout(() => ctrl.abort(), GENERATION_WORKFLOW_TIMEOUT_MS);
 
         try {
-          const upstreamStarted = Date.now();
-          const upstreamRes = await fetchUpstream(targetUrl, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(payload),
-            signal: ctrl.signal,
-          });
+          const generationTiming = { upstreamWaitMs: 0, upstreamBodyMs: 0 };
+          for (let attempts = 1; attempts <= 2; attempts++) {
+            ctrl.signal.throwIfAborted();
+            const { url: targetUrl, headers, payload, mode } = upstreamRequest;
+            const isGoogleOfficial = mode.startsWith('google-');
+            const isImagen = mode === 'google-imagen';
+            const isChatMode = mode === 'chat';
+            const upstreamStarted = Date.now();
+            const generationSignal = AbortSignal.any([ctrl.signal, AbortSignal.timeout(IMAGE_GENERATION_TIMEOUT_MS)]);
+            const upstreamRes = await fetchUpstream(targetUrl, {
+              method: 'POST',
+              headers,
+              body: payload instanceof FormData ? payload : JSON.stringify(payload),
+              signal: generationSignal,
+            });
 
-          if (!upstreamRes.ok) {
-            const errText = await upstreamRes.text();
-            responseStatus = 502;
-            throw new Error(`Model endpoint returned HTTP ${upstreamRes.status}: ${errText.slice(0, 240)}`);
-          }
-
-          const upstreamWaitMs = Date.now() - upstreamStarted;
-          const data = await upstreamRes.json();
-          const generationTiming = { upstreamWaitMs, upstreamBodyMs: Date.now() - upstreamStarted - upstreamWaitMs };
-          let imageUrl = null;
-
-          if (isGoogleOfficial && isImagen) {
-            if (data.predictions && data.predictions[0]?.bytesBase64Encoded) {
-              imageUrl = `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`;
+            if (!upstreamRes.ok) {
+              const errText = await upstreamRes.text();
+              responseStatus = 502;
+              throw new Error(`Model endpoint returned HTTP ${upstreamRes.status}: ${errText.slice(0, 240)}`);
             }
-          } else if (isGoogleOfficial) {
-            const parts = data.candidates?.[0]?.content?.parts || [];
-            const part = parts.find((item) => item?.inlineData?.data);
-            if (part?.inlineData?.data) {
-              imageUrl = `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
+
+            const upstreamWaitMs = Date.now() - upstreamStarted;
+            const data = await upstreamRes.json();
+            generationSignal.throwIfAborted();
+            generationTiming.upstreamWaitMs += upstreamWaitMs;
+            generationTiming.upstreamBodyMs += Date.now() - upstreamStarted - upstreamWaitMs;
+            let imageUrl = null;
+
+            if (isGoogleOfficial && isImagen) {
+              if (data.predictions && data.predictions[0]?.bytesBase64Encoded) {
+                imageUrl = `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`;
+              }
+            } else if (isGoogleOfficial) {
+              const parts = data.candidates?.[0]?.content?.parts || [];
+              const part = parts.find((item) => item?.inlineData?.data);
+              if (part?.inlineData?.data) {
+                imageUrl = `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
+              } else {
+                const text = parts.filter((item) => typeof item?.text === 'string')
+                  .map((item) => item.text).join('\n');
+                const b64 = text.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
+                imageUrl = b64 ? b64[0] : (text.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)/i)?.[0] || null);
+              }
+            } else if (isChatMode) {
+              const msg = data.choices?.[0]?.message;
+              if (msg?.images && msg.images[0]?.image_url?.url) {
+                imageUrl = msg.images[0].image_url.url;
+              } else if (typeof msg?.content === 'string') {
+                const b64 = msg.content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
+                imageUrl = b64 ? b64[0] : (msg.content.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)/i)?.[0] || null);
+              }
             } else {
-              const text = parts.filter((item) => typeof item?.text === 'string')
-                .map((item) => item.text).join('\n');
-              const b64 = text.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
-              imageUrl = b64 ? b64[0] : (text.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)/i)?.[0] || null);
+              const item = data.data?.[0];
+              if (item?.b64_json) {
+                imageUrl = item.b64_json.startsWith('data:image') ? item.b64_json : `data:image/png;base64,${item.b64_json}`;
+              } else if (item?.url) {
+                imageUrl = item.url;
+              }
             }
-          } else if (isChatMode) {
-            const msg = data.choices?.[0]?.message;
-            if (msg?.images && msg.images[0]?.image_url?.url) {
-              imageUrl = msg.images[0].image_url.url;
-            } else if (typeof msg?.content === 'string') {
-              const b64 = msg.content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
-              imageUrl = b64 ? b64[0] : (msg.content.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)/i)?.[0] || null);
+
+            if (!imageUrl) {
+              responseStatus = 502;
+              throw new Error('The model responded without a valid image.');
             }
-          } else {
-            const item = data.data?.[0];
-            if (item?.b64_json) {
-              imageUrl = item.b64_json.startsWith('data:image') ? item.b64_json : `data:image/png;base64,${item.b64_json}`;
-            } else if (item?.url) {
-              imageUrl = item.url;
+
+            const quality = { ...await reviewPanorama({
+              endpoint: {
+                ...targetEp,
+                baseUrl: env.PANORAMA_REVIEW_BASE_URL || targetEp.baseUrl,
+                apiKey: env.PANORAMA_REVIEW_API_KEY || targetEp.apiKey,
+              },
+              model: env.PANORAMA_REVIEW_MODEL || DEFAULT_PANORAMA_REVIEW_MODEL,
+              prompt,
+              referenceImages: referenceImages ?? [],
+              imageUrl,
+              fetch: fetchUpstream,
+              signal: ctrl.signal,
+            }), attempts };
+            if (quality.status === 'failed' && attempts === 1) {
+              upstreamRequest = buildImageModelRequest({ ...targetEp, model }, {
+                prompt: buildQualityRetryPrompt(prompt, quality.issues), referenceImages, resolution,
+              });
+              continue;
             }
+
+            const imageResolution = inspectImageResolution(imageUrl, resolution);
+            console.info('[generation-quality]', JSON.stringify({ endpointId: targetEp.id, model, resolution, imageResolution }));
+            const creditsRefunded = quality.status !== 'passed' || imageResolution.status === 'below-request' ? cost : 0;
+            const latestStore = readStore(file);
+            const latestUser = latestStore.users.find(entry => entry.id === user.id);
+            if (!latestUser) throw new Error('User no longer exists');
+            latestUser.creditsBalance += creditsRefunded;
+            latestUser.apiCallsCount = (latestUser.apiCallsCount || 0) + attempts;
+            persist(latestStore, file);
+            completed = true;
+
+            if (quality.status !== 'passed') {
+              const unavailable = quality.status === 'unavailable';
+              responseStatus = unavailable ? 503 : 422;
+              responseData = {
+                success: false,
+                code: unavailable ? 'GENERATION_REVIEW_UNAVAILABLE' : 'GENERATION_QUALITY_REJECTED',
+                error: unavailable ? 'Panorama quality review is unavailable. Your credits were returned. Please try again later.'
+                  : 'The generated panorama did not pass quality review after two attempts. Your credits were returned. Please revise your prompt or reference images.',
+                quality, creditsDeducted: 0, creditsRefunded: cost, remainingCredits: latestUser.creditsBalance,
+              };
+              break;
+            }
+
+            responseData = {
+              success: true,
+              imageUrl,
+              modelUsed: model,
+              generationTiming,
+              remainingCredits: latestUser.creditsBalance,
+              creditsDeducted: cost - creditsRefunded,
+              creditsRefunded,
+              imageResolution,
+              quality,
+            };
+            break;
           }
-
-          if (!imageUrl) {
-            responseStatus = 502;
-            throw new Error('The model responded without a valid image.');
-          }
-
-          const imageResolution = inspectImageResolution(imageUrl, resolution);
-          console.info('[generation-quality]', JSON.stringify({ endpointId: targetEp.id, model, resolution, imageResolution }));
-          const creditsRefunded = imageResolution.status === 'below-request' ? cost : 0;
-          const latestStore = readStore(file);
-          const latestUser = latestStore.users.find(entry => entry.id === user.id);
-          if (!latestUser) throw new Error('User no longer exists');
-          latestUser.creditsBalance += creditsRefunded;
-          latestUser.apiCallsCount = (latestUser.apiCallsCount || 0) + 1;
-          persist(latestStore, file);
-          completed = true;
-
-          responseData = {
-            success: true,
-            imageUrl,
-            modelUsed: model,
-            generationTiming,
-            remainingCredits: latestUser.creditsBalance,
-            creditsDeducted: cost - creditsRefunded,
-            creditsRefunded,
-            imageResolution,
-          };
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           if (responseStatus === 200) responseStatus = 504;
@@ -527,9 +585,9 @@ export function createCommercialServer(options = {}) {
       if (pathname === '/api/billing' && req.method === 'GET') {
         const store = readStore(file);
         const config = store.billing_config || {
-          freeMonthlyCredits: 4,
+          freeMonthlyCredits: 8,
           proMonthlyPriceUsd: 9.9,
-          proMonthlyCredits: 1000,
+          proMonthlyCredits: 120,
           enterpriseCustomPricing: true,
           creditCostPer1K: 1,
           creditCostPer2K: 2,
@@ -607,7 +665,7 @@ export function createCommercialServer(options = {}) {
           }
           const store = readStore(file);
           const newId = 'usr_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12);
-          const rawCredits = typeof credits === 'number' ? credits : typeof creditsBalance === 'number' ? creditsBalance : 1000;
+          const rawCredits = typeof credits === 'number' ? credits : typeof creditsBalance === 'number' ? creditsBalance : 120;
           const initialPwd = typeof password === 'string' && password.length >= 6
             ? password
             : 'Pano_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
@@ -716,8 +774,8 @@ export function createCommercialServer(options = {}) {
         }
 
         const PRICING_CENTS = {
-          pro: { monthly: 990, yearly: 11880, credits: 1000 },
-          enterprise: { monthly: 2999, yearly: 34800, credits: 5000 },
+          pro: { monthly: 990, yearly: 9900, credits: 120 },
+          enterprise: { monthly: 2999, yearly: 29900, credits: 400 },
         };
         const orderAmount = PRICING_CENTS[plan][billingCycle];
         // Yearly plans grant twelve monthly allotments, matching the PayPal catalog.

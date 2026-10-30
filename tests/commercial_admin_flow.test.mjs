@@ -111,7 +111,7 @@ test('adminStorage: processCheckoutSubscription upgrades user, generates subscri
 
   // 1. Verify user was upgraded
   assert.equal(upgradedUser.plan, 'pro');
-  assert.equal(upgradedUser.creditsBalance, initialBalance + 1000);
+  assert.equal(upgradedUser.creditsBalance, initialBalance + 120);
 
   // 2. Verify subscription was logged
   assert.equal(subscription.userId, 'usr_8804');

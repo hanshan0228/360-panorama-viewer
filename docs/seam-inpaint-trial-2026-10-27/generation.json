@@ -1,0 +1,8 @@
+{
+  "model": "gemini-3.1-flash-image",
+  "resolution": "2K",
+  "requestedAspectRatio": "16:9",
+  "prompt": "A tropical beach at sunset, detailed palm trees on the shore, individual sharp palm leaves, textured fine sand and small ocean waves, realistic photography, natural fine detail, full 360 degree equirectangular projection panorama, 360 spherical VR skybox, 2:1 ratio texture map, seamless horizontal wrap, continuous 360 panoramic loop, matching left and right edges, level horizontal horizon at 50% vertical center, flat camera zero pitch, full frame edge to edge, no borders, no circular lens, no black frame, no vignettes",
+  "elapsedSeconds": 21,
+  "source": "docs/seam-inpaint-trial-2026-10-27/gemini-original.jpg"
+}

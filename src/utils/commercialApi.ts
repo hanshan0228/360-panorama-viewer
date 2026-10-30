@@ -19,6 +19,7 @@ export interface PayPalSubscription {
   paypalId: string | null;
   plan: 'pro' | 'enterprise';
   billingCycle: 'monthly' | 'yearly';
+  amountCents: number;
   status: string;
   paidThrough: string;
   approvalUrl: string;
@@ -58,7 +59,7 @@ export async function probeBackendHealth(): Promise<BackendHealthStatus> {
   }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 2000);
+  const timer = setTimeout(() => controller.abort(), 6000);
   try {
     const res = await fetch('/api/health', {
       method: 'GET',
@@ -135,8 +136,8 @@ export async function authServerUser(
   email: string,
   name?: string,
   password?: string,
-  options: { mode?: 'login' | 'register'; signal?: AbortSignal } = {}
-): Promise<{ success: boolean; user?: any; token?: string; error?: string }> {
+  options: { mode?: 'login' | 'register'; signal?: AbortSignal; turnstileToken?: string; birthDate?: string } = {}
+): Promise<{ success: boolean; user?: any; token?: string; error?: string; verificationSent?: boolean }> {
   try {
     const res = await fetch('/api/user/auth', {
       method: 'POST',
@@ -144,7 +145,7 @@ export async function authServerUser(
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, name, password, mode: options.mode }),
+      body: JSON.stringify({ email, name, password, mode: options.mode, turnstileToken: options.turnstileToken, birthDate: options.birthDate }),
     });
 
     const data = await res.json();
@@ -164,28 +165,24 @@ export async function authServerUser(
   }
 }
 
-/**
- * Initializes an authentic guest user session on backend with 4 trial credits
- */
-export async function initServerGuestUser(): Promise<{
-  success: boolean;
-  user?: any;
-  token?: string;
-  error?: string;
-}> {
-  try {
-    const res = await fetch('/api/user/guest', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const data = await res.json();
-    if (res.ok && data.success && data.token) {
-      return data;
-    }
-    return { success: false, error: data.error || 'Failed to initialize guest session' };
-  } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : 'Network error' };
-  }
+export interface AuthConfiguration { registrationAvailable: boolean; turnstileSiteKey: string; }
+
+export async function fetchAuthConfiguration(signal: AbortSignal): Promise<AuthConfiguration> {
+  const response = await fetch('/api/user/auth-config', { signal });
+  if (!response.ok) throw new Error('Account verification is temporarily unavailable. Please try again later.');
+  return response.json();
+}
+
+export async function emailVerificationRequest(body: { token: string } | { turnstileToken: string }, signal: AbortSignal): Promise<{ userId?: string; creditsGranted?: number; alreadyVerified?: boolean }> {
+  const token = localStorage.getItem('panorama_server_user_token');
+  const response = await fetch('/api/user/' + ('token' in body ? 'verify-email' : 'send-verification'), {
+    method: 'POST', signal, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(body),
+  });
+  const result = await response.json();
+  signal.throwIfAborted();
+  if (!response.ok) throw new Error(result.error || 'Verification is temporarily unavailable. Please try again later.');
+  return result;
 }
 
 /**
@@ -227,7 +224,7 @@ export async function fetchServerUser(token?: string): Promise<{
  */
 export async function fetchPublicBillingConfig(): Promise<any | null> {
   try {
-    const res = await fetch('/api/billing');
+    const res = await fetch('/api/billing', { signal: AbortSignal.timeout(6000) });
     if (res.ok) {
       const data = await res.json();
       if (data.success && data.config) return data.config;
@@ -370,7 +367,7 @@ export async function adminSaveModelsConfigServer(payload: { endpoints: any[]; r
  */
 export async function fetchPublicModelsConfig(): Promise<{ endpoints: any[] | null; routingConfig: any | null } | null> {
   try {
-    const res = await fetch('/api/models');
+    const res = await fetch('/api/models', { signal: AbortSignal.timeout(6000) });
     if (res.ok) {
       const data = await res.json();
       if (data.success) {

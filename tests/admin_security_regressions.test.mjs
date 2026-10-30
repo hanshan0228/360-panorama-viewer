@@ -1,3 +1,4 @@
+import { emailTestEnv, challengeToken, emailServicesFixture } from './email_services_fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
@@ -13,12 +14,13 @@ import { adminUpdateCredentialsServer } from '../src/utils/commercialApi.ts';
 const password = 'isolated-admin-password';
 
 async function backendFixture(context, backend, upstream = () => Response.json({ error: 'unsupported references' }, { status: 400 })) {
+  const emailServices = emailServicesFixture(upstream);
   if (backend === 'D1') {
     // The worker module keeps per-isolate rate-limit counters; each fixture starts from a clean slate.
     __resetEdgeRateLimits();
     const database = new DatabaseSync(':memory:');
     context.after(() => database.close());
-    context.mock.method(globalThis, 'fetch', upstream);
+    context.mock.method(globalThis, 'fetch', emailServices.fetch);
     const db = {
       prepare(sql) {
         let values = [];
@@ -43,26 +45,28 @@ async function backendFixture(context, backend, upstream = () => Response.json({
         }
       },
     };
-    return async (route, body, token) => onRequest({ env: { DB: db, ADMIN_PASSWORD: password }, request: new Request(`https://test.invalid/api/${route}`, {
+    const call = async (route, body, token) => onRequest({ env: { ...emailTestEnv, DB: db, ADMIN_PASSWORD: password }, request: new Request(`https://test.invalid/api/${route}`, {
       method: body === undefined ? 'GET' : 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...(body === undefined ? {} : { body: JSON.stringify(route === 'user/auth' ? { birthDate: '1990-01-01', turnstileToken: challengeToken(), ...body } : body) }),
     }) });
+    return Object.assign(call, { emailServices });
   }
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'panorama-admin-security-'));
   const file = path.join(directory, 'store.json');
   writeStore({ schemaVersion: 2, adminPasswordHash: hashPassword(password), users: [], subscriptions: [], invoices: [] }, file);
-  const server = createCommercialServer({ storeFile: file, env: {}, fetch: upstream });
+  const server = createCommercialServer({ storeFile: file, env: { ...emailTestEnv }, fetch: emailServices.fetch });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   context.after(async () => {
     await new Promise(resolve => server.close(resolve));
     fs.rmSync(directory, { recursive: true, force: true });
   });
-  return (route, body, token) => fetch(`http://127.0.0.1:${server.address().port}/api/${route}`, {
+  const call = (route, body, token) => fetch(`http://127.0.0.1:${server.address().port}/api/${route}`, {
     method: body === undefined ? 'GET' : 'POST',
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    ...(body === undefined ? {} : { body: JSON.stringify(route === 'user/auth' ? { birthDate: '1990-01-01', turnstileToken: challengeToken(), ...body } : body) }),
   });
+  return Object.assign(call, { emailServices });
 }
 
 for (const backend of ['Node', 'D1']) {
@@ -83,29 +87,26 @@ for (const backend of ['Node', 'D1']) {
     assert.ok(await login('owner', 'replacement-password'));
   });
 
-  test(`${backend}: validated trial configuration grants guests and registrations zero or configured credits`, async context => {
-    const call = await backendFixture(context, backend);
-    const { token } = await (await call('admin/login', { username: 'admin', password })).json();
+  test(`${backend}: trial configuration only grants credits after email verification`, async context => {
     for (const value of [undefined, 0, 9, Number.MAX_SAFE_INTEGER]) {
-      for (const route of ['user/guest', 'user/auth']) {
-        const isolatedCall = await backendFixture(context, backend);
-        const admin = await (await isolatedCall('admin/login', { username: 'admin', password })).json();
-        const config = value === undefined ? {} : { freeMonthlyCredits: value };
-        assert.equal((await isolatedCall('admin/billing', { config }, admin.token)).status, 200);
-        const response = await isolatedCall(route, { email: `${crypto.randomUUID()}@example.com`, password });
-        assert.equal(response.status, 200);
-        const { user } = await response.json();
-        // A valid billing configuration cannot override the site trial-spend safety budget.
-        const expected = value === Number.MAX_SAFE_INTEGER ? 0 : value ?? 4;
-        assert.equal(user.creditsBalance, expected);
-        assert.equal(user.creditsTotal, expected);
+      const call = await backendFixture(context, backend);
+      const admin = await (await call('admin/login', { username: 'admin', password })).json();
+      assert.equal((await call('user/guest', {})).status, 403);
+      const config = value === undefined ? {} : { freeMonthlyCredits: value };
+      assert.equal((await call('admin/billing', { config }, admin.token)).status, 200);
+      const email = `${crypto.randomUUID()}@example.com`;
+      const account = await (await call('user/auth', { email, password })).json();
+      assert.equal(account.user.creditsBalance, 0);
+      const verified = await call('user/verify-email', { token: call.emailServices.latestToken(email) });
+      assert.equal(verified.status, 200);
+      const { user } = await (await call('user/me', undefined, account.token)).json();
+      const expected = value === Number.MAX_SAFE_INTEGER ? 0 : value ?? 8;
+      assert.equal(user.creditsBalance, expected);
+      assert.equal(user.creditsTotal, expected);
+      for (const invalid of [-1, 1.5, '9', null, Number.MAX_SAFE_INTEGER + 1]) {
+        assert.equal((await call('admin/billing', { config: { freeMonthlyCredits: invalid } }, admin.token)).status, 400);
       }
     }
-    await call('admin/billing', { config: { freeMonthlyCredits: Number.MAX_SAFE_INTEGER } }, token);
-    for (const value of [-1, 1.5, '9', null, Number.MAX_SAFE_INTEGER + 1]) {
-      assert.equal((await call('admin/billing', { config: { freeMonthlyCredits: value } }, token)).status, 400);
-    }
-    assert.equal((await (await call('billing')).json()).config.freeMonthlyCredits, Number.MAX_SAFE_INTEGER);
   });
 
   test(`${backend}: upstream reference rejection never retries or charges`, async context => {
@@ -117,14 +118,15 @@ for (const backend of ['Node', 'D1']) {
     });
     const admin = await (await call('admin/login', { username: 'admin', password })).json();
     assert.equal((await call('admin/models', { endpoints: [{ id: 'ref', name: 'Reference model', baseUrl: 'https://mock.invalid/v1', model: 'gemini-test', isEnabled: true, isDefault: true }] }, admin.token)).status, 200);
-    const guest = await (await call('user/guest', {})).json();
+    const guest = await (await call('user/auth', { email: 'reference@example.test', password })).json();
+    assert.equal((await call('user/verify-email', { token: call.emailServices.latestToken('reference@example.test') })).status, 200);
     const response = await call('generate', { prompt: 'a panorama', endpointId: 'ref', referenceImages: ['data:image/png;base64,AA=='] }, guest.token);
     assert.equal(response.status, 502);
     assert.match((await response.json()).error, /400/);
     assert.equal(requests.length, 1);
     assert.equal(requests[0].messages[0].content[1].image_url.url, 'data:image/png;base64,AA==');
     const profile = await (await call('user/me', undefined, guest.token)).json();
-    assert.equal(profile.user.creditsBalance, 4);
+    assert.equal(profile.user.creditsBalance, 8);
     assert.equal(profile.user.apiCallsCount, 0);
   });
 }

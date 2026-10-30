@@ -1,0 +1,23 @@
+{
+  "label": "GPT",
+  "model": "gpt-image-2.5",
+  "file": "gpt-original.png",
+  "startedAt": "2026-10-27T03:59:48.549Z",
+  "requestedSize": "3840x1920",
+  "requestedImageConfig": null,
+  "requestMode": "images",
+  "success": true,
+  "bytes": 3145278,
+  "elapsedSeconds": 26.8,
+  "reportedModel": null,
+  "resolution": {
+    "requested": "4K",
+    "targetWidth": 3840,
+    "targetHeight": 1920,
+    "width": 1774,
+    "height": 887,
+    "panoramaWidth": 1774,
+    "panoramaHeight": 887,
+    "status": "below-request"
+  }
+}

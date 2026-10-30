@@ -200,6 +200,8 @@ function componentHarness(file, exportName, globals, exportFile) {
     },
   };
   const Component = load(file, globals, { react,
+    '../../utils/i18n': { useTranslation: () => text => text, useLanguage: () => ['en'], withLanguageHref: href => href },
+    '../../utils/specialistTranslations': load('src/utils/specialistTranslations.ts'),
     'canvas-confetti': () => {}, '../../utils/xmpInjector': { exportPhotoSphereFile: exportFile },
   })[exportName];
   return {

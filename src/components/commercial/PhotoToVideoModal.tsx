@@ -1,3 +1,5 @@
+import { useTranslation } from '../../utils/i18n';
+import { advancedTranslations } from '../../utils/advancedTranslations';
 import { useState, useEffect, useRef } from 'react';
 import {
   X,
@@ -24,6 +26,7 @@ export function PhotoToVideoModal({
   onClose,
   currentPanoramaUrl,
 }: PhotoToVideoModalProps) {
+  const t = useTranslation(advancedTranslations);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1'>('16:9');
   const [duration, setDuration] = useState<number>(8);
   const [tilt, setTilt] = useState<boolean>(true);
@@ -85,7 +88,7 @@ export function PhotoToVideoModal({
         origin: { y: 0.7 },
       });
     } catch {
-      alert('Video export failed. Please verify browser MediaRecorder support.');
+      alert(t('Video export failed. Please verify browser MediaRecorder support.'));
     } finally {
       setIsRecording(false);
     }
@@ -113,13 +116,13 @@ export function PhotoToVideoModal({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-black text-white">360° Photo to Video Animator</h3>
+                <h3 className="text-lg font-black text-white">{t("360° Photo to Video Animator")}</h3>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-400/20 text-cyan-300 font-bold">
                   MP4 / WebM
                 </span>
               </div>
               <p className="text-xs text-cyan-300/70">
-                Render a 360° rotating video clip for TikTok, Instagram Reels, and Amazon
+                {t("Render a 360° rotating video clip for TikTok, Instagram Reels, and Amazon")}
               </p>
             </div>
           </div>
@@ -127,6 +130,7 @@ export function PhotoToVideoModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label={t('Close video export')}
             className="p-2 rounded-xl text-cyan-400 hover:text-white hover:bg-cyan-500/15 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -138,7 +142,7 @@ export function PhotoToVideoModal({
           {/* Aspect Ratio */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
-              <span>Aspect Ratio</span>
+              <span>{t("Aspect Ratio")}</span>
             </label>
             <div className="grid grid-cols-3 gap-2">
               <button
@@ -151,7 +155,7 @@ export function PhotoToVideoModal({
                 }`}
               >
                 <Monitor className="w-4 h-4 text-cyan-400" />
-                <span>16:9 Wide</span>
+                <span>{t("16:9 Wide")}</span>
                 <span className="text-[9px] text-cyan-400/60 font-mono">YouTube</span>
               </button>
 
@@ -165,7 +169,7 @@ export function PhotoToVideoModal({
                 }`}
               >
                 <Smartphone className="w-4 h-4 text-cyan-400" />
-                <span>9:16 Vertical</span>
+                <span>{t("9:16 Vertical")}</span>
                 <span className="text-[9px] text-cyan-400/60 font-mono">TikTok/Reels</span>
               </button>
 
@@ -179,8 +183,8 @@ export function PhotoToVideoModal({
                 }`}
               >
                 <Square className="w-4 h-4 text-cyan-400" />
-                <span>1:1 Square</span>
-                <span className="text-[9px] text-cyan-400/60 font-mono">Feed</span>
+                <span>{t("1:1 Square")}</span>
+                <span className="text-[9px] text-cyan-400/60 font-mono">{t("Feed")}</span>
               </button>
             </div>
           </div>
@@ -189,8 +193,8 @@ export function PhotoToVideoModal({
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-xs font-bold text-cyan-300 flex items-center justify-between">
-                <span>Duration</span>
-                <span className="font-mono text-cyan-400">{duration} seconds</span>
+                <span>{t("Duration")}</span>
+                <span className="font-mono text-cyan-400">{t('{seconds} seconds').replace('{seconds}', String(duration))}</span>
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[6, 8, 12].map((sec) => (
@@ -204,7 +208,7 @@ export function PhotoToVideoModal({
                         : 'border-cyan-500/20 bg-[#030d1c] text-cyan-200/70 hover:bg-cyan-500/10'
                     }`}
                   >
-                    {sec}s Loop
+                    {t('{seconds}s Loop').replace('{seconds}', String(sec))}
                   </button>
                 ))}
               </div>
@@ -217,7 +221,7 @@ export function PhotoToVideoModal({
                 onChange={(e) => setTilt(e.target.checked)}
                 className="w-4 h-4 rounded border-cyan-500/40 bg-cyan-950 text-cyan-400 focus:ring-0 cursor-pointer"
               />
-              <span>Add Dynamic Elevation Wave (Drone Flight Feel)</span>
+              <span>{t("Add Dynamic Elevation Wave (Drone Flight Feel)")}</span>
             </label>
           </div>
         </div>
@@ -229,7 +233,7 @@ export function PhotoToVideoModal({
               <div className="flex items-center justify-between text-xs">
                 <span className="flex items-center gap-1.5 text-cyan-300 font-semibold">
                   <RotateCw className="w-3.5 h-3.5 animate-spin text-teal-400" />
-                  <span>Recording 360° Video Rotation in Browser...</span>
+                  <span>{t("Recording 360° Video Rotation in Browser...")}</span>
                 </span>
                 <span className="font-mono text-teal-400 font-bold">{progress}%</span>
               </div>
@@ -246,7 +250,7 @@ export function PhotoToVideoModal({
             <div className="p-3 rounded-2xl bg-teal-950/40 border border-teal-500/30 flex items-center justify-between gap-4">
               <div className="flex items-center gap-2 text-xs text-teal-300 font-semibold">
                 <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-                <span>360° Rotation Video Render Complete!</span>
+                <span>{t("360° Rotation Video Render Complete!")}</span>
               </div>
               <button
                 type="button"
@@ -254,7 +258,7 @@ export function PhotoToVideoModal({
                 className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-teal-400 to-cyan-400 text-slate-950 shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Download Video</span>
+                <span>{t("Download Video")}</span>
               </button>
             </div>
           )}
@@ -265,7 +269,7 @@ export function PhotoToVideoModal({
               onClick={onClose}
               className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-cyan-950/40 text-cyan-300 hover:text-white transition-colors cursor-pointer"
             >
-              Cancel
+              {t("Cancel")}
             </button>
 
             <button
@@ -275,7 +279,7 @@ export function PhotoToVideoModal({
               className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-lg shadow-cyan-400/30 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
             >
               <Video className="w-4 h-4 fill-slate-950" />
-              <span>{isRecording ? 'Rendering...' : 'Render 360° Video'}</span>
+              <span>{t(isRecording ? 'Rendering...' : 'Render 360° Video')}</span>
             </button>
           </div>
         </div>

@@ -20,7 +20,7 @@ export function buildImageModelRequest(
   url: string;
   headers: Record<string, string>;
   mode: 'google-imagen' | 'google-gemini' | 'chat' | 'images';
-  payload: Record<string, unknown>;
+  payload: Record<string, unknown> | FormData;
 };
 
 export const IMAGE_GENERATION_TIMEOUT_MS: number;

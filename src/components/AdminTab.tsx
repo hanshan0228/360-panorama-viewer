@@ -129,7 +129,7 @@ export function AdminTab() {
     name: '',
     email: '',
     plan: 'pro',
-    credits: 1000,
+    credits: 120,
     password: '',
   });
 
@@ -551,7 +551,7 @@ export function AdminTab() {
     setUsers(next);
     saveStoredManagedUsers(next);
     setIsAddingUser(false);
-    setNewUserForm({ name: '', email: '', plan: 'pro', credits: 1000, password: '' });
+    setNewUserForm({ name: '', email: '', plan: 'pro', credits: 120, password: '' });
     showToast(`成功创建受管用户：${newUsr.name}${initialPwdNote}`);
   };
 
@@ -2247,7 +2247,7 @@ export function AdminTab() {
               </h4>
 
               <div>
-                <label className="block text-slate-300 mb-1">免费体验版每月赠送积分 (Credits)</label>
+                <label className="block text-slate-300 mb-1">邮箱验证后一次性赠送积分 (Credits)</label>
                 <input
                   type="number"
                   min={0}
