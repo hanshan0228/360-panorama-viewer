@@ -1,4 +1,4 @@
-# 360 Panorama Viewer — AI 360° Panorama Generator & VR Skybox Studio
+# Panorama Viewer & 360° Studio — Free Online WebGL Viewer & AI Skybox Suite
 
 [![Live Website](https://img.shields.io/badge/Website-360panoramaviewer.com-00f2fe?style=for-the-badge&logo=googlechrome&logoColor=white)](https://360panoramaviewer.com)
 [![React](https://img.shields.io/badge/React-19.2-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
@@ -8,9 +8,9 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-An open-source, production-grade WebGL 3D panorama viewer and AI-powered equirectangular environment generation suite.
+A high-performance open-source WebGL **panorama viewer**, **360° photo inspector**, and **AI skybox studio**.
 
-Explore interactive 360° panoramic images in real-time, generate seamless 2:1 equirectangular skyboxes from text prompts or reference photos, convert panoramas into 6-face cubemap packages for Unity/Unreal Engine/Godot, inspect Radiance HDRIs with tone-mapping, and project spherical images onto interactive 3D globes.
+Inspect interactive 360° equirectangular panoramas, cylindrical wide shots, and DJI drone captures online for free. Features Three.js WebGL 2.0 rendering, `Ctrl + V` clipboard paste, Little Planet fisheye projection, VR cardboard split-screen, 6-face cubemap slicing for Unity/Unreal Engine/Godot, and 4K AI skybox generation. 100% client-side privacy with zero server uploads.
 
 **Official Website**: [https://360panoramaviewer.com](https://360panoramaviewer.com)
 
@@ -18,14 +18,20 @@ Explore interactive 360° panoramic images in real-time, generate seamless 2:1 e
 
 ## 🌟 Key Features
 
-### 1. 👁️ Free Client-Side 360° Panorama Viewer
+### 1. 👁️ Free Online Panorama Viewer (360° & Cylindrical Wide Panoramas)
 * **Pure Client-Side WebGL Rendering**: Powered by Three.js `SphereGeometry` and reverse-normals spherical mapping. Runs 100% locally in the browser with zero GPU server overhead.
+* **Full Format & Camera Support**:
+  * **360° Equirectangular Panoramas**: 2:1 full spherical photos (JPG, PNG, WebP, Radiance `.hdr`);
+  * **Cylindrical & Curved Wide Panoramas**: Curved viewport projection for wide-angle panorama photos shot on iPhone, Android, and DSLR stitching;
+  * **DJI Drone Sphere Compatibility**: Seamlessly preview stitched 360° spherical JPEGs and DNGs from **DJI Mini 4 Pro, Mini 3 Pro, Mavic 3, Air 3**, and Osmo cameras without installing heavy desktop software.
 * **Instant Media Input**:
   * File picker and drag-and-drop support for local images;
-  * **`Ctrl + V` Direct Clipboard Paste**: Paste screenshots, saved images, or copied graphics directly into the 360° viewport for immediate spherical inspection.
-* **Dual Projection Modes**:
+  * **`Ctrl + V` Direct Clipboard Paste**: Paste screenshots, saved images, or copied graphics directly into the panorama viewer for immediate inspection.
+* **Multi-Projection Modes**:
   * **Interactive 360° Spherical VR Mode**: Mouse drag, touch swipe, inertia scrolling, and FOV wide-angle zoom (`30°` to `105°`);
-  * **Little Planet Fisheye Mode**: Stereographic outward projection for dynamic planetary overviews.
+  * **Cylindrical Curved Mode**: Ideal for ultra-wide mobile phone panoramic shots;
+  * **Little Planet Fisheye Mode**: Stereographic outward projection for dynamic miniature planetary overviews.
+* **VR Cardboard & Gyroscope Mode**: Dual-eye split-screen view with mobile gyroscope head-tracking support for Meta Quest and Google Cardboard.
 * **Navigation & Orientation**:
   * Real-time 2:1 minimap radar with live cardinal heading compass (`N`, `NE`, `E`, `SE`, `S`, `SW`, `W`, `NW`) and view angle cone;
   * Auto-cruise rotation, full-screen immersive view, and one-click high-resolution viewport snapshot export.
@@ -178,6 +184,39 @@ PANORAMA_REVIEW_API_KEY=
 
 ---
 
+## 🎮 Engine & Platform Compatibility
+
+| Engine / Platform | Integration Type | Output Format | Supported Workflow |
+| :--- | :--- | :--- | :--- |
+| **Unity** | Standard Skybox Shader | 6-face Cubemap ZIP (`posx`, `negx`, etc.) | Drag-and-drop into Unity Skybox material |
+| **Unreal Engine 5** | HDRIBackdrop & Skylight | Radiance `.hdr` / 2:1 Equirectangular PNG | Real-time IBL environment lighting |
+| **Roblox Studio** | Sky Object | 6-face Cubemap Slices (PNG) | Assign to Skybox assets in Lighting |
+| **Godot Engine** | PanoramaSkyMaterial | 2:1 Equirectangular or Cubemap | Native WebGL/Vulkan sky rendering |
+| **Blender & Maya** | World Environment Shader | Radiance 32-bit `.hdr` RGBE | Cycles / Eevee photorealistic lighting |
+| **DJI Drones** | Direct Photo Inspection | 2:1 Spherical JPEG / DNG | Mini 4 Pro, Mini 3, Mavic 3, Air 3 |
+| **VR Headsets** | WebXR & Cardboard | Stereoscopic Split-Screen / Equirectangular | Meta Quest 3, Apple Vision Pro, Cardboard |
+
+---
+
+## ❓ Frequently Asked Questions (FAQ)
+
+### What formats does this online panorama viewer support?
+This **panorama viewer** supports standard 2:1 equirectangular spherical panoramas, ultra-wide cylindrical panoramic photos (from iPhone and Android panorama mode), DJI drone spheres, and 32-bit Radiance `.hdr` environment maps in JPG, PNG, WebP, and HDR formats.
+
+### How do I view 360 photos taken by DJI drones without software?
+Open **[360panoramaviewer.com](https://360panoramaviewer.com)** and drag your DJI drone panorama (from DJI Mini 4 Pro, Mini 3 Pro, Mavic 3, or Air 3) directly into the browser. The Three.js WebGL viewer renders the spherical environment instantly with zero file uploads and complete privacy.
+
+### How do I convert an equirectangular panorama into a 6-sided cubemap?
+Upload your 2:1 panoramic image to the **Equirectangular to Cubemap** tool. The client-side ray-casting algorithm mathematically projects the spherical texture onto 6 rectilinear cube faces (+X Right, -X Left, +Y Top, -Y Bottom, +Z Front, -Z Back). You can download all 6 faces bundled in a ZIP file formatted for Unity and Roblox.
+
+### Can I convert 6 cubemap faces back into an equirectangular panorama?
+Yes! Use the **Cubemap to Equirectangular** tab to upload your 6 cube faces. The engine performs reverse spherical reconstruction to synthesize a seamless 2:1 equirectangular PNG image.
+
+### Is this 360 panorama viewer completely free and open-source?
+Yes. The core WebGL viewer and conversion suite are open-source under the MIT License. Image rendering and projection happen 100% client-side in your browser using Three.js and HTML5 Canvas, ensuring complete data privacy.
+
+---
+
 ## 🔍 SEO & Discoverability Keywords
 
 `360 panorama viewer`, `AI 360 panorama generator`, `equirectangular to cubemap`, `cubemap slicer`, `VR skybox generator`, `Three.js WebGL panorama`, `HDRI viewer`, `photo to globe`, `360 photo viewer`, `dji 360 viewer`, `insta360 online viewer`, `360 pic viewer`, `360 reader`, `skybox converter`, `Unity skybox`, `Unreal Engine environment map`, `spherical panorama player`.
@@ -185,5 +224,4 @@ PANORAMA_REVIEW_API_KEY=
 ---
 
 ## 📄 License
-
 This project is open-source under the [MIT License](https://opensource.org/licenses/MIT).
