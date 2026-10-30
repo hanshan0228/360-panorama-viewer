@@ -1,0 +1,165 @@
+{
+  "checkedAt": "2026-10-25T09:06:35.745Z",
+  "observedUrl": "https://360panoramaviewer.com/#pricing",
+  "footer": {
+    "text": "360 Panorama Viewer\n\nFree 360° panorama viewer and AI studio: inspect equirectangular photos in real-time WebGL, or generate seamless 2:1 panoramas, cubemap slices, and 4K HDR environments.\n\nCommercial Usage Rights Available on All Paid Plans\nSTUDIO CREATORS\n360 Image Maker & Creator\nAI\nText to 360 Panorama\nImage to 360 (Reference Mode)\n360° WebGL Panorama Viewer\nFREE\n360° Panorama Showcase\nNEW\nMap to 3D Globe Maker\nWEBGL\nSPECIALIZED AI TOOLS\nAI HDRI Generator\n3D\nAI Skybox Generator\nVR\nPhoto to 360 Converter\n2D\nCubemap 6-Face Slicer\nZIP\n360° Metadata Injector\nXMP\n360° Photo to Video\nMP4\nPanorama Showcase Video\nSHOP\nHDRI to Cubemap\nHDR\nCubemap to Equirectangular\n2:1\nText to Panorama AI\nPROMPT\nHDRI Viewer & Cube Export\n.HDR\nENGINE FORMATS\nUnity Skybox Export (ZIP)\nRadiance .HDR Container\nUnreal Engine HDRIBackdrop\nPhotoSphere Facebook XMP\nEXIF\nCOMPANY & LEGAL\n360 Panorama Guides & Fixes\nPricing & API Plans\nDeveloper Docs: Embed & API\nJSON\nTerms of Service\nPrivacy Policy\nAdmin Console\n© 2026 360 Panorama Viewer. All rights reserved. 2:1 Equirectangular Standard.\nLocal viewing · No upload\nThree.js • WebGL 2.0",
+    "policies": [
+      {
+        "text": "Terms of Service",
+        "tag": "SPAN",
+        "href": null
+      },
+      {
+        "text": "Privacy Policy",
+        "tag": "SPAN",
+        "href": null
+      }
+    ],
+    "mailLinks": 0
+  },
+  "tracking": {
+    "gtag": "undefined",
+    "dataLayer": "undefined",
+    "requests": []
+  },
+  "responses": [
+    {
+      "path": "/api/models",
+      "status": 200,
+      "observedAt": "2026-10-25T09:17:04.150Z",
+      "endpointCount": 4,
+      "cacheControl": "no-store"
+    },
+    {
+      "path": "/",
+      "status": 200,
+      "cacheControl": "public, max-age=0, must-revalidate",
+      "title": "360 Panorama Viewer — AI 360° Panorama Generator & Online VR Studio",
+      "description": "Create 2:1 panoramas from text or reference photos with AI credits. View 360 images and convert panoramas to six PNG cube faces locally for free.",
+      "ga": false,
+      "claimMatches": []
+    },
+    {
+      "path": "/360-image-maker/",
+      "status": 200,
+      "cacheControl": "public, max-age=0, must-revalidate",
+      "title": "360 Image Maker — Free AI 360° Image Creator Online",
+      "description": "Create seamless 360° equirectangular panoramas and VR images with AI. Free online 360 image maker with WebGL preview and 4K HDR export. No upload needed.",
+      "ga": false,
+      "claimMatches": [
+        "nline 360 image maker with WebGL preview and 4K HDR export. No upload needed.\" />",
+        "nline 360 image maker with WebGL preview and 4K HDR export. No upload needed.\" />",
+        "nline 360 image maker with WebGL preview and 4K HDR export. No upload needed.\" />",
+        ":</strong> Select your target output resolution (1K, 2K, or true 4K) and enable multi-band Poisson gradient blending to ensure the 0° and 360° boundary wraps perf"
+      ]
+    },
+    {
+      "path": "/ai-hdri-generator/",
+      "status": 200,
+      "cacheControl": "public, max-age=0, must-revalidate",
+      "title": "AI HDRI Generator — 360° HDR for Blender & Unreal",
+      "description": "Generate 360° high dynamic range lighting maps and panoramic skyboxes with AI. 4K equirectangular textures and 32-bit Radiance .HDR export for Blender.",
+      "ga": false,
+      "claimMatches": [
+        "ectangular map in high-resolution PNG as well as generating 32-bit floating point Radiance .HDR files and 6-sided cubemap slices formatted for Blender World Shaders and Unreal ",
+        "ne that calculates gradient continuity across the boundary, guaranteeing 100% seamless 360° rotation with zero seam artifacts.\"",
+        ":</strong> Download 4K equirectangular textures, convert to 32-bit floating point Radiance .HDR files, or export 6-sided cubemap ZIP archives for Blender World Shaders and Unre",
+        "ectangular map in high-resolution PNG as well as generating 32-bit floating point Radiance RGBE .HDR files and 6-sided cubemap slices formatted for Blender World Shaders and Un",
+        "calculates gradient continuity across opposite image edges, guaranteeing 100% seamless 360-degree rotation with zero seam artifacts.</p>"
+      ]
+    },
+    {
+      "path": "/terms/",
+      "status": 404,
+      "cacheControl": "no-store",
+      "title": "Page Not Found — 360 Panorama Viewer",
+      "ga": false,
+      "claimMatches": []
+    },
+    {
+      "path": "/privacy/",
+      "status": 404,
+      "cacheControl": "no-store",
+      "title": "Page Not Found — 360 Panorama Viewer",
+      "ga": false,
+      "claimMatches": []
+    },
+    {
+      "path": "/copyright/",
+      "status": 404,
+      "cacheControl": "no-store",
+      "title": "Page Not Found — 360 Panorama Viewer",
+      "ga": false,
+      "claimMatches": []
+    },
+    {
+      "path": "/robots.txt",
+      "status": 200,
+      "cacheControl": "public, max-age=14400, must-revalidate",
+      "ga": false,
+      "claimMatches": []
+    },
+    {
+      "path": "/api/billing",
+      "status": 200,
+      "cacheControl": "no-store",
+      "ga": false,
+      "claimMatches": [],
+      "json": {
+        "success": true,
+        "config": {
+          "freeMonthlyCredits": 4,
+          "proMonthlyPriceUsd": 9.9,
+          "proMonthlyCredits": 1000,
+          "enterpriseCustomPricing": true,
+          "creditCostPer1K": 1,
+          "creditCostPer2K": 2,
+          "creditCostPer4K": 4
+        }
+      }
+    },
+    {
+      "path": "/api/paypal/config",
+      "status": 200,
+      "cacheControl": "no-store",
+      "ga": false,
+      "claimMatches": [],
+      "json": {
+        "enabled": true,
+        "mode": "live",
+        "plans": {
+          "pro": {
+            "monthly": {
+              "amountCents": 990,
+              "credits": 1000
+            },
+            "yearly": {
+              "amountCents": 11880,
+              "credits": 12000
+            }
+          },
+          "enterprise": {
+            "monthly": {
+              "amountCents": 2999,
+              "credits": 5000
+            },
+            "yearly": {
+              "amountCents": 34800,
+              "credits": 60000
+            }
+          }
+        }
+      }
+    },
+    {
+      "path": "/api/shares?public=1",
+      "status": 200,
+      "cacheControl": "no-store",
+      "ga": false,
+      "claimMatches": [],
+      "json": {
+        "shares": []
+      }
+    }
+  ]
+}

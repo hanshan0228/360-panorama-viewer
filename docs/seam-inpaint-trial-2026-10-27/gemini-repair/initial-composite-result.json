@@ -1,0 +1,31 @@
+{
+  "input": "/Users/han/Documents/ChatGPT/pp/panorama-generator/docs/seam-inpaint-trial-2026-10-27/gemini-original.jpg",
+  "model": "gpt-image-2.5",
+  "sourceWidth": 2752,
+  "sourceHeight": 1536,
+  "width": 2752,
+  "height": 1376,
+  "method": "half-width roll, masked edit, original-pixel composite, inverse roll",
+  "actualModelCall": true,
+  "elapsedSeconds": 60.3,
+  "prompt": "This is a 360-degree equirectangular panorama shifted horizontally by exactly half its width. Its original wrap seam is now the central vertical line. Reconstruct ONLY the narrow transparent-masked central band into a coherent continuation of the scene on both sides. Connect actual objects, horizon, palm leaves, sand and cloud textures with sharp natural detail and matching lighting. Preserve camera, composition, geometry, colors, image boundaries and every unmasked region. Do not blur, smear, mirror or crossfade mismatched objects. Return exactly 2752 by 1376 pixels, without cropping or rescaling. The outer edges already join correctly.",
+  "editedWidth": 1774,
+  "editedHeight": 887,
+  "changedColumns": 428,
+  "outsideChangedPixels": 0,
+  "originalSeam": {
+    "difference": 24.115552325581394,
+    "baseline": 11.842902131782946,
+    "needsBlending": false
+  },
+  "editedSeam": {
+    "difference": 8.23812984496124,
+    "baseline": 7.610707364341085,
+    "needsBlending": false
+  },
+  "oldSeam": {
+    "difference": 24.115552325581394,
+    "baseline": 11.842902131782946,
+    "needsBlending": false
+  }
+}

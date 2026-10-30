@@ -1,0 +1,39 @@
+{
+  "startedAt": "2026-10-27T04:39:49.017Z",
+  "input": "/Users/han/Downloads/cartarmor-hero-lifestyle-v2-1536.webp",
+  "inputSha256": "a32539c266f21d75440f2412d72810541243b8f2873ab0ded215c90adcf333c7",
+  "model": "gemini-3.1-flash-image",
+  "resolution": "4K",
+  "aspectRatio": "16:9",
+  "id": "single-view",
+  "prompt": "Transform the attached perspective photo into ONE coherent 360-degree by 180-degree equirectangular environment map photographed from a single stationary viewpoint outside the golf cart. Use the reference as the actual scene: preserve the recognizable silver golf cart, dark roof, beige-and-black seats, rear golf clubs and cooler, stone clubhouse, golf course and warm late-afternoon lighting. Show the main cart only once in front of the viewer, with its full wheels and roof visible. Reconstruct the unseen surroundings naturally around this same camera. The entire canvas must be one continuous spherical scene, never a collage, stacked panorama, split-screen, horizontal strip, inset, contact sheet or pasted source photo. One consistent horizon runs across the middle. The top edge is straight up into sky; the bottom edge is straight down onto continuous pavement or grass, with no steering wheel or other foreground vehicle parts at the camera. The left and right edges meet at the same rearward direction with continuous geometry and lighting. Output a single flat latitude-longitude texture for a 360 viewer, not a rendered globe, fisheye or little planet. Fill the frame; no text, borders or watermarks.",
+  "transport": "Existing generateWithGemini and buildImageModelRequest via configured local proxy; experimental prompt only",
+  "original": "model-original.jpg",
+  "elapsedSeconds": 32.744,
+  "imageResolution": {
+    "requested": "4K",
+    "targetWidth": 3840,
+    "targetHeight": 1920,
+    "width": 5504,
+    "height": 3072,
+    "panoramaWidth": 5504,
+    "panoramaHeight": 2752,
+    "status": "met"
+  },
+  "finishedAt": "2026-10-27T04:40:21.762Z",
+  "postprocessing": {
+    "width": 5504,
+    "height": 2752,
+    "seamBefore": {
+      "difference": 9.852470930232558,
+      "baseline": 2.3235222868217056,
+      "needsBlending": false
+    },
+    "seamAfter": {
+      "difference": 9.852470930232558,
+      "baseline": 2.3235222868217056,
+      "needsBlending": false
+    },
+    "logic": "Existing 2:1 native-detail crop, Auto seam blending; no upscaling or sharpening"
+  }
+}
