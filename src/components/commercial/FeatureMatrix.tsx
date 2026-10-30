@@ -1,3 +1,5 @@
+import { useTranslation } from '../../utils/i18n';
+import { sharedMessages } from '../../utils/sharedTranslations';
 import { Sparkles, Image, Eye, Scissors, Layers, CheckCircle2, ShieldCheck, Box } from 'lucide-react';
 
 interface FeatureCardProps {
@@ -44,77 +46,78 @@ function FeatureCard({ icon, title, badge, description, bulletPoints }: FeatureC
 }
 
 export function FeatureMatrix() {
+  const t = useTranslation(sharedMessages);
   const features: FeatureCardProps[] = [
     {
       icon: <Sparkles className="w-5 h-5 text-cyan-400" />,
-      title: 'Text-to-360 Generation',
-      badge: 'Core Engine',
+      title: t("Text-to-360 Generation"),
+      badge: t("Core Engine"),
       description:
-        'Generic image models do not understand equirectangular geometry. We automatically inject 360° cylindrical wrap-around cues into your prompt.',
+        t("Generic image models do not understand equirectangular geometry. We automatically inject 360° cylindrical wrap-around cues into your prompt."),
       bulletPoints: [
-        'Natural language prompt expansion',
-        'Automatic lighting & depth hints',
-        'Zero prompt syntax learning curve',
+        t("Natural language prompt expansion"),
+        t("Automatic lighting & depth hints"),
+        t("Zero prompt syntax learning curve"),
       ],
     },
     {
       icon: <Image className="w-5 h-5 text-teal-400" />,
-      title: 'Image-to-Pano Conditioning',
-      badge: 'Multi-Reference',
+      title: t("Image-to-Pano Conditioning"),
+      badge: t("Multi-Reference"),
       description:
-        'Upload up to 3 reference photos to steer style, architectural elements, lighting, and palette while letting the model fill full spherical coverage.',
+        t("Upload up to 3 reference photos to steer style, architectural elements, lighting, and palette while letting the model fill full spherical coverage."),
       bulletPoints: [
-        'Multi-image style conditioning',
-        'Palette & material transfer',
-        'Preserves real-world design cues',
+        t("Multi-image style conditioning"),
+        t("Palette & material transfer"),
+        t("Preserves real-world design cues"),
       ],
     },
     {
       icon: <Scissors className="w-5 h-5 text-amber-400" />,
-      title: 'Seam-Aware Post-Processing',
-      badge: 'Optional',
+      title: t("Seam-Aware Post-Processing"),
+      badge: t("Optional"),
       description:
-        'Inspect the left and right edges in the viewer after automatic seam detection and optional blending. Blending can soften a boundary, but cannot reconstruct mismatched scene geometry.',
+        t("Inspect the left and right edges in the viewer after automatic seam detection and optional blending. Blending can soften a boundary, but cannot reconstruct mismatched scene geometry."),
       bulletPoints: [
-        'Automatic hard-boundary detection',
-        'May introduce ghosting at the edges',
-        'Keep the original before blending',
+        t("Automatic hard-boundary detection"),
+        t("May introduce ghosting at the edges"),
+        t("Keep the original before blending"),
       ],
     },
     {
       icon: <Layers className="w-5 h-5 text-blue-400" />,
-      title: 'Inspect Every Direction',
-      badge: 'Quality Check',
+      title: t("Inspect Every Direction"),
+      badge: t("Quality Check"),
       description:
-        'Look up, down, and around your result to check the horizon, poles, and seam. A 2:1 image alone does not guarantee a geometrically correct panorama.',
+        t("Look up, down, and around your result to check the horizon, poles, and seam. A 2:1 image alone does not guarantee a geometrically correct panorama."),
       bulletPoints: [
-        'Check the sky and ground',
-        'Look for warping and repeated objects',
-        'Regenerate when geometry is inconsistent',
+        t("Check the sky and ground"),
+        t("Look for warping and repeated objects"),
+        t("Regenerate when geometry is inconsistent"),
       ],
     },
     {
       icon: <Box className="w-5 h-5 text-emerald-400" />,
-      title: 'Resolution Choices & HDR Export',
-      badge: 'Game Ready',
+      title: t("Resolution Choices & HDR Export"),
+      badge: t("Game Ready"),
       description:
-        'Request 1K, 2K, or 4K and see the actual returned dimensions. A requested tier is not a guarantee of model detail. Export your result as PNG or a Radiance .hdr container.',
+        t("Request 1K, 2K, or 4K and see the actual returned dimensions. A requested tier is not a guarantee of model detail. Export your result as PNG or a Radiance .hdr container."),
       bulletPoints: [
-        'Actual model dimensions displayed',
-        'Radiance .hdr format for 3D IBL',
-        'Commercial usage on paid plans',
+        t("Actual model dimensions displayed"),
+        t("Radiance .hdr container from image colors"),
+        t("Commercial usage on paid plans"),
       ],
     },
     {
       icon: <Eye className="w-5 h-5 text-pink-400" />,
-      title: 'Built-in WebGL 3D Sphere Viewer',
-      badge: 'Three.js Powered',
+      title: t("Built-in WebGL 3D Sphere Viewer"),
+      badge: t("Three.js Powered"),
       description:
-        'Inspect, pan, zoom, and fullscreen your results immediately in WebGL. Includes cardboard split-screen VR, little-planet projection, and minimap radar.',
+        t("Inspect, pan, zoom, and fullscreen your results immediately in WebGL. Includes cardboard split-screen VR, little-planet projection, and minimap radar."),
       bulletPoints: [
-        'Cardboard split-screen mobile VR',
-        'Fisheye & Little-Planet projections',
-        'Directional radar compass & audio',
+        t("Cardboard split-screen mobile VR"),
+        t("Fisheye & Little-Planet projections"),
+        t("Directional radar compass & audio"),
       ],
     },
   ];
@@ -124,14 +127,12 @@ export function FeatureMatrix() {
       <div className="text-center max-w-3xl mx-auto mb-10">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-semibold mb-3">
           <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Professional WebGL &amp; VR Standards</span>
+          <span>{t("Professional WebGL & VR Standards")}</span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-          Built for VR-Ready Equirectangular Output
-        </h2>
+          {t("Built for VR-Ready Equirectangular Output")}</h2>
         <p className="text-sm text-cyan-200/70 mt-2">
-          Standard AI models produce flat images that pinch and tear when wrapped onto a sphere. 360 Panorama Viewer adds the panorama-specific engineering pipeline so your output drops straight into any 360° viewer or VR headset.
-        </p>
+          {t("Generate a 2:1 image, inspect it in the sphere viewer, and export it for your workflow. Check geometry and target-tool requirements before production use.")}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

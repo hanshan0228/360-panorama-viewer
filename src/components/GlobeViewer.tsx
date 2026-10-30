@@ -1,3 +1,5 @@
+import { useTranslation } from '../utils/i18n';
+import { landingMessages } from '../utils/landingTranslations';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { RotateCw, Sun, Pause, Play, Maximize, Minimize, ZoomIn, ZoomOut } from 'lucide-react';
@@ -8,6 +10,7 @@ interface GlobeViewerProps {
 }
 
 export function GlobeViewer({ textureUrl, className = '' }: GlobeViewerProps) {
+  const t = useTranslation(landingMessages);
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -188,15 +191,15 @@ export function GlobeViewer({ textureUrl, className = '' }: GlobeViewerProps) {
     >
       {/* Control overlay */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-wrap justify-center items-center gap-1 sm:gap-2 w-max max-w-[calc(100%_-_1rem)] px-3 py-1.5 bg-slate-900/80 backdrop-blur-md border border-slate-700/60 rounded-2xl sm:rounded-full shadow-2xl z-20 text-xs text-slate-200">
-        <button type="button" onClick={() => zoom(0.85)} aria-label="Zoom in on globe" className="p-2 hover:bg-slate-800 rounded-full"><ZoomIn className="w-3.5 h-3.5" /></button>
-        <button type="button" onClick={() => zoom(1 / 0.85)} aria-label="Zoom out of globe" className="p-2 hover:bg-slate-800 rounded-full"><ZoomOut className="w-3.5 h-3.5" /></button>
+        <button type="button" onClick={() => zoom(0.85)} aria-label={t("Zoom in on globe")} className="p-2 hover:bg-slate-800 rounded-full"><ZoomIn className="w-3.5 h-3.5" /></button>
+        <button type="button" onClick={() => zoom(1 / 0.85)} aria-label={t("Zoom out of globe")} className="p-2 hover:bg-slate-800 rounded-full"><ZoomOut className="w-3.5 h-3.5" /></button>
         <button
           type="button"
           onClick={() => setIsRotating((p) => !p)}
           className={`p-2 rounded-full transition-colors ${
             isRotating ? 'bg-cyan-600 text-white' : 'hover:bg-slate-800 text-slate-300'
           }`}
-          title={isRotating ? 'Pause planetary rotation' : 'Start planetary rotation'}
+          title={isRotating ? t("Pause planetary rotation") : t("Start planetary rotation")}
         >
           {isRotating ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
         </button>
@@ -211,7 +214,7 @@ export function GlobeViewer({ textureUrl, className = '' }: GlobeViewerProps) {
             value={rotationSpeed}
             onChange={(e) => setRotationSpeed(parseFloat(e.target.value))}
             className="w-16 accent-cyan-500 cursor-pointer"
-            title="Rotation speed tuning"
+            title={t("Rotation speed tuning")}
           />
         </div>
 
@@ -221,24 +224,24 @@ export function GlobeViewer({ textureUrl, className = '' }: GlobeViewerProps) {
           className={`px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1 transition-colors ${
             wireframe ? 'bg-cyan-400 text-slate-950 font-bold shadow-md shadow-cyan-500/30' : 'hover:bg-slate-800 text-slate-300'
           }`}
-          title="Toggle wireframe / solid material"
+          title={t("Toggle wireframe / solid material")}
         >
           <Sun className="w-3.5 h-3.5" />
-          <span>{wireframe ? 'Solid Surface' : 'Wireframe'}</span>
+          <span>{wireframe ? t("Solid Surface") : t("Wireframe")}</span>
         </button>
 
         <button
           type="button"
           onClick={handleToggleFullscreen}
           className="p-2 hover:bg-slate-800 rounded-full text-slate-300 hover:text-white transition-colors"
-          title="Toggle fullscreen"
+          title={t("Toggle fullscreen")}
         >
           {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
         </button>
       </div>
 
       <div className="absolute top-4 left-4 pointer-events-none bg-slate-900/60 backdrop-blur-sm border border-slate-800/80 rounded-lg px-2.5 py-1 text-[11px] text-cyan-400 font-mono">
-        3D Orbital Globe
+        {t("3D Orbital Globe")}
       </div>
     </div>
   );

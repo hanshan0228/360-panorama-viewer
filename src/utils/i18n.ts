@@ -1,104 +1,92 @@
-export type SupportedLang = 'en';
+import { useEffect, useSyncExternalStore } from 'react';
 
-export interface TranslationDictionary {
-  brandStudio: string;
-  tools: string;
-  studio: string;
-  viewer: string;
-  cubemap: string;
-  globe: string;
-  pricing: string;
-  upgradePro: string;
-  freeCredits: string;
+export type SupportedLang = 'en' | 'zh' | 'es' | 'de' | 'ja';
+export type TranslationMessages = Record<SupportedLang, Record<string, string>>;
 
-  // Studio Workbench
-  heroTitle: string;
-  heroSubtitle: string;
-  promptLabel: string;
-  promptPlaceholder: string;
-  enhanceAi: string;
-  surpriseMe: string;
-  promptHelperTitle: string;
-  generateBtn: string;
-  generating: string;
-
-  // Actions
-  downloadPng: string;
-  downloadVrJpg: string;
-  exportHdr: string;
-  exportVideo: string;
-  cubemapSlices: string;
-  embedViewer: string;
-  healSeam: string;
-  enhanceClarity: string;
-  restoreOriginal: string;
-
-  // Embed Modal
-  embedTitle: string;
-  embedSubtitle: string;
-  copyCode: string;
-  codeCopied: string;
-  includeBacklink: string;
-  autoRotate: string;
-}
-
-export const TRANSLATIONS: Record<SupportedLang, TranslationDictionary> = {
-  en: {
-    brandStudio: 'AI 360° Panorama & VR Skybox Engine',
-    tools: 'Tools',
-    studio: 'Studio',
-    viewer: '360° Viewer',
-    cubemap: 'Cubemap',
-    globe: '3D Globe',
-    pricing: 'Pricing',
-    upgradePro: 'Upgrade to Pro',
-    freeCredits: '4 Free Trial Credits',
-
-    heroTitle: 'AI 360° Panorama Generator',
-    heroSubtitle: 'Turn text prompts or reference photos into seamless, VR-ready 2:1 equirectangular panoramas in seconds. Free to try — no credit card required.',
-    promptLabel: 'Scene Description',
-    promptPlaceholder: 'Describe the 360° environment you want to generate (e.g. futuristic cyberpunk city at night with neon reflections, alpine mountain lake at sunrise, sci-fi orbital space station)...',
-    enhanceAi: 'Enhance with AI',
-    surpriseMe: 'Surprise Me',
-    promptHelperTitle: '360° Prompt Studio (Keyword Helper)',
-    generateBtn: 'Generate',
-    generating: 'Generating',
-
-    downloadPng: 'Download PNG',
-    downloadVrJpg: 'Download VR JPG',
-    exportHdr: 'Export .HDR',
-    exportVideo: 'Export Video',
-    cubemapSlices: 'Cubemap Slices',
-    embedViewer: 'Embed on Website',
-    healSeam: 'Heal Seam',
-    enhanceClarity: 'Enhance 4K Clarity',
-    restoreOriginal: 'Restore Original',
-
-    embedTitle: 'Embed Interactive 360° Viewer',
-    embedSubtitle: 'Add this interactive 360° sphere directly to your WordPress, Webflow, Shopify, or portfolio site with responsive iframe embedding.',
-    copyCode: 'Copy Embed Code',
-    codeCopied: 'Embed Code Copied!',
-    includeBacklink: 'Include "Powered by 360 Panorama Viewer" Badge',
-    autoRotate: 'Enable Smooth Auto-Rotation',
-  },
-};
+export const LANGUAGES: { code: SupportedLang; name: string }[] = [
+  { code: 'en', name: 'English' },
+  { code: 'zh', name: '简体中文' },
+  { code: 'es', name: 'Español' },
+  { code: 'de', name: 'Deutsch' },
+  { code: 'ja', name: '日本語' },
+];
 
 const LANG_STORAGE_KEY = 'panorama_user_lang';
+const isLanguage = (value: unknown): value is SupportedLang =>
+  typeof value === 'string' && ['en', 'zh', 'es', 'de', 'ja'].includes(value);
 
 export function getStoredLanguage(): SupportedLang {
+  if (typeof window === 'undefined') return 'en';
+  const query = new URLSearchParams(window.location.search).get('lang');
+  if (isLanguage(query)) return query;
+  try {
+    const stored = window.localStorage.getItem(LANG_STORAGE_KEY);
+    if (isLanguage(stored)) return stored;
+  } catch { /* Storage can be disabled in private or embedded browsing. */ }
   return 'en';
 }
 
-export function saveStoredLanguage(_lang: SupportedLang): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(LANG_STORAGE_KEY, 'en');
-    document.documentElement.lang = 'en';
-  } catch {
-    // fallback
-  }
+let language = getStoredLanguage();
+const listeners = new Set<() => void>();
+
+function persistLanguage(lang: SupportedLang) {
+  try { window.localStorage.setItem(LANG_STORAGE_KEY, lang); } catch { /* Keep the in-memory selection. */ }
+  document.documentElement.lang = lang;
 }
 
-export function useI18n(_lang?: SupportedLang): TranslationDictionary {
-  return TRANSLATIONS.en;
+function notifyLanguage(lang: SupportedLang) {
+  language = lang;
+  persistLanguage(lang);
+  listeners.forEach(listener => listener());
+}
+
+export function saveStoredLanguage(lang: SupportedLang): void {
+  if (typeof window === 'undefined' || !isLanguage(lang)) return;
+  const url = new URL(window.location.href);
+  if (lang === 'en') url.searchParams.delete('lang');
+  else url.searchParams.set('lang', lang);
+  if (url.href !== window.location.href) window.history.pushState(null, '', url);
+  notifyLanguage(lang);
+}
+
+function onPopState() {
+  // A history entry without lang is English, even when storage holds a later selection.
+  const query = new URLSearchParams(window.location.search).get('lang');
+  notifyLanguage(isLanguage(query) ? query : 'en');
+}
+
+function subscribe(listener: () => void) {
+  if (listeners.size === 0) window.addEventListener('popstate', onPopState);
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) window.removeEventListener('popstate', onPopState);
+  };
+}
+
+export function useLanguage(): [SupportedLang, (lang: SupportedLang) => void] {
+  const lang = useSyncExternalStore(subscribe, () => language, () => 'en' as SupportedLang);
+  useEffect(() => {
+    persistLanguage(lang);
+    // Make a remembered selection explicit so reloads and history retain its language.
+    const url = new URL(window.location.href);
+    if (lang === 'en') url.searchParams.delete('lang');
+    else url.searchParams.set('lang', lang);
+    if (url.href !== window.location.href) window.history.replaceState(null, '', url);
+  }, [lang]);
+  return [lang, saveStoredLanguage];
+}
+
+export function withLanguageHref(href: string, lang: SupportedLang): string {
+  if (!href.startsWith('/') || href.startsWith('//')) return href;
+  const url = new URL(href, 'https://360panoramaviewer.com');
+  if (lang === 'en') url.searchParams.delete('lang');
+  else url.searchParams.set('lang', lang);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+export function useTranslation(messages: TranslationMessages): (text: string) => string {
+  const [lang] = useLanguage();
+  // ponytail: untranslated messages retain their source English until a dictionary entry is added.
+  return text => Object.hasOwn(messages[lang], text) ? messages[lang][text] : text;
 }

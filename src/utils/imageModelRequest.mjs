@@ -52,7 +52,7 @@ export function buildImageModelRequest(endpoint, { prompt, referenceImages = [],
 
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
   const chat = !isGptImage && (isGemini || /\/chat(?:\/completions)?$/.test(path));
-  const cleanPath = path.replace(/\/(?:chat(?:\/completions)?|images\/generations)$/, '');
+  const cleanPath = path.replace(/\/(?:chat(?:\/completions)?|images\/(?:generations|edits))$/, '');
   const apiBase = `${base.origin}${cleanPath}${cleanPath.endsWith('/v1') ? '' : '/v1'}`;
   if (chat) return { url: `${apiBase}/chat/completions`, headers, mode: 'chat', payload: {
     model,
@@ -65,10 +65,29 @@ export function buildImageModelRequest(endpoint, { prompt, referenceImages = [],
       ...(imageConfig.imageSize ? { image_size: imageConfig.imageSize } : {}),
     } } : {}),
   } };
-  if (refs.length) throw new Error('This endpoint does not support reference images. Choose a multimodal model.');
+  if (refs.length && !isGptImage) throw new Error('This endpoint does not support reference images. Choose a multimodal model.');
   const modernSizes = { '1K': '1152x576', '2K': '2048x1024', '4K': '3840x1920' };
   const size = isModernGptImage ? modernSizes[resolution]
     : isGptImage ? '1536x1024' : modelName.includes('dall-e-2') ? '1024x1024' : '1792x1024';
+  if (refs.length) {
+    const payload = new FormData();
+    for (const [name, value] of Object.entries({ model, prompt, n: '1', size, quality: 'auto', output_format: 'png' })) {
+      payload.append(name, value);
+    }
+    for (const [index, image] of refs.entries()) {
+      const match = image.match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/);
+      if (!match || !match[2] || match[2].length % 4 !== 0 || match[0] !== image) throw new Error('Reference images must be base64-encoded PNG, JPEG or WebP data URLs.');
+      let bytes;
+      try {
+        bytes = Uint8Array.from(atob(match[2]), character => character.charCodeAt(0));
+      } catch {
+        throw new Error('Invalid reference image base64 data. Use PNG, JPEG or WebP data URLs.');
+      }
+      payload.append('image[]', new Blob([bytes], { type: `image/${match[1]}` }), `reference-${index + 1}.${match[1]}`);
+    }
+    delete headers['Content-Type'];
+    return { url: `${apiBase}/images/edits`, headers, mode: 'images', payload };
+  }
   return { url: `${apiBase}/images/generations`, headers, mode: 'images', payload: {
     model, prompt, n: 1, size,
     ...(isGptImage ? { quality: 'auto', output_format: 'png' } : { response_format: 'b64_json' }),

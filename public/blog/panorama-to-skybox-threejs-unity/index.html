@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Panorama to Skybox: Three.js &amp; Unity Tutorial with Sample Files</title>
+<meta name="description" content="Turn a 2:1 panorama into a skybox: download an orientation PNG and six-face ZIP, run a Three.js example, and follow Unity import steps with format limits." />
+<meta name="robots" content="index, follow, max-image-preview:large" />
+<meta name="author" content="360 Panorama Viewer" />
+<link rel="canonical" href="https://360panoramaviewer.com/blog/panorama-to-skybox-threejs-unity/" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="stylesheet" href="/blog/blog.css" />
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="360 Panorama Viewer" />
+<meta property="og:title" content="Panorama to Skybox: Three.js &amp; Unity Tutorial with Sample Files" />
+<meta property="og:description" content="Download a labeled 2:1 panorama and six PNG cube faces. Reproduce the conversion, try Three.js, and set up a Unity skybox." />
+<meta property="og:url" content="https://360panoramaviewer.com/blog/panorama-to-skybox-threejs-unity/" />
+<meta property="og:image" content="https://360panoramaviewer.com/examples/skybox/orientation-panorama.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "TechArticle",
+      "@id": "https://360panoramaviewer.com/blog/panorama-to-skybox-threejs-unity/#article",
+      "headline": "Panorama to Skybox: Three.js & Unity Tutorial with Sample Files",
+      "description": "Turn a 2:1 panorama into a skybox: download an orientation PNG and six-face ZIP, run a Three.js example, and follow Unity import steps with format limits.",
+      "url": "https://360panoramaviewer.com/blog/panorama-to-skybox-threejs-unity/",
+      "mainEntityOfPage": "https://360panoramaviewer.com/blog/panorama-to-skybox-threejs-unity/",
+      "inLanguage": "en",
+      "author": { "@type": "Organization", "name": "360 Panorama Viewer", "url": "https://360panoramaviewer.com/" },
+      "image": "https://360panoramaviewer.com/examples/skybox/orientation-panorama.png"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://360panoramaviewer.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Guides", "item": "https://360panoramaviewer.com/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "Panorama to Skybox", "item": "https://360panoramaviewer.com/blog/panorama-to-skybox-threejs-unity/" }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="topbar"><div class="wrap"><a class="brand" href="/">360 Panorama Viewer</a><nav aria-label="Main navigation"><a href="/cubemap-generator/">Cubemap tool</a><a href="/skybox-generator/">AI skybox</a><a href="/blog/">All guides</a></nav></div></header>
+<main id="main-content" class="wrap">
+<nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Home</a> / <a href="/blog/">Guides</a> / <span aria-current="page">Panorama to skybox</span></nav>
+<article>
+<p class="eyebrow">Game backgrounds / Reproducible example</p>
+<h1>Panorama to Skybox: Three.js &amp; Unity</h1>
+<p class="standfirst">Use a complete 2:1 equirectangular image as a panoramic background, or convert it into six square PNG faces for a cube skybox. This walkthrough includes the source, the converted output, and a working Three.js example.</p>
+<p class="meta">By 360 Panorama Viewer · Example: 2048 × 1024 source, 512 × 512 cube faces · No account needed for downloads or conversion</p>
+
+<nav aria-label="On this page"><a href="#sample">Sample files</a> · <a href="#convert">Convert</a> · <a href="#threejs">Three.js</a> · <a href="#unity">Unity</a> · <a href="#ai">AI workflow</a> · <a href="#limits">Limits</a></nav>
+
+<h2 id="sample">Download the source and actual conversion output</h2>
+<p>The sample is a programmatically drawn orientation chart, <strong>not an AI-generated scene or a captured HDRI</strong>. It has a labeled horizon and a continuous left/right boundary. It is useful for finding swapped or rotated faces before you import your own artwork.</p>
+<figure style="margin:1.5rem 0">
+  <img src="/examples/skybox/orientation-panorama.png" width="2048" height="1024" style="width:100%;height:auto" alt="2:1 orientation chart with a blue sky, brown ground, labeled horizon directions, and a grid" />
+  <figcaption>Source coordinates: +Z at the center, −X at one quarter, +X at three quarters, and −Z across the left/right boundary. These are the converter’s axis labels; check your engine’s camera convention separately.</figcaption>
+</figure>
+<p><a class="button" href="/examples/skybox/orientation-panorama.png" download>Download sample PNG</a> <a class="button ghost" href="/examples/skybox/orientation-cubemap-512.zip" download>Download six-face ZIP</a></p>
+<p>The ZIP was exported from this PNG using the same slicer as the <a href="/cubemap-generator/">cubemap generator</a>, at 512 pixels per face. It contains exactly <code>posx.png</code>, <code>negx.png</code>, <code>posy.png</code>, <code>negy.png</code>, <code>posz.png</code> and <code>negz.png</code>. The chart and its six-face export are provided under <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>; this does not change the terms for AI outputs or user uploads.</p>
+
+<h2 id="convert">Reproduce the panorama-to-cubemap conversion</h2>
+<ol>
+  <li>Download the sample PNG, then open the <a href="/cubemap-generator/">free cubemap generator</a>.</li>
+  <li>Choose <strong>Upload Custom 360 Photo</strong> and select the downloaded file. Selection and slicing happen locally in the browser; this conversion does not upload your file.</li>
+  <li>Select <strong>512 × 512</strong>. Inspect all six preview faces. +Z should show FRONT, +X RIGHT, −X LEFT, and −Z BACK; +Y and −Y show the sky and ground.</li>
+  <li>Choose <strong>Download All 6 Faces (ZIP)</strong> and extract the archive. Other available face sizes are 256 and 1024 pixels.</li>
+</ol>
+<p>A face covers a 90° view, so its pixels do not match a rectangular crop of the input. A stretched flat photograph does not become a complete spherical panorama just because its dimensions are 2:1. Read the <a href="/blog/equirectangular-projection-explained/">projection guide</a> if your source looks distorted.</p>
+
+<h2 id="threejs">Show the original 2:1 panorama in Three.js</h2>
+<p>For a background, you can use the original panorama directly without slicing. In an existing Three.js scene, load the PNG, mark its colors as sRGB, and set its equirectangular mapping:</p>
+<pre><code>import * as THREE from 'three';
+
+const panorama = await new THREE.TextureLoader().loadAsync(
+  '/examples/skybox/orientation-panorama.png'
+);
+panorama.colorSpace = THREE.SRGBColorSpace;
+panorama.mapping = THREE.EquirectangularReflectionMapping;
+scene.background = panorama;</code></pre>
+<p><a class="button" href="/examples/panorama-skybox/">Run the Three.js example</a></p>
+<p>The example uses the code above with a renderer, camera, resize handling and six direction buttons. It loads the sample from this site without an external CDN, account, or AI request. To reproduce the snippet in your own app, use Vite or another module bundler with <code>three</code> installed. A bare module import will not work by opening an HTML file directly.</p>
+<p>If you need a cube texture instead, <a href="https://threejs.org/docs/pages/CubeTextureLoader.html">CubeTextureLoader</a> expects URLs in +X, −X, +Y, −Y, +Z, −Z order. Its cube convention differs from Three.js world coordinates. Check readable landmarks and the poles before choosing a face rotation or an X-axis swap; do not assume alphabetical filename order is correct.</p>
+
+<h2 id="unity">Use the six PNG faces in Unity</h2>
+<p>For the Built-in Render Pipeline or URP, use <strong>Skybox/6 Sided</strong>. This shader is not supported by HDRP; follow the documentation for your render pipeline.</p>
+<ol>
+  <li>Extract the six-face ZIP into your Unity project’s <code>Assets</code> folder. Keep the source PNG separate from these six files.</li>
+  <li>Select the six PNG textures. Set <strong>Wrap Mode</strong> to <strong>Clamp</strong> and apply the import settings.</li>
+  <li>Create a Material and select the <strong>Skybox/6 Sided</strong> shader. Assign textures using the table below.</li>
+  <li>In the Lighting window’s Environment settings, assign this material as the <strong>Skybox Material</strong>.</li>
+  <li>Check the horizon, readable labels, and top/bottom transitions. The camera must render the skybox. If a face is wrong, check its slot and orientation before changing the source image.</li>
+</ol>
+<div class="table-wrap"><table>
+<caption>Converter output filenames and Unity 6 Sided material slots</caption>
+<thead><tr><th scope="col">ZIP entry</th><th scope="col">Unity texture slot</th></tr></thead>
+<tbody>
+<tr><td><code>posx.png</code></td><td>Right (+X)</td></tr>
+<tr><td><code>negx.png</code></td><td>Left (−X)</td></tr>
+<tr><td><code>posy.png</code></td><td>Up (+Y)</td></tr>
+<tr><td><code>negy.png</code></td><td>Down (−Y)</td></tr>
+<tr><td><code>posz.png</code></td><td>Front (+Z)</td></tr>
+<tr><td><code>negz.png</code></td><td>Back (−Z)</td></tr>
+</tbody></table></div>
+<p>You can also skip slicing and assign the original 2:1 panorama to a <strong>Skybox/Panoramic</strong> material with latitude-longitude mapping and 360° image coverage. See Unity’s <a href="https://docs.unity3d.com/Manual/shader-skybox-6sided.html">6 Sided reference</a> and <a href="https://docs.unity3d.com/Manual/shader-skybox-panoramic.html">Panoramic reference</a>. These are import instructions; the downloadable example does not include a Unity project.</p>
+
+<h2 id="ai">Replace the calibration chart with an AI environment</h2>
+<p>Once the import works, create artwork in the <a href="/skybox-generator/">AI skybox studio</a> or <a href="/text-to-panorama-ai/">text-to-panorama tool</a>. AI generation uses credits; these sample downloads, local viewing and cubemap conversion are free.</p>
+<p>Example prompt to try, rather than a claim about a generated result:</p>
+<blockquote><p>A quiet science-fiction observation deck, full 360° equirectangular environment, level horizon, distant stars outside panoramic windows, consistent ceiling and floor, no text, no people, no objects very close to the camera.</p></blockquote>
+<p>Download the returned panorama and inspect its actual pixel dimensions, horizon, poles and wraparound seam in the <a href="/360-panorama-viewer/">360 viewer</a>. Generation time and output quality vary. Seam blending can reduce boundary differences but cannot guarantee consistent geometry or an invisible seam. Repeat the same conversion and import steps with the checked image.</p>
+
+<h2 id="limits">What this workflow does and does not preserve</h2>
+<dl>
+<dt><strong>Does the ZIP contain HDR lighting?</strong></dt><dd>No. It contains six ordinary 8-bit PNG display images. A PNG-to-HDR container conversion does not recover scene radiance. Keep a genuine HDR source for lighting; see <a href="/blog/hdri-vs-ldr-environment-lighting/">HDRI versus LDR</a>.</dd>
+<dt><strong>Can I import the ZIP as an Unreal TextureCube?</strong></dt><dd>No. The ZIP is a collection of PNGs, not a TextureCube asset. Follow Unreal’s supported environment-import workflow separately.</dd>
+<dt><strong>Does a larger face size improve the original detail?</strong></dt><dd>No. More output pixels cannot restore source detail. Check the source resolution and texture filtering when the result looks blurry.</dd>
+<dt><strong>Why are there lines between faces?</strong></dt><dd>Check the original seam, texture slots, face rotations, clamp wrapping and filtering. A mismatched source cannot be fixed by slicing it. Use the labeled sample to distinguish an import problem from an artwork problem.</dd>
+</dl>
+<aside class="cta"><p>Ready to use your own panorama? Convert locally, or generate a new environment with account credits.</p><a class="button" href="/cubemap-generator/">Open cubemap tool</a><a class="button ghost" href="/skybox-generator/">AI skybox studio</a></aside>
+</article>
+</main>
+<footer><div class="wrap"><strong>360 Panorama Viewer</strong><nav aria-label="Footer navigation"><a href="/blog/">All guides</a><a href="/developers/">Developer docs</a><a href="/360-panorama-viewer/">360 viewer</a></nav></div></footer>
+</body>
+</html>

@@ -48,7 +48,11 @@
   border-color: var(--studio-edge);
   border-radius: 999px;
   box-shadow: none;
+  flex-shrink: 0;
 }
+.studio-shell > header nav > a,
+.studio-shell .studio-account-actions { white-space: nowrap; }
+.studio-shell .studio-account-actions { flex-shrink: 0; }
 .studio-shell > header nav :is(button, a)[class*="bg-gradient"] { background: #b2e5d4; color: #102924; box-shadow: none; }
 .studio-shell > header nav :is(button, a)[class*="bg-gradient"] svg { color: #234e48; }
 .studio-shell > header > div > :is(div, a):first-child > div:first-child { background: #b2e5d4; box-shadow: none; }
@@ -205,31 +209,111 @@
   box-shadow: 0 0 0 3px rgba(158, 230, 211, .08);
 }
 .studio-shell #studio-generator-workbench textarea::placeholder { color: #748b94; }
+.studio-viewer-more > summary {
+  min-height: 44px;
+  padding: .75rem;
+  border: 1px solid var(--studio-edge);
+  border-radius: .6rem;
+  color: #c4dad5;
+  cursor: pointer;
+}
+.studio-viewer-more[open] > summary { margin-bottom: .5rem; }
+.studio-viewer-more > div { padding-block: .25rem; }
+.studio-viewer-upload { min-height: 44px; justify-content: center; }
+.studio-shell summary:focus-visible { outline: 2px solid var(--studio-accent); outline-offset: 4px; }
 .studio-shell footer { border-color: var(--studio-edge); }
 @keyframes studio-arrive {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
+@media (max-width: 639px) {
+  .viewer-controls > button { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .viewer-controls > button.hidden, .viewer-controls > div { display: none; }
+}
+/* Longer translations and the language selector share the existing two-row header. */
+@media (min-width: 1600px) {
+  .studio-shell > header > div { height: auto; min-height: 4rem; flex-wrap: wrap; padding-block: .25rem; row-gap: .25rem; }
+  .studio-shell > header nav { order: 3; width: 100%; justify-content: center; }
+}
+@media (max-width: 1599px) {
+  .studio-shell > header > div { height: auto; min-height: 4rem; flex-wrap: wrap; padding-block: .25rem; gap: .25rem; }
+  .studio-shell .studio-brand { gap: .5rem; min-height: 44px; }
+  .studio-shell .studio-brand > div:first-child { padding: .5rem; }
+  .studio-shell .studio-brand > div:first-child svg { width: 1rem; height: 1rem; }
+  .studio-shell .studio-brand span:first-child { font-size: .875rem; }
+  .studio-shell .studio-brand span + span { display: none; }
+  .studio-shell .studio-account-actions { gap: .25rem; margin-left: auto; }
+  .studio-shell .studio-account-actions button { min-height: 44px; min-width: 44px; padding-inline: .5rem; }
+  .studio-shell .studio-account-actions .studio-register { display: none; }
+  .studio-shell .studio-account-actions > button:first-of-type > span:last-child:not(:first-child),
+  .studio-shell .studio-account-actions > button:first-of-type svg { display: none; }
+  .studio-shell .studio-account-actions > button:last-child svg { display: none; }
+  /* ponytail: reuse Tools for secondary mobile destinations; signup stays in the account dialog. */
+  .studio-shell > header nav { order: 3; width: 100%; justify-content: center; flex-wrap: nowrap; border-radius: .75rem; padding: .125rem; }
+  .studio-shell > header nav > a, .studio-shell > header nav > div > button { min-height: 44px; }
+  .studio-shell > header nav .studio-secondary-nav { display: none; }
+  .studio-shell > header nav > a > span + span { display: none; }
+  /* ponytail: reserve 10rem for the two-row header; if it grows taller, measure its height instead. */
+  .studio-shell #studio-tools-menu { position: fixed; top: auto; left: 0; width: 100%; max-height: min(70vh, calc(100vh - 10rem)); max-height: min(70dvh, calc(100dvh - 10rem)); overflow-y: auto; overscroll-behavior: contain; padding-top: .5rem; }
+}
 @media (max-width: 767px) {
-  .studio-shell > header > div { height: auto; min-height: 4rem; flex-wrap: wrap; padding-block: .7rem; gap: .75rem; }
-  .studio-shell > header nav { order: 3; width: 100%; justify-content: center; flex-wrap: wrap; border-radius: 1rem; }
-  .studio-shell #studio-tools-menu { position: fixed; top: auto; left: 1rem; width: calc(100vw - 2rem); max-height: 70vh; overflow-y: auto; padding-top: .5rem; }
-  .studio-shell .studio-hero { min-height: 31rem; border-radius: 1rem; }
-  .studio-hero-content { padding: 2.25rem 1.5rem; }
+  .studio-shell .studio-account-actions select { font-size: 16px; }
+  .studio-shell #studio-main { padding-top: 1rem; }
+  .studio-shell .studio-generator > * { margin-bottom: 0; }
+  .studio-shell .studio-generator > * + * { margin-top: 1.5rem; }
+  .studio-shell .studio-hero { min-height: 0; border-radius: 1rem; }
+  .studio-hero-content { padding: 1.5rem; }
+  .studio-hero-content > .studio-coordinate { font-size: .55rem; letter-spacing: .08em; margin-bottom: 1rem; }
+  .studio-shell .studio-hero h1 { font-size: clamp(2rem, 8.4vw, 2.75rem); line-height: 1.1; }
   .studio-hero::before { background: linear-gradient(90deg, rgba(6, 18, 25, .88), rgba(7, 22, 30, .65)), linear-gradient(0deg, #0c1a22, transparent 60%); }
-  .studio-shell .studio-hero p { font-size: .85rem; }
-  .studio-hero-actions { align-items: stretch; }
-  .studio-hero-actions > button { flex: 1 1 auto; }
-  .studio-hero-caption { padding-inline: 1.5rem; font-size: .5rem; }
+  .studio-shell .studio-hero p { font-size: .9rem; line-height: 1.6; margin-top: .75rem; }
+  .studio-hero-actions { align-items: stretch; gap: .5rem; margin-top: 1rem; }
+  .studio-hero-actions > :is(button, a) { flex: 1 1 auto; }
+  .studio-hero-caption { padding: 0 1.5rem 1rem; font-size: .5rem; }
   .studio-hero-caption > span:last-child { display: none; }
-  .studio-workbench-heading { align-items: start; flex-direction: column; }
+  .studio-hero-note { line-height: 1.5; margin-top: .75rem; }
+  .studio-creator .studio-hero-content { padding: 1.25rem; }
+  .studio-shell .studio-creator > * + * { margin-top: 1rem; }
+  /* ponytail: the mobile form and preview provide these duplicate hero actions directly. */
+  .studio-creator :is(.studio-hero-content > .studio-coordinate, .studio-hero-caption, .studio-hero-actions, .studio-workbench-heading .studio-coordinate, .studio-workbench-heading > p) { display: none; }
+  .studio-workbench-heading { align-items: start; flex-direction: column; gap: .5rem; }
+  .studio-workbench-heading h2 { margin-top: .25rem; font-size: 1.5rem; }
   .studio-preview-stage { height: 25rem; }
   .studio-preview-toolbar { padding: 1rem; }
   .studio-controls > div:first-child { gap: .5rem; flex-wrap: wrap; }
+  .studio-controls > div:first-child > div:first-child { width: 100%; }
+  .studio-controls > div:first-child > div:first-child > button { flex: 1; justify-content: center; padding-inline: .5rem; }
   .studio-controls label[for="prompt-input"] { flex-shrink: 0; }
   .studio-controls label[for="prompt-input"] + div { flex-wrap: wrap; justify-content: flex-end; }
-  .studio-controls button { touch-action: manipulation; }
-  .studio-shell #studio-generator-workbench > .glass-panel { padding: 1.25rem; }
+  .studio-controls button { touch-action: manipulation; min-height: 44px; }
+  .studio-reference-remove { opacity: 1; background: transparent; align-items: start; justify-content: end; }
+  .studio-reference-remove button { border-radius: .5rem; background: rgba(112, 24, 32, .94); }
+  .studio-advanced summary { min-height: 44px; padding-block: .75rem; }
+  .studio-shell #studio-generator-workbench > .glass-panel { padding: 1rem; }
+  .studio-shell #studio-generator-workbench :is(textarea, select, input:not([type="file"]):not([type="checkbox"])) { font-size: 16px; }
+  .studio-shell #studio-generator-workbench textarea { padding: .75rem; min-height: 8rem; line-height: 1.5; }
+  dialog :is(textarea, select, input:not([type="checkbox"]):not([type="radio"])) { font-size: 16px; }
+  dialog button { touch-action: manipulation; }
+  .studio-viewer > * { margin-bottom: 0; }
+  .studio-viewer > * + * { margin-top: 1.25rem; }
+  .studio-viewer-heading { text-align: left; }
+  .studio-viewer-heading h1 { font-size: clamp(1.65rem, 7vw, 2rem); line-height: 1.2; }
+  .studio-viewer-heading p { line-height: 1.6; }
+  .studio-viewer-toolbar { padding: 1rem; }
+  .studio-viewer-actions, .studio-viewer-upload, .studio-viewer-more { width: 100%; }
+  .studio-viewer-more :is(button, summary) { min-height: 44px; }
+  .studio-viewer-more > div { align-items: stretch; }
+  .studio-viewer-poles { width: 100%; }
+  .studio-viewer-stage { height: clamp(20rem, 55svh, 30rem); }
+  .studio-projection-actions { flex-wrap: wrap; width: 100%; }
+  .studio-projection-actions > button { width: 100%; min-height: 44px; justify-content: center; }
+}
+@media (max-width: 359px) {
+  .studio-shell .studio-brand > div:last-child { display: none; }
+  .studio-shell > header nav > a,
+  .studio-shell > header nav > div > button { padding-inline: .5rem; }
+  .studio-prompt-toolbar { flex-wrap: wrap; gap: .5rem; }
+  .studio-controls .studio-prompt-toolbar > div { justify-content: start; }
 }
 @media (prefers-reduced-motion: reduce) {
   .studio-shell *, .studio-shell *::before, .studio-shell *::after {

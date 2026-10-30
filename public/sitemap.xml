@@ -4,7 +4,7 @@
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://360panoramaviewer.com/</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/" />
@@ -16,7 +16,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/zh/</loc>
-    <lastmod>2026-10-19T16:14:39.531Z</lastmod>
+    <lastmod>2026-10-22T03:58:43.495Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/" />
@@ -28,7 +28,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/es/</loc>
-    <lastmod>2026-10-20T02:57:34.792Z</lastmod>
+    <lastmod>2026-10-22T03:58:43.495Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/" />
@@ -40,7 +40,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/de/</loc>
-    <lastmod>2026-10-19T16:14:39.531Z</lastmod>
+    <lastmod>2026-10-22T04:13:14.463Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/" />
@@ -52,7 +52,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/ja/</loc>
-    <lastmod>2026-10-19T16:14:39.531Z</lastmod>
+    <lastmod>2026-10-22T04:13:14.463Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/" />
@@ -76,7 +76,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/zh/360-panorama-viewer/</loc>
-    <lastmod>2026-10-19T16:13:55.763Z</lastmod>
+    <lastmod>2026-10-22T03:58:43.495Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.95</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/360-panorama-viewer/" />
@@ -88,7 +88,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/es/360-panorama-viewer/</loc>
-    <lastmod>2026-10-20T02:57:34.792Z</lastmod>
+    <lastmod>2026-10-22T03:58:43.495Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.95</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/360-panorama-viewer/" />
@@ -100,7 +100,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/de/360-panorama-viewer/</loc>
-    <lastmod>2026-10-19T16:13:55.763Z</lastmod>
+    <lastmod>2026-10-22T04:13:14.463Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.95</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/360-panorama-viewer/" />
@@ -112,7 +112,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/ja/360-panorama-viewer/</loc>
-    <lastmod>2026-10-19T16:13:55.763Z</lastmod>
+    <lastmod>2026-10-22T04:13:14.463Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.95</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/360-panorama-viewer/" />
@@ -124,7 +124,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/photo-to-globe/</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-22T04:18:27.501Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-globe/" />
@@ -136,7 +136,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/zh/photo-to-globe/</loc>
-    <lastmod>2026-10-19T16:13:55.763Z</lastmod>
+    <lastmod>2026-10-22T03:58:43.495Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-globe/" />
@@ -148,7 +148,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/es/photo-to-globe/</loc>
-    <lastmod>2026-10-20T02:57:34.792Z</lastmod>
+    <lastmod>2026-10-22T03:58:43.495Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-globe/" />
@@ -160,7 +160,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/de/photo-to-globe/</loc>
-    <lastmod>2026-10-19T16:13:55.763Z</lastmod>
+    <lastmod>2026-10-22T04:13:14.463Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-globe/" />
@@ -172,7 +172,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/ja/photo-to-globe/</loc>
-    <lastmod>2026-10-19T16:13:55.763Z</lastmod>
+    <lastmod>2026-10-22T04:13:14.463Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-globe/" />
@@ -184,7 +184,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/cubemap-generator/</loc>
-    <lastmod>2026-10-20</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/cubemap-generator/" />
@@ -196,7 +196,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/zh/cubemap-generator/</loc>
-    <lastmod>2026-10-19T16:13:55.763Z</lastmod>
+    <lastmod>2026-10-22T03:58:43.495Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/cubemap-generator/" />
@@ -208,7 +208,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/es/cubemap-generator/</loc>
-    <lastmod>2026-10-20T02:57:34.792Z</lastmod>
+    <lastmod>2026-10-22T03:58:43.495Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/cubemap-generator/" />
@@ -220,7 +220,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/de/cubemap-generator/</loc>
-    <lastmod>2026-10-19T16:13:55.763Z</lastmod>
+    <lastmod>2026-10-22T04:13:14.463Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/cubemap-generator/" />
@@ -232,7 +232,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/ja/cubemap-generator/</loc>
-    <lastmod>2026-10-19T16:13:55.763Z</lastmod>
+    <lastmod>2026-10-22T04:13:14.463Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/cubemap-generator/" />
@@ -244,7 +244,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/photo-to-360-converter/</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-22T04:13:14.490Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-360-converter/" />
@@ -256,7 +256,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/zh/photo-to-360-converter/</loc>
-    <lastmod>2026-10-19T16:13:55.763Z</lastmod>
+    <lastmod>2026-10-22T04:13:14.463Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-360-converter/" />
@@ -268,7 +268,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/es/photo-to-360-converter/</loc>
-    <lastmod>2026-10-20T02:57:34.792Z</lastmod>
+    <lastmod>2026-10-22T04:13:14.463Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-360-converter/" />
@@ -280,7 +280,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/de/photo-to-360-converter/</loc>
-    <lastmod>2026-10-19T16:13:55.763Z</lastmod>
+    <lastmod>2026-10-22T04:13:14.463Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-360-converter/" />
@@ -292,7 +292,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/ja/photo-to-360-converter/</loc>
-    <lastmod>2026-10-19T16:13:55.763Z</lastmod>
+    <lastmod>2026-10-22T04:13:14.463Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://360panoramaviewer.com/photo-to-360-converter/" />
@@ -322,7 +322,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/skybox-generator/</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
@@ -364,7 +364,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/developers/</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -376,7 +376,7 @@
   </url>
   <url>
     <loc>https://360panoramaviewer.com/blog/</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -403,5 +403,19 @@
     <lastmod>2026-10-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/blog/panorama-to-skybox-threejs-unity/</loc>
+    <lastmod>2026-10-22</lastmod>
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/about/</loc>
+    <lastmod>2026-10-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://360panoramaviewer.com/examples/panorama-skybox/</loc>
+    <lastmod>2026-10-22</lastmod>
   </url>
 </urlset>

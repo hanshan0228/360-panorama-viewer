@@ -11,7 +11,7 @@
     <meta name="description" content="Free online 360° panorama viewer: open equirectangular photos in WebGL with Little Planet and cardboard VR. Private, browser-based, no upload or signup." />
     <meta
       name="keywords"
-      content="panorama viewer, panoramic viewer, 360 viewer, 360 photo viewer, free online panorama viewer, equirectangular photo viewer, photo sphere viewer, view 360 photos online, 360 image viewer, VR panorama viewer, little planet viewer, no upload panorama viewer, WebGL 360 viewer"
+      content="panorama viewer, panoramic viewer, 360 viewer, 360 photo viewer, free online panorama viewer, equirectangular photo viewer, photo sphere viewer, view 360 photos online, 360 image viewer, dji 360 viewer, insta360 online viewer, 360 pic viewer, 360 reader, VR panorama viewer, little planet viewer, no upload panorama viewer, WebGL 360 viewer"
     />
     <meta name="author" content="360 Panorama Viewer" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
@@ -114,7 +114,7 @@
                 "@type": "HowToStep",
                 "position": 4,
                 "name": "Reuse the Panorama",
-                "text": "Export a PNG viewport snapshot, add spatial hotspots to build an interactive tour, generate an embed code, or slice the photo into a 6-face cubemap for Unity and Unreal Engine."
+                "text": "Export a PNG viewport snapshot, create a share link by uploading a copy, or slice the photo into a 6-face cubemap. Embedding requires a hosted image."
               }
             ]
           },
@@ -127,7 +127,7 @@
                 "name": "Are my 360° photos uploaded or stored on any server?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "No. 360 Panorama Viewer’s 360° Panorama Viewer operates 100% locally in your browser using Three.js and WebGL. Your photos are decoded directly on your local GPU and are never transmitted to any external server or cloud storage."
+                  "text": "Local preview runs in your browser without uploading your photo. If you choose to create a share link, a copy is uploaded so people with the link can view it."
                 }
               },
               {
@@ -143,7 +143,7 @@
                 "name": "What image formats and resolutions are supported?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "We support standard 2:1 equirectangular panoramas in PNG, JPEG, and WebP up to 16K resolution (limited only by your local GPU memory). You can also export viewed scenes to Radiance RGBE .HDR for 3D engine lighting."
+                  "text": "Standard 2:1 equirectangular PNG, JPEG and WebP panoramas are supported. Maximum usable dimensions depend on the browser and device. Exporting an ordinary image as Radiance RGBE .HDR does not create measured high-dynamic-range lighting data."
                 }
               },
               {
@@ -167,7 +167,7 @@
                 "name": "Is a panorama viewer the same thing as a panoramic viewer or 360 viewer?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Yes. Panorama viewer, panoramic viewer, 360 viewer, and 360 photo viewer all describe the same tool: a player that renders a 2:1 equirectangular photo inside an interactive sphere you can rotate and zoom. Some desktop programs and cloud hosts add stitching, tour authoring, or public hosting on top; 360 Panorama Viewer focuses on instant in-browser viewing of a photo that never leaves your device."
+                  "text": "Yes. Panorama viewer, panoramic viewer, 360 viewer, and 360 photo viewer all describe a player that renders a 2:1 equirectangular photo inside an interactive sphere. Local preview keeps the image on your device; creating a share link uploads a copy."
                 }
               },
               {
@@ -175,7 +175,7 @@
                 "name": "Which 360 cameras and phones produce photos I can view here?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Any device that exports a 2:1 equirectangular image works: Insta360 ONE X, X2, X3 and X4, GoPro MAX, Ricoh Theta S, V and Z1, Kandao QooCam, Trisio, iPhone and Android panorama mode, and Google Street View photo exports. Raw dual-fisheye files such as .insp and DNG, and HEIC stills, must be stitched or converted to JPG first."
+                  "text": "Any device that exports a 2:1 equirectangular image works: Insta360 ONE X, X2, X3 and X4, DJI (Air, Mavic, and Mini 360 sphere panoramas), GoPro MAX, Ricoh Theta S, V and Z1, Kandao QooCam, Trisio, iPhone and Android panorama mode, and Google Street View photo exports. Raw dual-fisheye files such as .insp and DNG, and HEIC stills, must be stitched or converted to JPG first."
                 }
               }
             ]
@@ -202,7 +202,7 @@
               <li><strong>Load the photo:</strong> drag and drop your equirectangular image, click Open Local Panorama, or press Ctrl + V to paste from the clipboard.</li>
               <li><strong>Look around:</strong> drag with the mouse, swipe on mobile, or use the arrow keys to pan 360° horizontally and 180° vertically.</li>
               <li><strong>Switch the projection:</strong> 360° Sphere for interior roaming, Little Planet for a stereographic fisheye shot, VR Split for a cardboard headset.</li>
-              <li><strong>Reuse the result:</strong> export a PNG snapshot, add spatial hotspots, copy an embed code, or slice into a 6-face cubemap.</li>
+              <li><strong>Reuse the result:</strong> export a PNG snapshot, share a copy by link, or slice the image into a 6-face cubemap. Embedding requires a hosted image.</li>
             </ol>
           </section>
 
@@ -212,28 +212,28 @@
               <li><strong>Zero Upload Privacy:</strong> Fully rendered on your local GPU via Three.js.</li>
               <li><strong>Ctrl + V Instant Paste:</strong> Copy any panorama and paste straight into the 360° viewport.</li>
               <li><strong>Multiple Projection Modes:</strong> Immersive 360° spherical interior roaming, Little Planet fisheye view, and VR Split cardboard mode.</li>
-              <li><strong>Cleanup Tools:</strong> 4K upscale, vertical seam healing, and nadir/zenith pole repair for real camera output.</li>
+              <li><strong>Optional Cleanup Tools:</strong> Adjust image clarity, blend the seam, or soften the poles. Inspect the result: processing can introduce artifacts and does not reconstruct missing geometry.</li>
               <li><strong>One-Click Workflow:</strong> Seamlessly pipe panoramas into the Cubemap slicer, 3D Globe maker, or HDRI exporter.</li>
             </ul>
           </section>
 
           <section>
             <h2>Supported formats, resolutions, and 360 cameras</h2>
-            <p>2:1 equirectangular JPG, PNG, and WebP images open directly, up to 16K resolution limited only by your GPU memory. Non-2:1 photos are detected and offered a smart optimization mode instead of being stretched.</p>
-            <p>Cameras and apps that work: Insta360 ONE X / X2 / X3 / X4, GoPro MAX, Ricoh Theta S / V / Z1, Kandao QooCam, Trisio, iPhone and Android panorama mode, and Google Street View photo exports — choose the equirectangular JPG export. Insta360 .insp raws, dual-fisheye DNGs, and HEIC stills must be stitched or converted to JPG first.</p>
+            <p>2:1 equirectangular JPG, PNG, and WebP images open directly. Supported image dimensions depend on your device and browser. Non-2:1 photos may look stretched in a spherical viewer.</p>
+            <p>Cameras and apps that work: Insta360 ONE X / X2 / X3 / X4, DJI (Air, Mavic, and Mini 360 sphere panoramas), GoPro MAX, Ricoh Theta S / V / Z1, Kandao QooCam, Trisio, iPhone and Android panorama mode, and Google Street View photo exports — choose the equirectangular JPG export. Insta360 .insp raws, dual-fisheye DNGs, and HEIC stills must be stitched or converted to JPG first.</p>
           </section>
 
           <section>
             <h2>How this viewer compares</h2>
-            <p>Cloud panorama hosts such as Kuula and Momento360 require an account and store your photo on their servers; Google Street View publishes it publicly; desktop 3D software such as Pano2VR and Blender requires a license or install. This browser-based panorama viewer needs no account, keeps the file on your device, and still exports a 6-face cubemap ZIP or a 32-bit .HDR map when you need engine-ready assets.</p>
+            <p>This browser-based viewer needs no account for local preview and keeps the file on your device. You can also export a cubemap or an HDR-format file; converting an ordinary image to HDR does not recover the original scene's dynamic range. Creating a share link uploads a copy.</p>
           </section>
 
           <section>
             <h2>Frequently asked questions</h2>
             <h3>Are my 360° photos uploaded or stored on any server?</h3>
-            <p>No. The viewer runs 100% locally in your browser using Three.js and WebGL. Your photos are decoded on your own GPU and are never transmitted to any external server or cloud storage.</p>
+            <p>Local preview runs in your browser without uploading your photo. If you choose to create a share link, a copy is uploaded so people with the link can view it.</p>
             <h3>What image formats and resolutions are supported?</h3>
-            <p>Standard 2:1 equirectangular panoramas in PNG, JPEG, and WebP up to 16K resolution. Viewed scenes can also be exported onward to Radiance RGBE .HDR for 3D engine lighting.</p>
+            <p>Standard 2:1 equirectangular panoramas in PNG, JPEG, and WebP. Maximum usable dimensions depend on the browser and device. Exporting an ordinary image as Radiance RGBE .HDR does not create measured high-dynamic-range lighting data.</p>
             <h3>Is a panorama viewer the same thing as a panoramic viewer or 360 viewer?</h3>
             <p>Yes — panorama viewer, panoramic viewer, 360 viewer, and 360 photo viewer all describe the same tool: a player that renders a 2:1 equirectangular photo inside an interactive sphere you can rotate and zoom.</p>
             <h3>Can I convert the 360° panorama into game engine cubemaps?</h3>
@@ -245,8 +245,8 @@
             <ul>
               <li><a href="/cubemap-generator/">Cubemap Generator</a> — slice panoramas into 6 faces for Unity and Unreal Engine.</li>
               <li><a href="/photo-to-360-converter/">Photo to 360 Converter</a> — turn a normal 2D photo into an equirectangular panorama.</li>
-              <li><a href="/skybox-generator/">AI Skybox Generator</a> — generate seamless 360° game skyboxes from a text prompt.</li>
-              <li><a href="/ai-hdri-generator/">AI HDRI Generator</a> — create 32-bit .HDR lighting maps for Blender and UE5.</li>
+              <li><a href="/skybox-generator/">AI Skybox Generator</a> — generate 360° game backgrounds from a text prompt.</li>
+              <li><a href="/ai-hdri-generator/">AI HDRI Generator</a> — generate environment images and export an HDR-format file.</li>
               <li><a href="/360-metadata-injector/">360° Metadata Injector</a> — embed PhotoSphere XMP for Facebook and Street View.</li>
               <li><a href="/360-photo-to-video/">360° Photo to Video</a> — render a rotating MP4 or WebM clip from a panorama.</li>
             </ul>

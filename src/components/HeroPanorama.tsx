@@ -10,6 +10,8 @@
  * The static <img> rendered behind this layer stays in place as the instant LCP
  * paint and as the fallback whenever WebGL is unavailable.
  */
+import { useTranslation } from '../utils/i18n';
+import { sharedMessages } from '../utils/sharedTranslations';
 import { memo, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
@@ -31,7 +33,10 @@ interface HeroPanoramaProps {
 }
 
 export const HeroPanorama = memo(function HeroPanorama({ textureUrl, className = '' }: HeroPanoramaProps) {
+  const t = useTranslation(sharedMessages);
+  const hintText = t('DRAG TO LOOK AROUND · 360°');
   const containerRef = useRef<HTMLDivElement>(null);
+  const hintRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -62,7 +67,7 @@ export const HeroPanorama = memo(function HeroPanorama({ textureUrl, className =
     // so it is created imperatively next to the canvas and fades on first use.
     const hint = document.createElement('span');
     hint.className = 'studio-hero-panorama-hint';
-    hint.textContent = 'DRAG TO LOOK AROUND · 360°';
+    hintRef.current = hint;
     container.appendChild(hint);
     requestAnimationFrame(() => {
       hint.style.opacity = '1';
@@ -265,10 +270,15 @@ export const HeroPanorama = memo(function HeroPanorama({ textureUrl, className =
       renderer.forceContextLoss();
       window.clearTimeout(hintTimer);
       hint.remove();
+      hintRef.current = null;
       canvas.remove();
       container.removeAttribute('aria-hidden');
     };
   }, [textureUrl]);
+
+  useEffect(() => {
+    if (hintRef.current) hintRef.current.textContent = hintText;
+  }, [hintText, textureUrl]);
 
   return <div ref={containerRef} className={`studio-hero-panorama ${className}`.trim()} />;
 });

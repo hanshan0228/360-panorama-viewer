@@ -2,6 +2,8 @@
 
 @layer base {
   :root {
+    color-scheme: dark;
+    color-scheme: only dark;
     --bg-base: #040c1a;
     --card-surface: rgba(7, 21, 43, 0.75);
     --border-subtle: rgba(0, 242, 254, 0.14);
@@ -19,6 +21,37 @@
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
     letter-spacing: -0.01em;
   }
+}
+
+.app-dialog {
+  width: calc(100% - 2rem);
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  margin: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block: 1rem;
+}
+
+.app-dialog :is(button, summary, a[href]) { min-height: 44px; }
+.app-dialog summary { align-content: center; }
+.app-dialog button[aria-label^="Close"] { min-width: 44px; flex-shrink: 0; }
+.app-dialog :is(input, textarea, select) { font-size: 16px; }
+.app-dialog :is(button, a, input, summary):focus-visible {
+  outline: 2px solid #9ee6d3;
+  outline-offset: 3px;
+}
+
+@media (forced-colors: none) {
+  :where(.studio-shell, .app-dialog) input:-webkit-autofill {
+    -webkit-text-fill-color: #e0f2fe;
+    caret-color: #e0f2fe;
+    box-shadow: 0 0 0 1000px #111c22 inset;
+  }
+}
+
+@media (max-width: 639px) {
+  .auth-dialog-content { padding: 1.25rem; }
 }
 
 /* Deep Oceanic Celestial Background with Radiant Aurora */
@@ -139,4 +172,9 @@
 }
 .cursor-grabbing {
   cursor: grabbing;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-btn::after, .app-dialog .animate-spin { animation: none; }
+  .glass-card, .shimmer-btn { transition: none; }
 }

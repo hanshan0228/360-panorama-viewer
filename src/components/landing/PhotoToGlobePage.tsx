@@ -1,3 +1,5 @@
+import { useLanguage, useTranslation, withLanguageHref } from '../../utils/i18n';
+import { landingMessages } from '../../utils/landingTranslations';
 import { useState } from 'react';
 import {
   ArrowRight,
@@ -22,6 +24,8 @@ interface PhotoToGlobePageProps {
 }
 
 export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchStudio }: PhotoToGlobePageProps) {
+  const t = useTranslation(landingMessages);
+  const [lang] = useLanguage();
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
 
   const steps = [
@@ -38,8 +42,8 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
       text: 'Drag to orbit, scroll to zoom, change the rotation speed, and switch to wireframe mode to check how your projection stretches near the poles.',
     },
     {
-      title: 'Capture or share the result',
-      text: 'Grab a perspective snapshot for a thumbnail, presentation slide, or YouTube intro, or send the same image to the 360° viewer when you want to look around from inside the scene.',
+      title: 'Preview or share the result',
+      text: 'Explore the globe in the browser. To save an image of the globe, use your device\'s screen capture; the globe tool has no dedicated snapshot export.',
     },
   ];
 
@@ -62,7 +66,7 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
     {
       icon: Sparkles,
       title: 'Photos as Tiny Planets',
-      text: 'Wrap any equirectangular 360° photo around the globe for a stereographic "tiny planet" look without installing a stereographic projection app.',
+      text: 'Wrap any equirectangular 360° photo around the globe for a small-planet look without installing a separate app.',
     },
   ];
 
@@ -108,7 +112,7 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
     },
     {
       q: 'Does it work on phones and tablets?',
-      a: 'Yes. The globe uses touch drag to orbit and pinch to zoom, and the whole projection runs in the mobile browser without an app install or an account.',
+      a: 'Yes. Drag to rotate the globe and use the zoom buttons to move closer or farther away. The whole projection runs in the mobile browser without an app install or an account.',
     },
     {
       q: 'Is the tool useful for science or geography teaching?',
@@ -129,11 +133,11 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
     <div className="space-y-16 pb-16">
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs text-cyan-400/70 pt-2">
-        <a href="/" className="hover:text-cyan-300 transition-colors">Home</a>
+        <a href={withLanguageHref("/", lang)} className="hover:text-cyan-300 transition-colors">{t("Home")}</a>
         <span>/</span>
-        <span className="text-cyan-300">Tools</span>
+        <span className="text-cyan-300">{t("Tools")}</span>
         <span>/</span>
-        <span className="text-white font-medium">Map to Globe</span>
+        <span className="text-white font-medium">{t("Map to Globe")}</span>
       </nav>
 
       {/* Interactive 3D globe tool */}
@@ -143,38 +147,29 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            What It Does
+            {t("What It Does")}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            What Is a Map to Globe Converter?
+            {t("What Is a Map to Globe Converter?")}
           </h2>
         </div>
 
         <div className="max-w-3xl mx-auto space-y-4 text-sm text-cyan-100/80 leading-relaxed">
           <p>
-            A map to globe converter takes a flat, rectangular image and wraps it around a sphere so you can
-            rotate the result like a planet. It is sometimes called a globe maker, an image to globe tool, or a
-            sphere projection tool — the operation is always the same: read every pixel of your image, convert
-            its X and Y coordinates into longitude and latitude, and sample the pixel that lies in that
-            direction.
+            {t("A map to globe converter takes a flat, rectangular image and wraps it around a sphere so you can rotate the result like a planet. It is sometimes called a globe maker, an image to globe tool, or a sphere projection tool — the operation is always the same: read every pixel of your image, convert its X and Y coordinates into longitude and latitude, and sample the pixel that lies in that direction.")}
           </p>
           <p>
-            Because the maths is pure geometry, the result is instant and lossless: no server render, no
-            queue, no watermark. What matters for quality is the source image. An{' '}
-            <strong className="text-white">equirectangular</strong> world map (2:1, latitude running linearly
-            from the south pole to the north pole) wraps without artefacts, while a Mercator wall map will
-            squeeze the poles the moment it becomes spherical.
+            {t("Because the projection runs locally, you can explore the result without a server render, a queue, or a watermark. Quality depends on the source image and its projection. An")}{' '}
+            <strong className="text-white">{t("equirectangular")}</strong> {t("world map (2:1, latitude running linearly from the south pole to the north pole) wraps without artefacts, while a Mercator wall map will squeeze the poles the moment it becomes spherical.")}
           </p>
           <p>
-            The same projection works on more than cartography. Any 360° photograph is already equirectangular,
-            so loading one here produces the classic "tiny planet" view — geography on the outside, instead of
-            the inside-out view you get from the{' '}
+            {t("The same projection works on more than cartography. Any 360° photograph is already equirectangular, so loading one here produces the classic \"tiny planet\" view — geography on the outside, instead of the inside-out view you get from the")}{' '}
             <a
-              href="/360-panorama-viewer/"
+              href={withLanguageHref("/360-panorama-viewer/", lang)}
               onClick={(e) => { e.preventDefault(); onNavigateTab('viewer', '/360-panorama-viewer/'); }}
               className="text-cyan-300 underline decoration-cyan-500/50 hover:text-cyan-200"
             >
-            panorama viewer
+            {t("panorama viewer")}
             </a>
             .
           </p>
@@ -185,10 +180,10 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Step by Step
+            {t("Step by Step")}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            How to Wrap an Image onto a 3D Globe
+            {t("How to Wrap an Image onto a 3D Globe")}
           </h2>
         </div>
 
@@ -199,9 +194,9 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
                 <span className="w-7 h-7 shrink-0 rounded-full bg-cyan-400/15 border border-cyan-400/40 text-cyan-300 text-xs font-black flex items-center justify-center">
                   {idx + 1}
                 </span>
-                <h3 className="font-bold text-white text-sm">{step.title}</h3>
+                <h3 className="font-bold text-white text-sm">{t(step.title)}</h3>
               </div>
-              <p className="text-xs text-cyan-200/70 leading-relaxed">{step.text}</p>
+              <p className="text-xs text-cyan-200/70 leading-relaxed">{t(step.text)}</p>
             </div>
           ))}
         </div>
@@ -211,10 +206,10 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Why People Use It
+            {t("Why People Use It")}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Worldbuilding, Teaching, and Game Prototyping
+            {t("Worldbuilding, Teaching, and Game Prototyping")}
           </h2>
         </div>
 
@@ -224,8 +219,8 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
               <div className="p-2.5 rounded-xl bg-cyan-500/15 text-cyan-400 w-fit">
                 <useCase.icon className="w-5 h-5" />
               </div>
-              <h3 className="font-bold text-white text-base">{useCase.title}</h3>
-              <p className="text-xs text-cyan-200/70 leading-relaxed">{useCase.text}</p>
+              <h3 className="font-bold text-white text-base">{t(useCase.title)}</h3>
+              <p className="text-xs text-cyan-200/70 leading-relaxed">{t(useCase.text)}</p>
             </div>
           ))}
         </div>
@@ -235,16 +230,13 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
       <section className="space-y-6">
         <div className="text-center max-w-3xl mx-auto space-y-2">
           <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Honest Comparison
+            {t("Honest Comparison")}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            This Globe Maker vs MapToGlobe, WebGL Earth &amp; Google Earth Web
+            {t("This Globe Maker vs MapToGlobe, WebGL Earth & Google Earth Web")}
           </h2>
           <p className="text-xs text-cyan-200/70">
-            Google Earth Web renders real satellite imagery but cannot wrap your own texture. WebGL Earth
-            renders hosted globes. MapToGlobe wraps arbitrary images, as does this tool — the practical
-            difference is that here nothing is uploaded, and the same session can slice the result into
-            cubemaps or export it as video.
+            {t("Google Earth Web renders real satellite imagery but cannot wrap your own texture. WebGL Earth renders hosted globes. MapToGlobe wraps arbitrary images, as does this tool — the practical difference is that here nothing is uploaded, and the same session can slice the result into cubemaps or export it as video.")}
           </p>
         </div>
 
@@ -252,21 +244,21 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
           <table className="w-full text-left text-xs">
             <thead className="bg-[#051733] text-cyan-200 border-b border-cyan-500/30 font-semibold uppercase tracking-wider">
               <tr>
-                <th className="py-4 px-5">Capability</th>
-                <th className="py-4 px-5 text-teal-300">360 Panorama Viewer</th>
-                <th className="py-4 px-5 text-slate-300">MapToGlobe</th>
-                <th className="py-4 px-5 text-slate-300">WebGL Earth</th>
-                <th className="py-4 px-5 text-slate-300">Google Earth Web</th>
+                <th className="py-4 px-5">{t("Capability")}</th>
+                <th className="py-4 px-5 text-teal-300">{t("360 Panorama Viewer")}</th>
+                <th className="py-4 px-5 text-slate-300">{t("MapToGlobe")}</th>
+                <th className="py-4 px-5 text-slate-300">{t("WebGL Earth")}</th>
+                <th className="py-4 px-5 text-slate-300">{t("Google Earth Web")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cyan-500/15 text-cyan-100/90">
               {comparison.map(row => (
                 <tr key={row.feature}>
-                  <td className="py-3.5 px-5 font-semibold text-white">{row.feature}</td>
-                  <td className="py-3.5 px-5 text-teal-300 font-semibold">{row.us}</td>
-                  <td className="py-3.5 px-5">{row.a}</td>
-                  <td className="py-3.5 px-5">{row.b}</td>
-                  <td className="py-3.5 px-5">{row.c}</td>
+                  <td className="py-3.5 px-5 font-semibold text-white">{t(row.feature)}</td>
+                  <td className="py-3.5 px-5 text-teal-300 font-semibold">{t(row.us)}</td>
+                  <td className="py-3.5 px-5">{t(row.a)}</td>
+                  <td className="py-3.5 px-5">{t(row.b)}</td>
+                  <td className="py-3.5 px-5">{t(row.c)}</td>
                 </tr>
               ))}
             </tbody>
@@ -278,10 +270,10 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Image Preparation
+            {t("Image Preparation")}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Which Image Format Wraps Best on a Sphere?
+            {t("Which Image Format Wraps Best on a Sphere?")}
           </h2>
         </div>
 
@@ -290,9 +282,9 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
             <div key={item.topic} className="flex flex-col sm:flex-row gap-2 sm:gap-6 rounded-xl border border-cyan-500/20 bg-[#030e20] p-4">
               <div className="sm:w-64 shrink-0 flex items-center gap-2 text-sm font-bold text-white">
                 <Ruler className="w-4 h-4 text-cyan-400 shrink-0" />
-                <span>{item.topic}</span>
+                <span>{t(item.topic)}</span>
               </div>
-              <p className="text-xs text-cyan-100/80 leading-relaxed">{item.detail}</p>
+              <p className="text-xs text-cyan-100/80 leading-relaxed">{t(item.detail)}</p>
             </div>
           ))}
         </div>
@@ -300,9 +292,7 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
         <div className="max-w-4xl mx-auto rounded-2xl border border-teal-500/25 bg-teal-500/5 p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <Lock className="w-6 h-6 text-teal-400 shrink-0" />
           <p className="text-xs text-teal-100/90 leading-relaxed">
-            <strong className="text-white">Nothing is uploaded.</strong> The projection, the preview, and the
-            snapshot all run inside your browser tab. Close the page and no copy of your map exists anywhere
-            else.
+            <strong className="text-white">{t("Nothing is uploaded.")}</strong> {t("The projection and preview run inside your browser tab. The globe tool does not upload your map.")}
           </p>
         </div>
       </section>
@@ -310,11 +300,9 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
       {/* FAQ */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Frequently Asked Questions
-          </div>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Frequently Asked Questions")}</div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Map to Globe Questions &amp; Answers
+            {t("Map to Globe Questions & Answers")}
           </h2>
         </div>
 
@@ -328,12 +316,12 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
                   onClick={() => setActiveFaq(isOpen ? null : idx)}
                   className="w-full py-4 px-5 text-left flex items-center justify-between gap-4 font-semibold text-sm text-white hover:text-cyan-300 cursor-pointer transition-colors"
                 >
-                  <span>{faq.q}</span>
+                  <span>{t(faq.q)}</span>
                   <ChevronDown className={`w-4 h-4 text-cyan-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {isOpen && (
                   <div className="px-5 pb-4 text-xs text-cyan-100/80 leading-relaxed border-t border-cyan-500/15 pt-3">
-                    {faq.a}
+                    {t(faq.a)}
                   </div>
                 )}
               </div>
@@ -346,10 +334,10 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Pair It With
+            {t("Pair It With")}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            More Free 360° Tools to Use with the Globe Maker
+            {t("More Free 360° Tools to Use with the Globe Maker")}
           </h2>
         </div>
 
@@ -357,15 +345,15 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
           {related.map(tool => (
             <a
               key={tool.href}
-              href={tool.href}
+              href={withLanguageHref(tool.href, lang)}
               onClick={(e) => { e.preventDefault(); onNavigateTab(tool.tab, tool.href); }}
               className="group rounded-2xl border border-cyan-500/25 bg-[#05142b]/70 p-5 hover:border-cyan-400/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2 text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
                 <CheckCircle2 className="w-4 h-4 text-teal-400" />
-                <span>{tool.label}</span>
+                <span>{t(tool.label)}</span>
               </div>
-              <p className="text-xs text-cyan-200/70 pt-1.5">{tool.note}</p>
+              <p className="text-xs text-cyan-200/70 pt-1.5">{t(tool.note)}</p>
             </a>
           ))}
         </div>
@@ -375,11 +363,10 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
       <section className="rounded-3xl border border-cyan-400/40 bg-gradient-to-r from-[#031d42] via-[#042858] to-[#011430] p-8 sm:p-12 text-center space-y-6 shadow-2xl">
         <Compass className="w-8 h-8 text-cyan-300 mx-auto" />
         <h2 className="text-2xl sm:text-4xl font-black text-white">
-          Need a 360° Sky or Planet Image First?
+          {t("Need a 360° Sky or Planet Image First?")}
         </h2>
         <p className="text-sm sm:text-base text-cyan-100/80 max-w-xl mx-auto">
-          Generate an equirectangular environment in the AI Studio, then drop it straight onto this globe — or
-          open it in the viewer to look around from the inside.
+          {t("Generate an equirectangular environment in the AI Studio, then drop it straight onto this globe — or open it in the viewer to look around from the inside.")}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-4">
           <button
@@ -388,7 +375,7 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
             className="px-8 py-4 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-400 to-teal-400 text-slate-950 shadow-xl shadow-cyan-400/40 hover:scale-105 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
           >
             <Sparkles className="w-4 h-4 fill-slate-950" />
-            <span>Open AI Panorama Studio</span>
+            <span>{t("Open AI Panorama Studio")}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
           <button
@@ -397,7 +384,7 @@ export function PhotoToGlobePage({ currentPanoramaUrl, onNavigateTab, onLaunchSt
             className="px-6 py-4 rounded-xl font-semibold text-sm bg-cyan-950/60 border border-cyan-500/40 text-cyan-200 hover:text-white hover:bg-cyan-900/60 transition-all cursor-pointer inline-flex items-center gap-2"
           >
             <Globe2 className="w-4 h-4 text-cyan-400" />
-            <span>Open the 360° Viewer</span>
+            <span>{t("Open the 360° Viewer")}</span>
           </button>
         </div>
       </section>

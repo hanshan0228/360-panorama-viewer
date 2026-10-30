@@ -1,7 +1,14 @@
 export function paypalConfigured(env) {
+  const isLive = env.PAYPAL_MODE === 'live';
+  const proYearly = isLive && (env.PAYPAL_PRO_YEARLY_PLAN_ID === 'P-9B017822PK825994CNLJCQYI' || !env.PAYPAL_PRO_YEARLY_PLAN_ID)
+    ? 'P-54266216P0957062FNLSMUUA'
+    : env.PAYPAL_PRO_YEARLY_PLAN_ID;
+  const entYearly = isLive && (env.PAYPAL_ENTERPRISE_YEARLY_PLAN_ID === 'P-9M266533P5994901XNLJCQYY' || !env.PAYPAL_ENTERPRISE_YEARLY_PLAN_ID)
+    ? 'P-6VB462317P533624GNLSMUUI'
+    : env.PAYPAL_ENTERPRISE_YEARLY_PLAN_ID;
   return ['sandbox', 'live'].includes(env.PAYPAL_MODE) && Boolean(env.PAYPAL_CLIENT_ID &&
     env.PAYPAL_CLIENT_SECRET && env.PAYPAL_WEBHOOK_ID && env.PAYPAL_PRO_MONTHLY_PLAN_ID &&
-    env.PAYPAL_PRO_YEARLY_PLAN_ID && env.PAYPAL_ENTERPRISE_MONTHLY_PLAN_ID && env.PAYPAL_ENTERPRISE_YEARLY_PLAN_ID);
+    proYearly && env.PAYPAL_ENTERPRISE_MONTHLY_PLAN_ID && entYearly);
 }
 
 export function formatAdminBilling({ subscriptions = [], paypalSubscriptions = [], invoices = [], users = [] }) {
@@ -44,18 +51,26 @@ export function formatAdminBilling({ subscriptions = [], paypalSubscriptions = [
 
 export function paypalCatalog(env, billing = {}) {
   const monthlyPrice = billing.proMonthlyPriceUsd ?? 9.9;
-  const monthlyCredits = billing.proMonthlyCredits ?? 1000;
+  const rawCredits = billing.proMonthlyCredits ?? 120;
+  const monthlyCredits = rawCredits === 1000 ? 120 : rawCredits;
   if (!Number.isFinite(monthlyPrice) || monthlyPrice <= 0 || !Number.isSafeInteger(monthlyCredits) || monthlyCredits <= 0) {
     throw new Error('Invalid server billing configuration');
   }
+  const isLive = env.PAYPAL_MODE === 'live';
+  const proYearlyPlanId = isLive && (env.PAYPAL_PRO_YEARLY_PLAN_ID === 'P-9B017822PK825994CNLJCQYI' || !env.PAYPAL_PRO_YEARLY_PLAN_ID)
+    ? 'P-54266216P0957062FNLSMUUA'
+    : env.PAYPAL_PRO_YEARLY_PLAN_ID;
+  const entYearlyPlanId = isLive && (env.PAYPAL_ENTERPRISE_YEARLY_PLAN_ID === 'P-9M266533P5994901XNLJCQYY' || !env.PAYPAL_ENTERPRISE_YEARLY_PLAN_ID)
+    ? 'P-6VB462317P533624GNLSMUUI'
+    : env.PAYPAL_ENTERPRISE_YEARLY_PLAN_ID;
   return {
     pro: {
       monthly: { planId: env.PAYPAL_PRO_MONTHLY_PLAN_ID, amountCents: Math.round(monthlyPrice * 100), credits: monthlyCredits },
-      yearly: { planId: env.PAYPAL_PRO_YEARLY_PLAN_ID, amountCents: 11880, credits: monthlyCredits * 12 },
+      yearly: { planId: proYearlyPlanId, amountCents: 9900, credits: monthlyCredits * 12 },
     },
     enterprise: {
-      monthly: { planId: env.PAYPAL_ENTERPRISE_MONTHLY_PLAN_ID, amountCents: 2999, credits: 5000 },
-      yearly: { planId: env.PAYPAL_ENTERPRISE_YEARLY_PLAN_ID, amountCents: 34800, credits: 60000 },
+      monthly: { planId: env.PAYPAL_ENTERPRISE_MONTHLY_PLAN_ID, amountCents: 2999, credits: 400 },
+      yearly: { planId: entYearlyPlanId, amountCents: 29900, credits: 4800 },
     },
   };
 }
@@ -172,7 +187,7 @@ export async function handlePayPalRequest({ request, env, ledger, authenticate, 
     }
     const user = await authenticate();
     if (!user) return reply({ error: 'Please log in before subscribing' }, 401);
-    if (user.status !== 'active' || !user.password_hash || user.id.startsWith('usr_guest_')) {
+    if (!user.password_hash || user.id.startsWith('usr_guest_') || user.id.startsWith('usr_guest')) {
       return reply({ error: 'Please register or log in with a permanent account before subscribing' }, 403);
     }
     if (pathname === '/api/paypal/subscription' && request.method === 'GET') {
@@ -206,6 +221,9 @@ export async function handlePayPalRequest({ request, env, ledger, authenticate, 
       return reply({ success: true });
     }
     if (pathname !== '/api/paypal/create-subscription' || request.method !== 'POST') return reply({ error: 'Route not found' }, 404);
+    if (user.status !== 'active') {
+      return reply({ error: 'This account is suspended and cannot create subscriptions' }, 403);
+    }
     const body = await request.json();
     if (!['pro', 'enterprise'].includes(body.plan) || !['monthly', 'yearly'].includes(body.billingCycle)) {
       return reply({ error: 'Invalid plan or billing cycle' }, 400);

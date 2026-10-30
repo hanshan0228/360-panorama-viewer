@@ -1,3 +1,5 @@
+import { useLanguage, useTranslation } from '../../utils/i18n';
+import { commerceMessages } from '../../utils/commerceTranslations';
 import { useEffect, useState } from 'react';
 import {
   ArrowRight,
@@ -27,6 +29,9 @@ interface PublicShare {
 }
 
 export function ShowcasePage({ onOpenInStudio, onOpenStudio, onOpenViewer }: ShowcasePageProps) {
+  const t = useTranslation(commerceMessages);
+  const [lang] = useLanguage();
+  const localHref = (path: string) => lang === 'en' ? path : `${path}?lang=${lang}`;
   const [shares, setShares] = useState<PublicShare[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
@@ -68,9 +73,9 @@ export function ShowcasePage({ onOpenInStudio, onOpenStudio, onOpenViewer }: Sho
     <div className="space-y-16 pb-16">
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs text-cyan-400/70 pt-2">
-        <a href="/" className="hover:text-cyan-300 transition-colors">Home</a>
+        <a href={localHref("/")} className="hover:text-cyan-300 transition-colors">{t("Home")}</a>
         <span>/</span>
-        <span className="text-white font-medium">360° Panorama Showcase</span>
+        <span className="text-white font-medium">{t("360° Panorama Showcase")}</span>
       </nav>
 
       {/* Hero */}
@@ -78,20 +83,18 @@ export function ShowcasePage({ onOpenInStudio, onOpenStudio, onOpenViewer }: Sho
         <div className="max-w-4xl space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-400/15 border border-cyan-400/40 text-cyan-300 text-xs font-semibold tracking-wide">
             <Images className="w-3.5 h-3.5 text-teal-300" />
-            <span>COMMUNITY 360° PANORAMAS &bull; EXAMPLE GALLERY</span>
+            <span>{t("COMMUNITY 360° PANORAMAS • EXAMPLE GALLERY")}</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
-            360 Panorama Showcase:{' '}
+            {t("360 Panorama Showcase:")}{' '}
             <span className="bg-gradient-to-r from-teal-300 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
-              Real 360° Photos and VR Skies
+              {t("Real 360° Photos and VR Skies")}
             </span>
           </h1>
 
           <p className="text-base sm:text-lg text-cyan-100/80 leading-relaxed max-w-3xl">
-            Browse equirectangular 360° panoramas shared by photographers, 3D artists, and game developers.
-            Every panorama opens in the free browser viewer — drag to look around, switch to a Little Planet
-            projection, or jump into cardboard VR. Nothing to install, nothing uploaded.
+            {t("Browse equirectangular 360° panoramas shared by photographers, 3D artists, and game developers. Every panorama opens in the free browser viewer — drag to look around, switch to a Little Planet projection, or jump into cardboard VR. No installation is needed to view a shared panorama.")}
           </p>
 
           <div className="flex flex-wrap items-center gap-4 pt-2">
@@ -101,7 +104,7 @@ export function ShowcasePage({ onOpenInStudio, onOpenStudio, onOpenViewer }: Sho
               className="px-6 py-3.5 rounded-xl font-bold text-sm bg-gradient-to-r from-teal-400 to-cyan-500 text-slate-950 shadow-lg shadow-teal-400/30 hover:shadow-teal-400/60 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
             >
               <Eye className="w-4 h-4" />
-              <span>Open the Free 360° Viewer</span>
+              <span>{t("Open the Free 360° Viewer")}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
             <button
@@ -110,7 +113,7 @@ export function ShowcasePage({ onOpenInStudio, onOpenStudio, onOpenViewer }: Sho
               className="px-5 py-3.5 rounded-xl font-semibold text-sm bg-cyan-950/60 border border-cyan-500/40 text-cyan-200 hover:text-white hover:bg-cyan-900/60 transition-all cursor-pointer flex items-center gap-2"
             >
               <Sparkles className="w-4 h-4 text-cyan-400" />
-              <span>Create a 360 Panorama</span>
+              <span>{t("Create a 360 Panorama")}</span>
             </button>
           </div>
         </div>
@@ -120,11 +123,10 @@ export function ShowcasePage({ onOpenInStudio, onOpenStudio, onOpenViewer }: Sho
       <section className="space-y-6">
         <div className="space-y-2">
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Community panoramas, published by their authors
+            {t("Community panoramas, published by their authors")}
           </h2>
           <p className="text-sm text-cyan-200/70 max-w-3xl">
-            These panoramas were shared publicly by their creators. Private shares never appear here — listing
-            is opt-in per link, and owners can unlist a panorama at any time.
+            {t("These panoramas were shared publicly by their creators. Private shares never appear here — listing is opt-in per link, and owners can unlist a panorama at any time.")}
           </p>
         </div>
 
@@ -134,13 +136,13 @@ export function ShowcasePage({ onOpenInStudio, onOpenStudio, onOpenViewer }: Sho
             {shares.slice(0, 24).map(share => (
               <a
                 key={share.id}
-                href={`/s/${share.id}`}
+                href={localHref(`/s/${share.id}`)}
                 className="group rounded-2xl overflow-hidden border border-cyan-500/20 bg-[#030c1d]/80 hover:border-cyan-400/60 transition-colors"
               >
                 <div className="aspect-[2/1] overflow-hidden bg-[#020914]">
                   <img
                     src={`/api/shares/${share.id}/image`}
-                    alt={`${share.title} — 360° equirectangular panorama (${share.width}×${share.height})`}
+                    alt={t("{title} — 360° equirectangular panorama ({width}×{height})").replace("{title}", () => String(share.title)).replace("{width}", () => String(share.width)).replace("{height}", () => String(share.height))}
                     width={share.width}
                     height={share.height}
                     loading="lazy"
@@ -153,7 +155,7 @@ export function ShowcasePage({ onOpenInStudio, onOpenStudio, onOpenViewer }: Sho
                     {share.title}
                   </h3>
                   <p className="text-xs text-cyan-300/60 font-mono">
-                    {share.width}×{share.height} &bull; 360° panorama
+                    {share.width}×{share.height} {t("• 360° panorama")}
                   </p>
                 </div>
               </a>
@@ -162,8 +164,8 @@ export function ShowcasePage({ onOpenInStudio, onOpenStudio, onOpenViewer }: Sho
         ) : (
           <div className="rounded-2xl border border-cyan-500/20 bg-[#030c1d]/70 p-6 text-sm text-cyan-200/70">
             {loaded
-              ? 'No public panoramas yet. Open the Studio, share a panorama, and tick "List publicly in the 360 Panorama Showcase" to be the first one here.'
-              : 'Loading community panoramas…'}
+              ? t("No public panoramas yet. Open the Studio, share a panorama, and tick \"List publicly in the 360 Panorama Showcase\" to be the first one here.")
+              : t("Loading community panoramas…")}
           </div>
         )}
       </section>
@@ -171,53 +173,50 @@ export function ShowcasePage({ onOpenInStudio, onOpenStudio, onOpenViewer }: Sho
       {/* How to get listed */}
       <section className="rounded-3xl border border-cyan-500/20 bg-[#030c1d]/70 p-6 sm:p-10 space-y-6">
         <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-          How to publish your own 360° panorama here
+          {t("How to publish your own 360° panorama here")}
         </h2>
         <ol className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
           <li className="space-y-2">
             <div className="flex items-center gap-2 text-cyan-300 font-bold">
               <Sparkles className="w-4 h-4 text-teal-400" />
-              <span>1. Create or upload a 2:1 panorama</span>
+              <span>{t("1. Create or upload a 2:1 panorama")}</span>
             </div>
             <p className="text-cyan-100/75">
-              Generate an equirectangular scene with AI text prompts, convert a flat photo with{' '}
-              <a className="text-cyan-300 underline hover:text-cyan-200" href="/photo-to-360-converter/">Photo to 360</a>, or
-              drop in an Insta360 / Ricoh Theta export.
+              {t("Generate an equirectangular scene with AI text prompts, convert a flat photo with")}{' '}
+              <a className="text-cyan-300 underline hover:text-cyan-200" href={localHref("/photo-to-360-converter/")}>{t("Photo to 360")}</a>{t(", or drop in an Insta360 / Ricoh Theta export.")}
             </p>
           </li>
           <li className="space-y-2">
             <div className="flex items-center gap-2 text-cyan-300 font-bold">
               <Upload className="w-4 h-4 text-teal-400" />
-              <span>2. Share the link</span>
+              <span>{t("2. Share the link")}</span>
             </div>
             <p className="text-cyan-100/75">
-              Sign in, open <span className="font-mono">Share panorama</span>, and pick a title. The link stays private and
-              unindexed unless you opt in below.
+              {t("Sign in, open")} <span className="font-mono">{t("Share panorama")}</span>{t(", and pick a title. The link stays private and unindexed unless you opt in below.")}
             </p>
           </li>
           <li className="space-y-2">
             <div className="flex items-center gap-2 text-cyan-300 font-bold">
               <Globe2 className="w-4 h-4 text-teal-400" />
-              <span>3. Tick the public listing box</span>
+              <span>{t("3. Tick the public listing box")}</span>
             </div>
             <p className="text-cyan-100/75">
-              Enable "List publicly in the 360 Panorama Showcase" and the panorama appears on this page for anyone to
-              open in the viewer. Turn it off whenever you want it delisted.
+              {t("Enable \"List publicly in the 360 Panorama Showcase\" and the panorama appears on this page for anyone to open in the viewer. Turn it off whenever you want it delisted.")}
             </p>
           </li>
         </ol>
         <div className="flex flex-wrap items-center gap-6 pt-4 text-xs text-cyan-300/70 border-t border-cyan-500/15">
           <span className="flex items-center gap-1.5">
             <CheckCircle2 className="w-4 h-4 text-teal-400" />
-            <span>Private by default</span>
+            <span>{t("Private by default")}</span>
           </span>
           <span className="flex items-center gap-1.5">
             <CheckCircle2 className="w-4 h-4 text-teal-400" />
-            <span>Revocable at any time</span>
+            <span>{t("Revocable at any time")}</span>
           </span>
           <span className="flex items-center gap-1.5">
             <CheckCircle2 className="w-4 h-4 text-teal-400" />
-            <span>10 active links per account</span>
+            <span>{t("10 active links per account")}</span>
           </span>
         </div>
       </section>
@@ -232,34 +231,28 @@ export function ShowcasePage({ onOpenInStudio, onOpenStudio, onOpenViewer }: Sho
       {/* SEO copy */}
       <section className="space-y-4 text-sm text-cyan-100/80 leading-relaxed max-w-4xl">
         <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-          What to look for in a 360° panorama example
+          {t("What to look for in a 360° panorama example")}
         </h2>
         <p>
-          Equirectangular panoramas stretch a sphere onto a 2:1 rectangle, so the top and bottom rows smear toward the
-          poles and the left and right edges must join perfectly. When you study an example, check three things:
-          whether the horizon line sits straight across the middle, whether the 0°/360° seam is invisible, and whether
-          the sky and ground stay plausible when you tilt all the way up or down.
+          {t("Equirectangular panoramas stretch a sphere onto a 2:1 rectangle, so the top and bottom rows smear toward the poles and the left and right edges must join perfectly. When you study an example, check three things: whether the horizon line sits straight across the middle, whether the 0°/360° seam is invisible, and whether the sky and ground stay plausible when you tilt all the way up or down.")}
         </p>
         <p>
-          For VR and game production the same files feed a second pipeline. Slice them into six faces with the{' '}
-          <a className="text-cyan-300 underline hover:text-cyan-200" href="/cubemap-generator/">cubemap generator</a>,
-          export environment lighting with an{' '}
-          <a className="text-cyan-300 underline hover:text-cyan-200" href="/ai-hdri-generator/">AI HDRI generator</a>, or
-          turn a still panorama into a looping clip with{' '}
-          <a className="text-cyan-300 underline hover:text-cyan-200" href="/360-photo-to-video/">360 photo to video</a>.
-          Every tool in the studio runs in your browser, so nothing is uploaded.
+          {t("For VR and game production the same files feed a second pipeline. Slice them into six faces with the")}{' '}
+          <a className="text-cyan-300 underline hover:text-cyan-200" href={localHref("/cubemap-generator/")}>{t("cubemap generator")}</a>{t(", export environment lighting with an")}{' '}
+          <a className="text-cyan-300 underline hover:text-cyan-200" href={localHref("/ai-hdri-generator/")}>{t("AI HDRI generator")}</a>{t(", or turn a still panorama into a looping clip with")}{' '}
+          <a className="text-cyan-300 underline hover:text-cyan-200" href={localHref("/360-photo-to-video/")}>{t("360 photo to video")}</a>{t(". Viewing and local conversion run in your browser. AI generation sends references to the service; publishing a share uploads a sharing copy.")}
         </p>
         <p>
-          Looking for somewhere to view a panorama you already own? Open it in the{' '}
-          <a className="text-cyan-300 underline hover:text-cyan-200" href="/360-panorama-viewer/">free 360° panorama viewer</a>{' '}
-          and paste it straight from your clipboard — no upload, no watermark, no signup.
+          {t("Looking for somewhere to view a panorama you already own? Open it in the")}{' '}
+          <a className="text-cyan-300 underline hover:text-cyan-200" href={localHref("/360-panorama-viewer/")}>{t("free 360° panorama viewer")}</a>{' '}
+          {t("and paste it straight from your clipboard — no upload, no watermark, no signup.")}
         </p>
       </section>
 
       {/* FAQ */}
       <section className="space-y-4">
         <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-          360° Panorama Showcase — FAQ
+          {t("360° Panorama Showcase — FAQ")}
         </h2>
         <div className="space-y-3">
           {faqs.map((faq, index) => (
@@ -270,11 +263,11 @@ export function ShowcasePage({ onOpenInStudio, onOpenStudio, onOpenViewer }: Sho
                 aria-expanded={activeFaq === index}
                 className="w-full flex items-center justify-between gap-4 p-4 text-left text-sm font-bold text-white cursor-pointer hover:text-cyan-200 transition-colors"
               >
-                <span>{faq.q}</span>
+                <span>{t(faq.q)}</span>
                 <ChevronDown className={`w-4 h-4 shrink-0 text-cyan-400 transition-transform ${activeFaq === index ? 'rotate-180' : ''}`} />
               </button>
               {activeFaq === index && (
-                <p className="px-4 pb-4 text-sm text-cyan-100/75 leading-relaxed">{faq.a}</p>
+                <p className="px-4 pb-4 text-sm text-cyan-100/75 leading-relaxed">{t(faq.a)}</p>
               )}
             </div>
           ))}

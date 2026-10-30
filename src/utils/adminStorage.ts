@@ -138,9 +138,9 @@ export const DEFAULT_MANAGED_USERS: ManagedUser[] = [
 ];
 
 export const DEFAULT_BILLING_CONFIG: SystemBillingConfig = {
-  freeMonthlyCredits: 4,
+  freeMonthlyCredits: 8,
   proMonthlyPriceUsd: 9.9,
-  proMonthlyCredits: 1000,
+  proMonthlyCredits: 120,
   enterpriseCustomPricing: true,
   creditCostPer1K: 1,
   creditCostPer2K: 2,
@@ -336,8 +336,8 @@ export const DEFAULT_GUEST_USER: ManagedUser = {
   email: 'guest@360panoramaviewer.com',
   name: 'Free Trial Guest',
   plan: 'free',
-  creditsBalance: 4,
-  creditsTotal: 4,
+  creditsBalance: 0,
+  creditsTotal: 0,
   status: 'active',
   joinedAt: '2026-10-11',
   lastActiveAt: 'Just now',
@@ -355,7 +355,7 @@ export function getCurrentUser(): ManagedUser {
     if (currentId) {
       if (currentId === DEFAULT_GUEST_USER.id) {
         const guestFromStorage = localStorage.getItem('panorama_guest_user_data');
-        if (guestFromStorage) return JSON.parse(guestFromStorage);
+        if (guestFromStorage) return { ...JSON.parse(guestFromStorage), creditsBalance: 0, creditsTotal: 0 };
         return DEFAULT_GUEST_USER;
       }
       const found = users.find((u) => u.id === currentId);
@@ -370,10 +370,10 @@ export function getCurrentUser(): ManagedUser {
     return users[0] || DEFAULT_MANAGED_USERS[0];
   }
 
-  // Default browser guest user with 4 trial credits
+  // Anonymous visitors do not receive generation credits
   try {
     const guestFromStorage = localStorage.getItem('panorama_guest_user_data');
-    if (guestFromStorage) return JSON.parse(guestFromStorage);
+    if (guestFromStorage) return { ...JSON.parse(guestFromStorage), creditsBalance: 0, creditsTotal: 0 };
   } catch {
     // fallback
   }
@@ -473,8 +473,8 @@ export function processCheckoutSubscription(params: {
 
   const creditsToGrant =
     params.plan === 'enterprise'
-      ? 5000
-      : billing.proMonthlyCredits || 1000;
+      ? 400
+      : billing.proMonthlyCredits || 120;
 
   // 1. Update User Plan & Credits
   const updatedUsers = users.map((u) => {

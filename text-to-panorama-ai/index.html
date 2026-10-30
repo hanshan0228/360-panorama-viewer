@@ -52,13 +52,7 @@
             "description": "Free AI text to panorama generator that renders prompts as seamless equirectangular 360° environments with harmonic seam healing, WebGL preview, cubemap slicing and Radiance .HDR export.",
             "applicationCategory": "DesignApplication",
             "operatingSystem": "All, Web Browser",
-            "url": "https://360panoramaviewer.com/text-to-panorama-ai/",
-            "offers": {
-              "@type": "Offer",
-              "price": "0",
-              "priceCurrency": "USD",
-              "description": "Free trial credits, no install required"
-            }
+            "url": "https://360panoramaviewer.com/text-to-panorama-ai/"
           },
           {
             "@type": "BreadcrumbList",
@@ -112,7 +106,7 @@
               {
                 "@type": "Question",
                 "name": "Can the result be used as an HDRI for Blender, Unreal or Unity?",
-                "acceptedAnswer": { "@type": "Answer", "text": "Yes. Export the 360° image as a Radiance .HDR environment map from the studio, or run it through the AI HDRI generator for a 32-bit lighting map with real dynamic range for reflections and specular highlights." }
+                "acceptedAnswer": { "@type": "Answer", "text": "You can export a Radiance .HDR environment map for use in 3D software. The export encodes an 8-bit image; it cannot recover true high dynamic range or clipped highlights." }
               },
               {
                 "@type": "Question",
@@ -175,13 +169,15 @@
             <ul>
               <li>Open it in the free 360° panorama viewer with drag-to-look, Little Planet and cardboard VR modes.</li>
               <li>Slice it into six cube faces for Unity, Unreal Engine, Godot and Three.js skyboxes.</li>
-              <li>Export a Radiance .HDR environment map for Blender, Unreal Engine HDRIBackdrop and product renders.</li>
+              <li>Export a Radiance .HDR environment map for Blender, Unreal Engine HDRIBackdrop and product renders. The export uses an 8-bit image and cannot recover true high dynamic range or clipped highlights.</li>
               <li>Render a rotating MP4/WebM clip for TikTok, Reels, Shorts and product pages.</li>
             </ul>
           </section>
         
           <section>
             <h2>Frequently Asked Questions</h2>
+            <h3>Can the result be used as an HDRI for Blender, Unreal or Unity?</h3>
+            <p>You can export a Radiance .HDR environment map for use in 3D software. The export encodes an 8-bit image; it cannot recover true high dynamic range or clipped highlights.</p>
             <h3>What makes prompt engineering for 360° panoramas unique?</h3>
             <p>Unlike standard 2D image prompts that describe a single focused camera perspective, 360 panorama prompts must establish an entire 360-degree environment sphere. Mentioning horizon details, ceiling or sky textures, floor surfaces, and lighting direction ensures the AI model populates every angle cohesively without blank or distorted polar voids.</p>
 
@@ -189,7 +185,7 @@
             <p>Our diffusion pipeline incorporates multi-band Poisson harmonic boundary blending that matches edge luminance and color gradients between the 0-degree and 360-degree meridians, producing an undetectable wraparound transition.</p>
 
             <h3>Can I slice text-generated panoramas into cubemaps or HDRI files?</h3>
-            <p>Yes. Once generated, any panorama can be sliced into 6 rectilinear cube faces for Unity or Unreal Engine, or exported as a 32-bit Radiance .HDR environment map with one click.</p>
+            <p>Yes. Once generated, any panorama can be sliced into 6 rectilinear cube faces for Unity or Unreal Engine, or exported as a Radiance RGBE .HDR environment map. The 8-bit source does not gain true high dynamic range or recover clipped highlights.</p>
           </section>
 
           <section>

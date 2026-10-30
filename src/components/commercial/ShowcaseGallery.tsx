@@ -1,3 +1,5 @@
+import { useTranslation } from '../../utils/i18n';
+import { commerceMessages } from '../../utils/commerceTranslations';
 import { useState } from 'react';
 import { Eye, Compass, Check, Copy } from 'lucide-react';
 import type { StylePresetId } from '../../types/panorama';
@@ -68,6 +70,7 @@ interface ShowcaseGalleryProps {
 }
 
 export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
+  const t = useTranslation(commerceMessages);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -96,13 +99,13 @@ export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-semibold mb-3">
             <Compass className="w-3.5 h-3.5 text-cyan-400" />
-            <span>The prompt library</span>
+            <span>{t("The prompt library")}</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            A starting point for your next world.
+            {t("A starting point for your next world.")}
           </h2>
           <p className="text-sm text-cyan-200/70 mt-1 max-w-2xl">
-            Explore prompt ideas and procedural 360° demos. These are not AI-generated results; copy a prompt to create your own version.
+            {t("Explore prompt ideas and procedural 360° demos. These are not AI-generated results; copy a prompt to create your own version.")}
           </p>
         </div>
 
@@ -110,7 +113,7 @@ export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
         <div className="flex flex-wrap items-center gap-1.5 bg-[#030c1d]/90 p-1.5 rounded-2xl border border-cyan-500/20 backdrop-blur-xl">
           {categories.map((cat) => (
             <button
-              key={cat}
+              key={t(cat)}
               type="button"
               aria-pressed={selectedCategory === cat}
               onClick={() => setSelectedCategory(cat)}
@@ -120,7 +123,7 @@ export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
                   : 'text-cyan-200/70 hover:text-white hover:bg-cyan-500/10'
               }`}
             >
-              {cat}
+              {t(cat)}
             </button>
           ))}
         </div>
@@ -139,16 +142,16 @@ export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
               
               <div className="flex items-center justify-between relative z-10">
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/50 text-white backdrop-blur-md border border-white/20">
-                  Prompt idea
+                  {t("Prompt idea")}
                 </span>
                 <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-black/40 text-cyan-200 backdrop-blur-md">
-                  2:1 Equirectangular
+                  {t("2:1 Equirectangular")}
                 </span>
               </div>
 
               <div className="relative z-10">
-                <div className="text-[10px] font-semibold text-white/80 uppercase tracking-wider">{item.category}</div>
-                <h3 className="text-base font-bold text-white drop-shadow-md truncate">{item.title}</h3>
+                <div className="text-[10px] font-semibold text-white/80 uppercase tracking-wider">{t(item.category)}</div>
+                <h3 className="text-base font-bold text-white drop-shadow-md truncate">{t(item.title)}</h3>
               </div>
             </div>
 
@@ -169,7 +172,7 @@ export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
                   className="px-3 py-2 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-cyan-500/25 cursor-pointer transition-transform hover:scale-[1.02]"
                 >
                   <Eye className="w-3.5 h-3.5 fill-current" />
-                  <span>Open demo</span>
+                  <span>{t("Open demo")}</span>
                 </button>
 
                 <button
@@ -180,12 +183,12 @@ export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
                   {copiedId === item.id ? (
                     <>
                       <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-emerald-300">Copied!</span>
+                      <span className="text-emerald-300">{t("Copied!")}</span>
                     </>
                   ) : (
                     <>
                       <Copy className="w-3.5 h-3.5 text-cyan-300" />
-                      <span>Copy Prompt</span>
+                      <span>{t("Copy Prompt")}</span>
                     </>
                   )}
                 </button>

@@ -1,3 +1,5 @@
+import { useTranslation } from '../../utils/i18n';
+import { specialistMessages } from '../../utils/specialistTranslations';
 import { useState, useRef, useEffect } from 'react';
 import {
   X,
@@ -18,6 +20,7 @@ interface MetadataInjectorModalProps {
 }
 
 export function MetadataInjectorModal({ isOpen, onClose }: MetadataInjectorModalProps) {
+  const t = useTranslation(specialistMessages);
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -141,6 +144,7 @@ export function MetadataInjectorModal({ isOpen, onClose }: MetadataInjectorModal
         <button
           type="button"
           onClick={onClose}
+          aria-label={t("Close")}
           className="absolute top-5 right-5 p-2 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 hover:text-white hover:bg-cyan-500/20 transition-colors cursor-pointer"
         >
           <X className="w-4 h-4" />
@@ -153,14 +157,10 @@ export function MetadataInjectorModal({ isOpen, onClose }: MetadataInjectorModal
           </div>
           <div>
             <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-              <span>360° PhotoSphere Metadata Injector</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-300 border border-cyan-400/30">
-                CLIENT-SIDE
-              </span>
+              <span>{t("360° PhotoSphere Metadata Injector")}</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-300 border border-cyan-400/30">{t("CLIENT-SIDE")}</span>
             </h2>
-            <p className="text-xs text-cyan-200/70">
-              Embed Google GPano XMP tags into any equirectangular JPG/PNG for native VR recognition.
-            </p>
+            <p className="text-xs text-cyan-200/70">{t("Embed Google GPano XMP tags into any equirectangular JPG/PNG for native VR recognition.")}</p>
           </div>
         </div>
 
@@ -188,12 +188,8 @@ export function MetadataInjectorModal({ isOpen, onClose }: MetadataInjectorModal
             <div className="w-14 h-14 rounded-2xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center mx-auto mb-4 text-cyan-400">
               <UploadCloud className="w-7 h-7" />
             </div>
-            <div className="text-sm font-bold text-white mb-1">
-              Drag &amp; drop your 360° panorama image here
-            </div>
-            <div className="text-xs text-cyan-300/60">
-              Supports JPEG, PNG, WebP up to 16K (Processed 100% locally in your browser)
-            </div>
+            <div className="text-sm font-bold text-white mb-1">{t("Drag & drop your 360° panorama image here")}</div>
+            <div className="text-xs text-cyan-300/60">{t("Supports JPEG, PNG and WebP. Maximum size depends on your browser and device. Processing stays local.")}</div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -201,13 +197,13 @@ export function MetadataInjectorModal({ isOpen, onClose }: MetadataInjectorModal
             <div className="relative rounded-2xl overflow-hidden border border-cyan-500/30 bg-black/60 h-44 flex items-center justify-center">
               <img
                 src={imagePreviewUrl}
-                alt="Panorama to inject metadata"
+                alt={t("Panorama to inject metadata")}
                 className="w-full h-full object-cover"
               />
               <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full border border-cyan-500/30 text-xs font-mono text-cyan-300">
                 {imageDimensions
                   ? `${imageDimensions.width} × ${imageDimensions.height} px`
-                  : 'Detecting...'}
+                  : t("Detecting...")}
               </div>
               <button
                 type="button"
@@ -221,15 +217,13 @@ export function MetadataInjectorModal({ isOpen, onClose }: MetadataInjectorModal
                   setIsSuccess(false);
                 }}
                 className="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full border border-cyan-500/30 text-[11px] text-cyan-300 hover:text-white transition-colors cursor-pointer"
-              >
-                Change Image
-              </button>
+              >{t("Change Image")}</button>
             </div>
 
             {/* Validation & Tag Information */}
             <div className="p-4 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-xs space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-cyan-200/70">Aspect Ratio Check:</span>
+                <span className="text-cyan-200/70">{t("Aspect Ratio Check:")}</span>
                 <span
                   className={`font-mono font-bold flex items-center gap-1 ${
                     isAspectRatio2to1 ? 'text-emerald-400' : 'text-amber-400'
@@ -238,24 +232,22 @@ export function MetadataInjectorModal({ isOpen, onClose }: MetadataInjectorModal
                   {isAspectRatio2to1 ? (
                     <>
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Valid 2:1 Equirectangular Standard</span>
+                      <span>{t("Valid 2:1 Equirectangular Standard")}</span>
                     </>
                   ) : (
                     <>
                       <Info className="w-3.5 h-3.5" />
-                      <span>Non-standard ratio (Recommended 2:1 for VR)</span>
+                      <span>{t("Non-standard ratio (Recommended 2:1 for VR)")}</span>
                     </>
                   )}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-cyan-200/70">Injected XMP Packet:</span>
-                <span className="font-mono text-cyan-300 text-[11px]">
-                  Google GPano v1.0 (Full Sphere 360°×180°)
-                </span>
+                <span className="text-cyan-200/70">{t("Injected XMP Packet:")}</span>
+                <span className="font-mono text-cyan-300 text-[11px]">{t("Google GPano v1.0 (Full Sphere 360°×180°)")}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-cyan-200/70">Compatible Viewers:</span>
+                <span className="text-cyan-200/70">{t("Compatible Viewers:")}</span>
                 <span className="text-white text-[11px]">
                   Facebook, Google Photos, Apple Vision Pro, Meta Quest
                 </span>
@@ -274,27 +266,27 @@ export function MetadataInjectorModal({ isOpen, onClose }: MetadataInjectorModal
               ) : isSuccess ? (
                 <>
                   <FileCheck2 className="w-4 h-4 text-slate-950" />
-                  <span>Metadata Injected &amp; Downloaded! Click to Download Again</span>
+                  <span>{t("Metadata Injected & Downloaded! Click to Download Again")}</span>
                 </>
               ) : (
                 <>
                   <Download className="w-4 h-4" />
-                  <span>Inject PhotoSphere XMP &amp; Download VR JPEG</span>
+                  <span>{t("Inject PhotoSphere XMP & Download VR JPEG")}</span>
                 </>
               )}
             </button>
           </div>
         )}
 
-        {error && <p role="alert" className="text-sm text-red-300 mt-3">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-300 mt-3">{t(error)}</p>}
 
         {/* Feature Badges */}
         <div className="mt-6 pt-5 border-t border-cyan-500/15 flex flex-wrap items-center justify-between gap-3 text-[11px] text-cyan-300/70">
           <span className="flex items-center gap-1">
             <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Zero server upload • 100% Private</span>
+            <span>{t("Zero server upload • 100% Private")}</span>
           </span>
-          <span>Free Unlimited Use • Open GPano Standard</span>
+          <span>{t("Free Unlimited Use • Open GPano Standard")}</span>
         </div>
       </div>
     </div>

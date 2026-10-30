@@ -1,3 +1,5 @@
+import { useLanguage, useTranslation, withLanguageHref } from '../../utils/i18n';
+import { specialistMessages } from '../../utils/specialistTranslations';
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
@@ -36,10 +38,13 @@ const SIZES = [
 ];
 
 export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunchStudio }: CubemapToEquirectPageProps) {
+  const t = useTranslation(specialistMessages);
+  const [lang] = useLanguage();
   const [loaded, setLoaded] = useState<Partial<Record<CubemapFaceName, { canvas: HTMLCanvasElement; thumb: string }>>>({});
   const [eqWidth, setEqWidth] = useState(2048);
   const [result, setResult] = useState<{ canvas: HTMLCanvasElement; url: string; width: number; height: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorFileName, setErrorFileName] = useState('');
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const [stitchingInput, setStitchingInput] = useState<{ faces: typeof loaded; width: number; controller: AbortController } | null>(null);
   const stitchController = useRef<AbortController | null>(null);
@@ -79,7 +84,8 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
     };
     image.onerror = () => {
       URL.revokeObjectURL(url);
-      setError(`${file.name} is not an image a browser can decode. Use PNG, JPEG or WEBP faces.`);
+      setErrorFileName(file.name);
+      setError('{name} is not an image a browser can decode. Use PNG, JPEG or WEBP faces.');
     };
     image.src = url;
   };
@@ -189,11 +195,11 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
     <div className="space-y-16 pb-16">
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs text-cyan-400/70 pt-2">
-        <a href="/" className="hover:text-cyan-300 transition-colors">Home</a>
+        <a href={withLanguageHref("/", lang)} className="hover:text-cyan-300 transition-colors">{t("Home")}</a>
         <span>/</span>
-        <span className="text-cyan-300">Tools</span>
+        <span className="text-cyan-300">{t("Tools")}</span>
         <span>/</span>
-        <span className="text-white font-medium">Cubemap to Equirectangular</span>
+        <span className="text-white font-medium">{t("Cubemap to Equirectangular")}</span>
       </nav>
 
       {/* Hero */}
@@ -201,34 +207,27 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
         <div className="max-w-4xl space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-400/15 border border-cyan-400/40 text-cyan-300 text-xs font-semibold tracking-wide">
             <Layers className="w-3.5 h-3.5 text-cyan-400" />
-            <span>INVERSE PROJECTION &bull; 6 FACES TO 2:1 &bull; 100% CLIENT-SIDE</span>
+            <span>{t("INVERSE PROJECTION • 6 FACES TO 2:1 • 100% CLIENT-SIDE")}</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
-            Cubemap to Equirectangular:{' '}
-            <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-400 bg-clip-text text-transparent">
-              Rebuild a 360° Panorama from 6 Faces
-            </span>
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">{t("Cubemap to Equirectangular:")}{' '}
+            <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-400 bg-clip-text text-transparent">{t("Rebuild a 360° Panorama from 6 Faces")}</span>
           </h1>
 
-          <p className="text-base sm:text-lg text-cyan-100/80 leading-relaxed max-w-3xl">
-            Drop in the six faces your engine exported (+X Right, -X Left, +Y Up, -Y Down, +Z Front, -Z Back)
-            and get one seamless 2:1 equirectangular panorama for YouTube 360, Facebook, Street View, VR
-            headsets, or Blender. Exact inverse ray casting, no upload, no install.
-          </p>
+          <p className="text-base sm:text-lg text-cyan-100/80 leading-relaxed max-w-3xl">{t("Drop in the six faces your engine exported (+X Right, -X Left, +Y Up, -Y Down, +Z Front, -Z Back) and get one seamless 2:1 equirectangular panorama for YouTube 360, Facebook, Street View, VR headsets, or Blender. Exact inverse ray casting, no upload, no install.")}</p>
 
           <div className="flex flex-wrap items-center gap-6 pt-4 text-xs text-cyan-300/70 border-t border-cyan-500/15">
             <span className="flex items-center gap-1.5">
               <Lock className="w-4 h-4 text-teal-400" />
-              <span>Faces stay on your device</span>
+              <span>{t("Faces stay on your device")}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <Download className="w-4 h-4 text-teal-400" />
-              <span>PNG panorama export up to 4096×2048</span>
+              <span>{t("PNG panorama export up to 4096×2048")}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <Eye className="w-4 h-4 text-teal-400" />
-              <span>Open the result in the 360° viewer</span>
+              <span>{t("Open the result in the 360° viewer")}</span>
             </span>
           </div>
         </div>
@@ -241,9 +240,9 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
                 <Box className="w-4 h-4 text-cyan-400" />
-                <span>1. Add the six cube faces</span>
+                <span>{t("1. Add the six cube faces")}</span>
               </h2>
-              <span className="text-[11px] font-mono text-cyan-300/80">{loadedCount} / 6 loaded</span>
+              <span className="text-[11px] font-mono text-cyan-300/80">{loadedCount}{' '}{t("/ 6 loaded")}</span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -258,7 +257,7 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
                       {entry ? (
                         <img
                           src={entry.thumb}
-                          alt={`${slot.label} cube face preview`}
+                          alt={t('{label} cube face preview').replace('{label}', () => t(slot.label))}
                           className="w-full h-full object-cover"
                         />
                       ) : (
@@ -266,7 +265,7 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
                       )}
                     </div>
                     <div className="px-2.5 py-2">
-                      <div className="text-[11px] font-bold text-white">{slot.label} <span className="text-cyan-400 font-mono">{slot.note}</span></div>
+                      <div className="text-[11px] font-bold text-white">{t(slot.label)}{' '} <span className="text-cyan-400 font-mono">{t(slot.note)}</span></div>
                       <div className="text-[9px] text-cyan-300/60 font-mono truncate">{slot.aliases}</div>
                     </div>
                     <input
@@ -281,7 +280,7 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
             </div>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
-              <span className="text-xs text-cyan-300/80">Output width</span>
+              <span className="text-xs text-cyan-300/80">{t("Output width")}</span>
               <div className="flex flex-wrap gap-2">
                 {SIZES.map(size => (
                   <button
@@ -293,9 +292,9 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
                         ? 'bg-cyan-400/20 border-cyan-400/60 text-white'
                         : 'bg-cyan-950/40 border-cyan-500/25 text-cyan-200/80 hover:text-white'
                     }`}
-                    title={size.note}
+                    title={t(size.note)}
                   >
-                    {size.label}
+                    {t(size.label)}
                   </button>
                 ))}
               </div>
@@ -309,20 +308,18 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
                 className="px-5 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 shadow-lg shadow-cyan-400/30 hover:shadow-cyan-400/50 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
               >
                 <Sparkles className="w-4 h-4 text-slate-950" />
-                <span>{isStitching ? 'Stitching panorama...' : 'Stitch to 2:1 Panorama'}</span>
+                <span>{isStitching ? t("Stitching panorama...") : t("Stitch to 2:1 Panorama")}</span>
               </button>
               <button
                 type="button"
                 onClick={handleReset}
                 className="px-4 py-3 rounded-xl text-xs font-semibold bg-cyan-950/50 border border-cyan-500/30 text-cyan-200/80 hover:text-white transition-colors cursor-pointer"
-              >
-                Clear faces
-              </button>
+              >{t("Clear faces")}</button>
             </div>
 
             {error && (
               <p role="alert" className="text-xs text-amber-300/90 border border-amber-500/30 bg-amber-500/5 rounded-xl p-3">
-                {error}
+                {t(error).replace('{name}', () => errorFileName)}
               </p>
             )}
           </div>
@@ -330,19 +327,16 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
           <div className="rounded-3xl border border-cyan-500/25 bg-[#04101f]/80 p-5 sm:p-6 space-y-4">
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
               <Layers className="w-4 h-4 text-teal-400" />
-              <span>2. Preview the equirectangular result</span>
+              <span>{t("2. Preview the equirectangular result")}</span>
             </h2>
 
             <div className="rounded-2xl border border-cyan-500/20 bg-[#02070f] min-h-[240px] flex items-center justify-center overflow-hidden">
               {result ? (
-                <img src={result.url} alt="Stitched equirectangular 360 panorama preview" className="w-full" />
+                <img src={result.url} alt={t("Stitched equirectangular 360 panorama preview")} className="w-full" />
               ) : (
                 <div className="text-center space-y-2 p-8">
                   <Layers className="w-8 h-8 text-cyan-500/40 mx-auto" />
-                  <p className="text-xs text-cyan-300/70">
-                    Your stitched 2:1 panorama appears here. Longitude runs left to right, the poles sit at the
-                    top and bottom edges.
-                  </p>
+                  <p className="text-xs text-cyan-300/70">{t("Your stitched 2:1 panorama appears here. Longitude runs left to right, the poles sit at the top and bottom edges.")}</p>
                 </div>
               )}
             </div>
@@ -355,7 +349,7 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
                   className="px-5 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-teal-400 to-cyan-400 text-slate-950 shadow-lg shadow-teal-400/30 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
                 >
                   <Download className="w-4 h-4 text-slate-950" />
-                  <span>Download {result.width}×{result.height} PNG</span>
+                  <span>{t("Download")}{' '}{result.width}×{result.height} PNG</span>
                 </a>
                 <button
                   type="button"
@@ -366,7 +360,7 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
                   className="px-4 py-3 rounded-xl text-xs font-semibold bg-cyan-950/50 border border-cyan-500/40 text-cyan-200 hover:text-white hover:bg-cyan-900/60 transition-colors cursor-pointer inline-flex items-center gap-2"
                 >
                   <Eye className="w-4 h-4 text-cyan-400" />
-                  <span>Open in 360° viewer</span>
+                  <span>{t("Open in 360° viewer")}</span>
                 </button>
                 <button
                   type="button"
@@ -377,15 +371,12 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
                   className="px-4 py-3 rounded-xl text-xs font-semibold bg-cyan-950/50 border border-cyan-500/30 text-cyan-200/80 hover:text-white transition-colors cursor-pointer inline-flex items-center gap-2"
                 >
                   <Box className="w-4 h-4 text-cyan-400" />
-                  <span>Slice it back to faces</span>
+                  <span>{t("Slice it back to faces")}</span>
                 </button>
               </div>
             )}
 
-            <p className="text-[11px] text-cyan-300/60 leading-relaxed">
-              Tip: if the horizon looks tilted, your exporter used a different up-axis convention. Rotate the
-              Up and Down faces 90° in an image editor and stitch again.
-            </p>
+            <p className="text-[11px] text-cyan-300/60 leading-relaxed">{t("Tip: if the horizon looks tilted, your exporter used a different up-axis convention. Rotate the Up and Down faces 90° in an image editor and stitch again.")}</p>
           </div>
         </div>
       </section>
@@ -393,12 +384,8 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
       {/* How to */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Step by Step
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">
-            How to Convert Cube Faces Back to a Sphere
-          </h2>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Step by Step")}</div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">{t("How to Convert Cube Faces Back to a Sphere")}</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
@@ -408,9 +395,9 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
                 <span className="w-7 h-7 shrink-0 rounded-full bg-cyan-400/15 border border-cyan-400/40 text-cyan-300 text-xs font-black flex items-center justify-center">
                   {idx + 1}
                 </span>
-                <h3 className="font-bold text-white text-sm">{step.title}</h3>
+                <h3 className="font-bold text-white text-sm">{t(step.title)}</h3>
               </div>
-              <p className="text-xs text-cyan-200/70 leading-relaxed">{step.text}</p>
+              <p className="text-xs text-cyan-200/70 leading-relaxed">{t(step.text)}</p>
             </div>
           ))}
         </div>
@@ -419,21 +406,17 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
       {/* Naming conventions */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Face Naming Reference
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Which Export Order Does Your Engine Use?
-          </h2>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Face Naming Reference")}</div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">{t("Which Export Order Does Your Engine Use?")}</h2>
         </div>
 
         <div className="overflow-x-auto rounded-2xl border border-cyan-500/25 bg-[#030e20]">
           <table className="w-full text-left text-xs">
             <thead className="bg-[#051733] text-cyan-200 border-b border-cyan-500/30 font-semibold uppercase tracking-wider">
               <tr>
-                <th className="py-4 px-5">Tool / Engine</th>
-                <th className="py-4 px-5">Face Order</th>
-                <th className="py-4 px-5">Typical Filenames</th>
+                <th className="py-4 px-5">{t("Tool / Engine")}</th>
+                <th className="py-4 px-5">{t("Face Order")}</th>
+                <th className="py-4 px-5">{t("Typical Filenames")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cyan-500/15 text-cyan-100/90">
@@ -452,12 +435,8 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
       {/* FAQ */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Frequently Asked Questions
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Cubemap Conversion Questions &amp; Answers
-          </h2>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Frequently Asked Questions")}</div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">{t("Cubemap Conversion Questions & Answers")}</h2>
         </div>
 
         <div className="max-w-3xl mx-auto space-y-3">
@@ -470,12 +449,12 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
                   onClick={() => setActiveFaq(isOpen ? null : idx)}
                   className="w-full py-4 px-5 text-left flex items-center justify-between gap-4 font-semibold text-sm text-white hover:text-cyan-300 cursor-pointer transition-colors"
                 >
-                  <span>{faq.q}</span>
+                  <span>{t(faq.q)}</span>
                   <ChevronDown className={`w-4 h-4 text-cyan-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {isOpen && (
                   <div className="px-5 pb-4 text-xs text-cyan-100/80 leading-relaxed border-t border-cyan-500/15 pt-3">
-                    {faq.a}
+                    {t(faq.a)}
                   </div>
                 )}
               </div>
@@ -487,27 +466,23 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
       {/* Related tools */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Pair It With
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">
-            More Free 360° Tools to Use with the Stitcher
-          </h2>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Pair It With")}</div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">{t("More Free 360° Tools to Use with the Stitcher")}</h2>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
           {related.map(tool => (
             <a
               key={tool.href}
-              href={tool.href}
+              href={withLanguageHref(tool.href, lang)}
               onClick={(e) => { e.preventDefault(); onNavigateTab(tool.tab, tool.href); }}
               className="group rounded-2xl border border-cyan-500/25 bg-[#05142b]/70 p-5 hover:border-cyan-400/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2 text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
                 <CheckCircle2 className="w-4 h-4 text-teal-400" />
-                <span>{tool.label}</span>
+                <span>{t(tool.label)}</span>
               </div>
-              <p className="text-xs text-cyan-200/70 pt-1.5">{tool.note}</p>
+              <p className="text-xs text-cyan-200/70 pt-1.5">{t(tool.note)}</p>
             </a>
           ))}
         </div>
@@ -515,20 +490,15 @@ export function CubemapToEquirectPage({ onNavigateTab, onPanoramaChange, onLaunc
 
       {/* CTA */}
       <section className="rounded-3xl border border-cyan-400/40 bg-gradient-to-r from-[#031d42] via-[#042858] to-[#011430] p-8 sm:p-12 text-center space-y-6 shadow-2xl">
-        <h2 className="text-2xl sm:text-4xl font-black text-white">
-          Prefer to Generate the Panorama Instead?
-        </h2>
-        <p className="text-sm sm:text-base text-cyan-100/80 max-w-xl mx-auto">
-          Describe a scene and the AI Studio renders a seamless 2:1 equirectangular environment you can slice,
-          stitch, or export as HDR lighting.
-        </p>
+        <h2 className="text-2xl sm:text-4xl font-black text-white">{t("Prefer to Generate the Panorama Instead?")}</h2>
+        <p className="text-sm sm:text-base text-cyan-100/80 max-w-xl mx-auto">{t("Describe a scene and the AI Studio renders a seamless 2:1 equirectangular environment you can slice, stitch, or export as HDR lighting.")}</p>
         <button
           type="button"
           onClick={onLaunchStudio}
           className="px-8 py-4 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-400 to-teal-400 text-slate-950 shadow-xl shadow-cyan-400/40 hover:scale-105 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
         >
           <Sparkles className="w-4 h-4 fill-slate-950" />
-          <span>Open AI Panorama Studio</span>
+          <span>{t("Open AI Panorama Studio")}</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </section>

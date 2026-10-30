@@ -134,7 +134,7 @@ for (const resolution of ['1K', '2K', '4K']) {
 }
 
 test('versioned bases and full route addresses are normalized without duplicated v1/routes', () => {
-  for (const path of ['', '/', '/v1', '/v1/', '/v1/chat/completions', '/v1/images/generations']) {
+  for (const path of ['', '/', '/v1', '/v1/', '/v1/chat/completions', '/v1/images/generations', '/v1/images/edits']) {
     for (const model of ['gpt-image-2.5', 'gemini-3.1-flash-image']) {
       const request = buildImageModelRequest({ ...endpoint, baseUrl: `https://proxy.example${path}`, model }, { prompt: 'Test' });
       assert.equal(request.url, `https://proxy.example/v1/${model.startsWith('gpt') ? 'images/generations' : 'chat/completions'}`);
@@ -165,10 +165,47 @@ test('invalid settings and unsupported references fail before any request is sen
   for (const referenceImages of [null, {}, 'image', [5]]) {
     assert.throws(() => buildImageModelRequest(endpoint, { prompt: 'Test', referenceImages }), /reference/);
   }
-  assert.throws(() => buildImageModelRequest({ ...endpoint, model: 'gpt-image-2.5' }, { prompt: 'Test', referenceImages: [reference] }), /does not support reference images/);
+  assert.throws(() => buildImageModelRequest({ ...endpoint, model: 'dall-e-3' }, { prompt: 'Test', referenceImages: [reference] }), /does not support reference images/);
   assert.throws(() => buildImageModelRequest({ ...endpoint, model: '', }, { prompt: 'Test' }), /Model is required/);
   for (const baseUrl of ['file:///tmp/model', 'https://user:password@proxy.example', 'https://proxy.example?key=secret', 'https://proxy.example/#fragment']) {
     assert.throws(() => buildImageModelRequest({ ...endpoint, baseUrl }, { prompt: 'Test' }), /HTTP\/HTTPS/);
+  }
+});
+
+test('GPT reference photos reach the image edit API as multipart file bytes at every resolution', async () => {
+  const refs = ['data:image/png;base64,AA==', 'data:image/jpeg;base64,AQI=', 'data:image/webp;base64,AwQF'];
+  for (const resolution of ['1K', '2K', '4K']) {
+    for (const basePath of ['', '/v1', '/v1/images/generations', '/v1/images/edits']) {
+      const request = buildImageModelRequest({ ...endpoint, baseUrl: `https://proxy.example${basePath}`, model: 'gpt-image-2.5' }, {
+        prompt: 'Expand the room in these photos into a panorama', referenceImages: refs, resolution,
+      });
+      assert.equal(request.url, 'https://proxy.example/v1/images/edits');
+      assert.equal(request.mode, 'images');
+      assert.equal(request.headers['Content-Type'], undefined, 'fetch must supply the multipart boundary');
+      assert.equal(request.headers.Authorization, 'Bearer synthetic-key');
+      // Encode and decode the actual request body to catch accidental JSON serialization or missing boundaries.
+      const encoded = new Request(request.url, { method: 'POST', headers: request.headers, body: request.payload });
+      assert.match(encoded.headers.get('content-type'), /^multipart\/form-data; boundary=/);
+      const form = await encoded.formData();
+      assert.equal(form.get('model'), 'gpt-image-2.5');
+      assert.equal(form.get('prompt'), 'Expand the room in these photos into a panorama');
+      assert.equal(form.get('size'), { '1K': '1152x576', '2K': '2048x1024', '4K': '3840x1920' }[resolution]);
+      assert.equal(form.get('quality'), 'auto');
+      assert.equal(form.get('n'), '1');
+      assert.equal(form.get('output_format'), 'png');
+      const files = form.getAll('image[]');
+      assert.equal(files.length, refs.length);
+      for (const [index, file] of files.entries()) {
+        assert.equal(file.type, ['image/png', 'image/jpeg', 'image/webp'][index]);
+        assert.deepEqual(new Uint8Array(await file.arrayBuffer()), Uint8Array.from({ length: index + 1 }, (_, offset) => index === 0 ? 0 : index === 1 ? offset + 1 : offset + 3));
+      }
+    }
+  }
+});
+
+test('GPT rejects unsupported or malformed reference files before an image edit can be sent', () => {
+  for (const image of ['https://image.example/photo.png', 'data:image/svg+xml;base64,PHN2Zz4=', 'data:image/png;base64,%%%%', 'data:image/png;base64,']) {
+    assert.throws(() => buildImageModelRequest({ ...endpoint, model: 'gpt-image-2.5' }, { prompt: 'Test', referenceImages: [image] }), /reference|PNG|JPEG|WebP/i);
   }
 });
 

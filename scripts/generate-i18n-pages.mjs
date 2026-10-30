@@ -16,10 +16,10 @@ const LANGUAGES = [
 ];
 
 const LABELS = {
-  zh: { open: '打开工具（英文界面）', notice: '本页提供中文介绍。交互工具目前使用英文界面。', faq: '常见问题', tools: '相关工具', languages: '语言', home: '首页', skip: '跳到正文', ai: 'AI 生成功能需要积分，免费试用以当前可用额度为准；本地查看和切图工具免费。' },
-  es: { open: 'Abrir herramienta (en inglés)', notice: 'Esta guía está en español. La interfaz de la herramienta está en inglés.', faq: 'Preguntas frecuentes', tools: 'Herramientas relacionadas', languages: 'Idiomas', home: 'Inicio', skip: 'Ir al contenido', ai: 'La generación con IA requiere créditos; la prueba depende de la disponibilidad. El visor y el corte local son gratuitos.' },
-  de: { open: 'Werkzeug öffnen (auf Englisch)', notice: 'Diese Anleitung ist auf Deutsch. Die Werkzeugoberfläche ist auf Englisch.', faq: 'Häufig gestellte Fragen', tools: 'Weitere Werkzeuge', languages: 'Sprachen', home: 'Startseite', skip: 'Zum Inhalt', ai: 'KI-Generierung benötigt Guthaben; eine Testphase hängt von der Verfügbarkeit ab. Lokaler Viewer und Zuschnitt sind kostenlos.' },
-  ja: { open: 'ツールを開く（英語の画面）', notice: 'このページは日本語のガイドです。ツールの操作画面は英語です。', faq: 'よくある質問', tools: '関連ツール', languages: '言語', home: 'ホーム', skip: '本文へ', ai: 'AI生成にはクレジットが必要です。無料体験は利用状況によります。ローカル表示と分割ツールは無料です。' },
+  zh: { open: '打开工具（中文界面）', notice: '主要工具界面支持中文，部分专业功能与说明仍为英文。', faq: '常见问题', tools: '相关工具', languages: '语言', home: '首页', skip: '跳到正文', ai: 'AI 生成功能需要积分，免费试用以当前可用额度为准；本地查看和切图工具免费。' },
+  es: { open: 'Abrir herramienta en español', notice: 'La interfaz principal está disponible en español. Algunas funciones especializadas y explicaciones siguen en inglés.', faq: 'Preguntas frecuentes', tools: 'Herramientas relacionadas', languages: 'Idiomas', home: 'Inicio', skip: 'Ir al contenido', ai: 'La generación con IA requiere créditos; la prueba depende de la disponibilidad. El visor y el corte local son gratuitos.' },
+  de: { open: 'Werkzeug auf Deutsch öffnen', notice: 'Die wichtigsten Werkzeuge sind auf Deutsch verfügbar. Einige Spezialfunktionen und Erläuterungen sind weiterhin auf Englisch.', faq: 'Häufig gestellte Fragen', tools: 'Weitere Werkzeuge', languages: 'Sprachen', home: 'Startseite', skip: 'Zum Inhalt', ai: 'KI-Generierung benötigt Guthaben; eine Testphase hängt von der Verfügbarkeit ab. Lokaler Viewer und Zuschnitt sind kostenlos.' },
+  ja: { open: 'ツールを開く（日本語の画面）', notice: '主要な操作画面は日本語に対応しています。一部の専門機能や説明は引き続き英語です。', faq: 'よくある質問', tools: '関連ツール', languages: '言語', home: 'ホーム', skip: '本文へ', ai: 'AI生成にはクレジットが必要です。無料体験は利用状況によります。ローカル表示と分割ツールは無料です。' },
 };
 
 const PAGES = [
@@ -39,44 +39,44 @@ const PAGES = [
         ]
       },
       zh: {
-        title: '360全景图查看器与AI全景工作室',
-        description: '免费在浏览器中查看2:1全景图，无需上传。也可使用AI从文字或参考照片创建360全景，AI生成需要积分。',
-        keywords: 'AI全景图生成器, 360全景制作, VR天空盒AI, 文本生成全景图, 360全景查看器, 等距柱状投影全景, 图片转全景',
-        h1: '360°全景图查看器与AI工作室',
-        sub: '免费在浏览器中查看2:1全景图，也可使用文字或参考照片通过AI创建全景。查看器无需上传；AI生成需要积分。',
+        title: 'AI 360全景图生成器与全景制作工作室 — 免费全景查看器',
+        description: 'AI 360度全景图生成器与在线全景制作工具：支持文本描述与参考图片一键生成无缝2:1等距柱状全景、VR天空盒与立方体贴图，并提供免上传本地WebGL全景查看器。',
+        keywords: 'AI全景图生成器, 360全景AI生成, 文本生成全景图, AI生成VR天空盒, 360全景制作, 图片转全景AI, 360全景查看器, 免费全景制作',
+        h1: 'AI 360° 全景图生成器与制作工作室',
+        sub: '使用 AI 从自然语言描述或参考照片生成无缝 2:1 等距柱状 360° 全景与 VR 天空盒；内置免上传本地 WebGL 全景查看器。',
         faq: [
           { q: '什么是AI 360全景图生成器？', a: '这是一款基于前沿深度学习的在线工具，能够根据自然语言描述或参考图片，生成标准的2:1等距柱状360度全景照片和VR游戏天空盒。' },
           { q: '是否包含免费的360全景查看器？', a: '是的。支持直接拖拽、粘贴(Ctrl+V)本地全景图在浏览器中平移漫游，完全在本地GPU渲染，绝不上传您的私人照片。' }
         ]
       },
       es: {
-        title: 'Visor de Panoramas 360 y Estudio de IA',
-        description: 'Visor gratuito de panoramas 360° en el navegador sin subir archivos. Crea panoramas 2:1 con texto o fotos mediante IA; la generación requiere créditos.',
-        keywords: 'generador de panorama con ia, generador 360 panorama, skybox vr ia, texto a panorama, visor 360, foto a 360',
-        h1: 'Visor de Panoramas 360° y Estudio de IA',
-        sub: 'Visualiza panoramas 2:1 gratis en el navegador o crea uno con texto e imágenes de referencia mediante IA. El visor no sube archivos; la generación requiere créditos.',
+        title: 'Generador de Panoramas 360 con IA y Estudio VR — Visor Online',
+        description: 'Generador de panoramas 360° con inteligencia artificial: crea panoramas esféricos 2:1, cubemaps y skyboxes VR a partir de texto o fotos con IA y visualízalos gratis.',
+        keywords: 'generador de panorama con ia, generador 360 panorama ia, skybox vr ia, texto a panorama ia, creador de panoramas 360, visor 360 gratis',
+        h1: 'Generador de Panoramas 360° con IA y Estudio VR',
+        sub: 'Crea panoramas 360° equirrectangulares 2:1, cubemaps y skyboxes de realidad virtual con IA a partir de texto o fotos; incluye visor WebGL local gratuito.',
         faq: [
           { q: '¿Qué es un generador de panoramas 360 con IA?', a: 'Es una herramienta web que crea imágenes panorámicas esféricas 2:1 y skyboxes de realidad virtual a partir de texto o fotos normales.' },
           { q: '¿Incluye un visor 360 gratuito?', a: 'Sí. Puedes abrir e inspeccionar cualquier panorama directamente en el navegador con WebGL sin subir tus archivos a ningún servidor.' }
         ]
       },
       de: {
-        title: '360° Panorama Viewer und KI-Studio Online',
-        description: 'Kostenloser 360° Panorama Viewer im Browser ohne Upload. Erstelle 2:1-Panoramen mit KI aus Text oder Referenzfotos; die Generierung benötigt Guthaben.',
-        keywords: 'ki panorama generator, 360 panorama generator, vr skybox ki, text zu panorama ki, 360 bild betrachter, foto in 360 umwandeln',
-        h1: '360° Panorama Viewer und KI-Studio',
-        sub: 'Betrachte 2:1-Panoramen kostenlos im Browser oder erstelle sie mit KI aus Text und Referenzbildern. Der Viewer arbeitet ohne Upload; KI-Generierung benötigt Guthaben.',
+        title: 'KI 360° Panorama Generator & VR Skybox Studio — Kostenloser Viewer',
+        description: 'KI 360° Panorama Generator und VR Studio: Erstelle nahtlose 2:1 Kugelpanoramen und Skyboxes mit KI aus Textprompts oder Fotos, inklusive lokalem WebGL-Viewer.',
+        keywords: 'ki panorama generator, 360 panorama generator ki, vr skybox ki, text zu panorama ki, 360 bild ersteller ki, 360 panorama viewer',
+        h1: 'KI 360° Panorama Generator & VR Skybox Studio',
+        sub: 'Erstelle nahtlose 2:1 Kugelpanoramen und VR-Skyboxes mit KI aus Text oder Referenzbildern; inklusive kostenlosem lokalem WebGL-Viewer ohne Upload.',
         faq: [
           { q: 'Was ist ein KI 360 Panorama Generator?', a: 'Ein Webtool, das aus Textprompts oder 2D-Fotos nahtlose 2:1 Kugelpanoramen und 3D-Skyboxes erzeugt.' },
           { q: 'Ist ein kostenloser 360 Viewer enthalten?', a: 'Ja, unser WebGL-Viewer läuft zu 100% lokal im Browser ohne Server-Uploads.' }
         ]
       },
       ja: {
-        title: '360度パノラマビューアーとAIスタジオ',
-        description: '2:1パノラマをブラウザで無料表示。表示はアップロード不要です。テキストや参照写真からのAIパノラマ生成にはクレジットが必要です。',
-        keywords: 'aiパノラマ生成器, 360度パノラマ作成, vrスカイボックス生成, テキストからパノラマ, 360写真ビューア, 画像360変換',
-        h1: '360度パノラマビューアーとAIスタジオ',
-        sub: '2:1パノラマをブラウザで無料表示し、テキストや参照写真からAIで新しいパノラマを作成できます。表示はアップロード不要、AI生成にはクレジットが必要です。',
+        title: 'AI 360度パノラマ生成器＆VRスカイボックススタジオ — 無料ビューアー',
+        description: 'AI 360度パノラマ生成器：テキスト指示や写真から2:1正距円筒パノラマやVRスカイボックスをAIで瞬時に作成。完全無料のローカルWebGLビューアーも搭載。',
+        keywords: 'aiパノラマ生成器, 360度パノラマai作成, vrスカイボックス生成, テキストからパノラマai, 360写真作成, 360パノラマビューア',
+        h1: 'AI 360° パノラマ生成器＆VRスタジオ',
+        sub: 'テキストの指示や参照写真からAIでシームレスな2:1正距円筒360度パノラマやVR空間を生成。ローカルWebGLビューアーも完備。',
         faq: [
           { q: 'AI 360度パノラマ生成器とは何ですか？', a: 'テキストの説明や2D写真から、VRや3Dゲームエンジンで使用できる完全な360度正距円筒画像を生成するツールです。' },
           { q: '無料の360度ビューアーは付属していますか？', a: 'はい。ローカル表示では写真をアップロードせず閲覧できます。AI生成の参照写真はサービスに送信されます。' }
@@ -228,7 +228,7 @@ const PAGES = [
         h1: '立方体贴图生成器：将360°全景切为6面天空盒',
         sub: '在浏览器本地将2:1全景图转换为6张PNG，按256、512或1024像素导出ZIP；切图无需上传、登录或AI积分。',
         faq: [
-          { q: '无需上传可以直接下载免费立方体贴图包吗？', a: '可以。先打开英文工具，选择示例，即可对照原图与6面预览并下载ZIP，无需上传自己的照片。' },
+          { q: '无需上传可以直接下载免费立方体贴图包吗？', a: '可以。打开工具并选择示例，即可对照原图与6面预览并下载ZIP，无需上传自己的照片。' },
           { q: '支持导入Unity和虚幻引擎吗？', a: 'PNG可按坐标轴分配给Unity的6 Sided天空盒。ZIP不是Unreal的TextureCube资产；HDRI Backdrop应使用受支持的原始.hdr文件，PNG不保留HDR照明数值。' }
         ]
       },
@@ -239,7 +239,7 @@ const PAGES = [
         h1: 'Generador de Cubemaps: Panorama 360 a 6 Caras',
         sub: 'Convierte un panorama 2:1 en seis PNG de 256, 512 o 1024 píxeles por cara. Descarga el ZIP sin subir archivos ni iniciar sesión.',
         faq: [
-          { q: '¿Puedo descargar cubemaps gratis?', a: 'Sí. Abre primero la herramienta en inglés y elige un ejemplo para comparar el panorama con las seis caras y descargar el ZIP sin subir fotos.' },
+          { q: '¿Puedo descargar cubemaps gratis?', a: 'Sí. Abre la herramienta y elige un ejemplo para comparar el panorama con las seis caras y descargar el ZIP sin subir fotos.' },
           { q: '¿Qué motores son compatibles?', a: 'Asigna los PNG por eje en el skybox 6 Sided de Unity. El ZIP no es un recurso TextureCube de Unreal; HDRI Backdrop requiere un archivo .hdr compatible. Los PNG no conservan los valores de iluminación HDR.' }
         ]
       },
@@ -250,7 +250,7 @@ const PAGES = [
         h1: 'Cubemap Generator: 360° Panorama zu 6 Würfelflächen',
         sub: 'Wandle ein vollständiges 2:1-Panorama lokal in sechs PNGs mit 256, 512 oder 1024 Pixeln pro Fläche um. ZIP-Download ohne Upload oder Anmeldung.',
         faq: [
-          { q: 'Gibt es kostenlose Cubemaps zum Download?', a: 'Ja. Öffnen Sie das englische Werkzeug und wählen Sie ein Beispiel. Vergleichen Sie das Panorama mit den sechs Flächen und laden Sie das ZIP ohne eigene Fotos herunter.' },
+          { q: 'Gibt es kostenlose Cubemaps zum Download?', a: 'Ja. Öffnen Sie das Werkzeug und wählen Sie ein Beispiel. Vergleichen Sie das Panorama mit den sechs Flächen und laden Sie das ZIP ohne eigene Fotos herunter.' },
           { q: 'Wie lauten die Dateinamen?', a: 'Die Dateien heißen posx.png, negx.png, posy.png, negy.png, posz.png und negz.png. Ordnen Sie sie nach Achsen zu. Das ZIP ist kein Unreal-TextureCube; HDRI Backdrop benötigt eine unterstützte .hdr-Datei. PNGs erhalten keine HDR-Lichtwerte.' }
         ]
       },
@@ -261,7 +261,7 @@ const PAGES = [
         h1: 'キューブマップ生成器：360°パノラマを6面に分割',
         sub: '完全な2:1パノラマを各面256・512・1024ピクセルの6枚のPNGに変換します。アップロードやログインなしでZIPを保存できます。',
         faq: [
-          { q: '画像をアップロードせずに無料キューブマップを入手できますか？', a: 'はい。英語のツールを開いてサンプルを選ぶと、元のパノラマと6面を比較し、写真をアップロードせずにZIPを保存できます。' },
+          { q: '画像をアップロードせずに無料キューブマップを入手できますか？', a: 'はい。ツールを開いてサンプルを選ぶと、元のパノラマと6面を比較し、写真をアップロードせずにZIPを保存できます。' },
           { q: 'UnityやThree.jsに対応していますか？', a: 'PNGを軸に合わせてUnityの6 Sidedスカイボックスに割り当てます。ZIPはUnrealのTextureCubeではありません。HDRI Backdropには対応する元の.hdrを使用してください。PNGはHDR照明値を保持しません。' }
         ]
       }
@@ -284,7 +284,7 @@ const PAGES = [
       },
       zh: {
         title: '照片转360全景图AI — 普通2D图片一键转换为360度全景',
-        description: '使用AI智能重投影与无缝边缘融合技术，将普通2D平面照片、广角风光与效果图转换为标准的2:1等距柱状360度全景图。',
+        description: '将参考照片发送至AI服务，生成新的2:1等距柱状360度全景图。生成需要积分，细节可能与真实场景不同；可选边缘融合用于减轻接缝。',
         keywords: '图片转360全景, 普通照片做成全景图, 2D转360全景AI, 照片转全景图在线, 平面图片转球形全景, 免费图片转全景',
         h1: '照片转 360° 全景图 AI 工具',
         sub: '将普通的2D宽幅照片、建筑效果图转化为可在VR与全景播放器中环顾漫游的360度球形全景。',
@@ -295,7 +295,7 @@ const PAGES = [
       },
       es: {
         title: 'Conversor de Foto a 360 IA — Convierte Fotos 2D a Panoramas 360°',
-        description: 'Transforma fotos 2D normales y tomas panorámicas en panoramas equirrectangulares 360° esféricos con IA y fusión de bordes.',
+        description: 'Envía fotos de referencia al servicio de IA para generar un panorama 2:1 nuevo. Requiere créditos; los detalles pueden variar. La fusión de bordes es opcional.',
         keywords: 'convertir imagen a 360, foto a 360 grados, conversor imagen 360, como hacer foto 360, 2d a panorama 360',
         h1: 'Conversor de Foto a Panorama 360° con IA',
         sub: 'Convierte fotos 2D estándar en experiencias inmersivas 360° listas para visores VR y redes sociales.',
@@ -306,10 +306,10 @@ const PAGES = [
       },
       de: {
         title: 'Foto zu 360 Grad Konverter KI — 2D Bilder in 360° Panoramen',
-        description: 'Verwandle normale 2D-Fotos und Weitwinkelaufnahmen in equirektanguläre 360°-Kugelpanoramen mit automatischer Nahtkorrektur.',
+        description: 'Erzeuge mit Referenzfotos über den KI-Dienst ein neues 2:1-Panorama. Die Generierung benötigt Guthaben; Details können abweichen. Kantenüberblendung ist optional.',
         keywords: 'bild in 360 umwandeln, foto zu 360 grad, 2d bild in panorama, 360 grad bild konverter kostenlos',
         h1: 'Foto zu 360° Panorama Konverter KI',
-        sub: 'Wandle normale Fotos in nahtlose 360°-Kugeln um, die sich drehen und erkunden lassen.',
+        sub: 'Nutze Referenzfotos für ein neues 360°-Panorama, das sich drehen und erkunden lässt. KI-generierte Details können von der realen Szene abweichen.',
         faq: [
           { q: 'Wie funktioniert die Konvertierung?', a: 'Referenzfotos werden an den KI-Dienst gesendet, der ein neues 2:1-Panorama erzeugt. Generierte Details können von der realen Szene abweichen.' },
           { q: 'Bleiben meine Fotos privat?', a: 'Für die KI-Generierung werden Referenzbilder an den Dienst gesendet. Nur der lokale Panorama-Viewer arbeitet ohne Upload.' }
@@ -320,7 +320,7 @@ const PAGES = [
         description: '参照写真をAIサービスに送信し、新しい2:1正距円筒360度パノラマを生成します。AI生成にはクレジットが必要です。',
         keywords: '画像360変換, 写真を360度写真にする方法, 2Dから360度パノラマ, 写真360度変換オンライン, 無料360変換',
         h1: '写真から 360° パノラマ変換 AI',
-        sub: 'スマートな球体投影と境界ブレンドにより、手持ちの2D写真を全方位見渡せるパノラマ空間に変換。',
+        sub: '参照写真をAIサービスに送信して、新しい360度パノラマを生成します。生成された細部は実際の場面と異なる場合があります。',
         faq: [
           { q: '普通の写真を360度化できますか？', a: 'はい。参照写真をAIサービスに送信し、新しい2:1パノラマを生成します。生成された細部は実際の場面と異なる場合があります。' },
           { q: '無料で使用できますか？', a: 'AI生成にはクレジットが必要で、無料体験は利用状況によります。ローカル表示ツールは無料です。' }
@@ -378,7 +378,7 @@ function buildHtmlPage(page, langObj) {
       },
     ],
   };
-  // ponytail: localized guides link to the English tool until its UI is translated.
+  // ponytail: keep indexable guides static; the query selects the tool's interface language.
   return `<!doctype html>
 <html lang="${lang}">
   <head>
@@ -414,7 +414,7 @@ ${generateAlternateLinks(page.slug)}
       <div class="wrap">
         <a class="brand" href="/${lang}/" lang="en">360 Panorama Viewer</a>
         <nav aria-label="${ui.languages}">
-          ${LANGUAGES.map(l => `<a href="${l.code === 'en' ? '' : `/${l.code}`}${toolPath}" lang="${l.code}" hreflang="${l.code}"${l.code === lang ? ' aria-current="page"' : ''}>${l.name}</a>`).join('\n          ')}
+          ${LANGUAGES.map(l => `<a href="${l.code === 'en' ? `${toolPath}?lang=en` : `/${l.code}${toolPath}`}" lang="${l.code}" hreflang="${l.code}"${l.code === lang ? ' aria-current="page"' : ''}>${l.name}</a>`).join('\n          ')}
         </nav>
       </div>
     </header>
@@ -423,7 +423,7 @@ ${generateAlternateLinks(page.slug)}
       <p>${escapeHtml(t.sub)}</p>
       <div class="cta">
         <p>${ui.notice}</p>
-        <a class="button" href="${toolPath}" hreflang="en">${ui.open}</a>
+        <a class="button" href="${toolPath}?lang=${lang}" hreflang="${lang}">${ui.open}</a>
       </div>
       ${usesCredits ? `<p class="callout">${ui.ai}</p>` : ''}
       <section aria-labelledby="faq">
@@ -511,6 +511,9 @@ function updateSitemapXml(updatedUrls) {
     { slug: 'blog/equirectangular-projection-explained', prio: '0.6', change: 'monthly' },
     { slug: 'blog/how-to-make-a-360-panorama-without-a-360-camera', prio: '0.6', change: 'monthly' },
     { slug: 'blog/hdri-vs-ldr-environment-lighting', prio: '0.6', change: 'monthly' },
+    { slug: 'blog/panorama-to-skybox-threejs-unity', prio: '0.6', change: 'monthly' },
+    { slug: 'about', prio: '0.6', change: 'monthly' },
+    { slug: 'examples/panorama-skybox', prio: '0.5', change: 'monthly' },
   ];
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;

@@ -1,3 +1,5 @@
+import { useLanguage, useTranslation, withLanguageHref } from '../../utils/i18n';
+import { advancedTranslations } from '../../utils/advancedTranslations';
 import { useState, useEffect, useRef } from 'react';
 import {
   Film,
@@ -24,6 +26,8 @@ interface PhotoToVideoPageProps {
 }
 
 export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunchStudio, currentPanoramaUrl: activePanoUrl, onPanoramaChange: setActivePanoUrl }: PhotoToVideoPageProps) {
+  const t = useTranslation(advancedTranslations);
+  const [lang] = useLanguage();
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1'>(() => (isProductMode ? '1:1' : '16:9'));
   const [duration, setDuration] = useState<number>(8);
@@ -96,7 +100,7 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
         origin: { y: 0.7 },
       });
     } catch {
-      alert('Video export failed. Please verify browser MediaRecorder support.');
+      alert(t('Video export failed. Please verify browser MediaRecorder support.'));
     } finally {
       setIsRecording(false);
     }
@@ -150,11 +154,11 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
     <div className="space-y-16 pb-16">
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs text-cyan-400/70 pt-2">
-        <a href="/" className="hover:text-cyan-300 transition-colors">Home</a>
+        <a href={withLanguageHref("/", lang)} className="hover:text-cyan-300 transition-colors">{t("Home")}</a>
         <span>/</span>
-        <span className="text-cyan-300">Tools</span>
+        <span className="text-cyan-300">{t("Tools")}</span>
         <span>/</span>
-        <span className="text-white font-medium">{isProductMode ? 'Panorama Showcase Video' : '360° Photo to Video'}</span>
+        <span className="text-white font-medium">{t(isProductMode ? 'Panorama Showcase Video' : '360° Photo to Video')}</span>
       </nav>
 
       {/* Hero Section */}
@@ -162,34 +166,34 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
         <div className="max-w-4xl space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-400/15 border border-cyan-400/40 text-cyan-300 text-xs font-semibold tracking-wide">
             <Film className="w-3.5 h-3.5 text-cyan-400" />
-            <span>PANORAMA CAMERA PAN &bull; LOCAL VIDEO EXPORT</span>
+            <span>{t("PANORAMA CAMERA PAN • LOCAL VIDEO EXPORT")}</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
-            {isProductMode ? 'Panorama Showcase Video: ' : '360° Photo to Video: '}
+            {t(isProductMode ? 'Panorama Showcase Video: ' : '360° Photo to Video: ')}
             <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-300 bg-clip-text text-transparent">
-              Turn a 360° Panorama into a Panning Video
+              {t("Turn a 360° Panorama into a Panning Video")}
             </span>
           </h1>
 
           <p className="text-base sm:text-lg text-cyan-100/80 leading-relaxed max-w-3xl">
-            {isProductMode
+            {t(isProductMode
               ? 'Animate a 2:1 panorama of your showroom, store or virtual environment into a panning showcase video. Free local MP4 or WebM export, depending on browser support.'
-              : 'Convert a 2:1 equirectangular panorama into a panning video for social feeds, portfolios and store showcases. Free local MP4 or WebM export, depending on browser support.'}
+              : 'Convert a 2:1 equirectangular panorama into a panning video for social feeds, portfolios and store showcases. Free local MP4 or WebM export, depending on browser support.')}
           </p>
 
           <div className="flex flex-wrap items-center gap-6 pt-2 text-xs text-cyan-300/70">
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-teal-400" />
-              <span>16:9 &bull; 9:16 (TikTok) &bull; 1:1 Formats</span>
+              <span>{t("16:9 • 9:16 (TikTok) • 1:1 Formats")}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-teal-400" />
-              <span>100% Client-Side WebGL Rendering</span>
+              <span>{t("100% Client-Side WebGL Rendering")}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-teal-400" />
-              <span>Silky-Smooth 30 FPS Camera Orbit</span>
+              <span>{t("Silky-Smooth 30 FPS Camera Orbit")}</span>
             </span>
           </div>
         </div>
@@ -200,14 +204,14 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-              Interactive Animator
+              {t("Interactive Animator")}
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-white">
-              Render Your 360 Rotation Video Online
+              {t("Render Your 360 Rotation Video Online")}
             </h2>
           </div>
           <label className="px-4 py-2 rounded-xl text-xs font-bold bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 hover:text-white hover:bg-cyan-900/60 cursor-pointer transition-colors">
-            <span>Upload Custom 360 Photo</span>
+            <span>{t("Upload Custom 360 Photo")}</span>
             <input
               type="file"
               accept="image/*"
@@ -221,7 +225,7 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Aspect Ratio Selection */}
             <div className="space-y-3">
-              <label className="text-xs font-bold text-cyan-300">Choose Output Ratio &amp; Target Platform</label>
+              <label className="text-xs font-bold text-cyan-300">{t("Choose Output Ratio & Target Platform")}</label>
               <div className="grid grid-cols-3 gap-3">
                 <button
                   type="button"
@@ -233,7 +237,7 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
                   }`}
                 >
                   <Monitor className="w-5 h-5 text-cyan-400" />
-                  <span className="font-bold">16:9 Landscape</span>
+                  <span className="font-bold">{t("16:9 Landscape")}</span>
                   <span className="text-[10px] text-cyan-400/60 font-mono">YouTube</span>
                 </button>
 
@@ -247,7 +251,7 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
                   }`}
                 >
                   <Smartphone className="w-5 h-5 text-cyan-400" />
-                  <span className="font-bold">9:16 Vertical</span>
+                  <span className="font-bold">{t("9:16 Vertical")}</span>
                   <span className="text-[10px] text-cyan-400/60 font-mono">TikTok &bull; Reels</span>
                 </button>
 
@@ -261,8 +265,8 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
                   }`}
                 >
                   <Square className="w-5 h-5 text-cyan-400" />
-                  <span className="font-bold">1:1 Square</span>
-                  <span className="text-[10px] text-cyan-400/60 font-mono">Instagram Feed</span>
+                  <span className="font-bold">{t("1:1 Square")}</span>
+                  <span className="text-[10px] text-cyan-400/60 font-mono">{t("Instagram Feed")}</span>
                 </button>
               </div>
             </div>
@@ -271,8 +275,8 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-cyan-300 flex items-center justify-between">
-                  <span>Loop Duration</span>
-                  <span className="font-mono text-cyan-400">{duration} seconds</span>
+                  <span>{t("Loop Duration")}</span>
+                  <span className="font-mono text-cyan-400">{t('{seconds} seconds').replace('{seconds}', String(duration))}</span>
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[6, 8, 12].map((sec) => (
@@ -286,7 +290,7 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
                           : 'border-cyan-500/20 bg-[#030d1c] text-cyan-200/70 hover:bg-cyan-500/10'
                       }`}
                     >
-                      {sec}s Loop
+                      {t('{seconds}s Loop').replace('{seconds}', String(sec))}
                     </button>
                   ))}
                 </div>
@@ -299,7 +303,7 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
                   onChange={(e) => setTilt(e.target.checked)}
                   className="w-4 h-4 rounded border-cyan-500/40 bg-cyan-950 text-cyan-400 focus:ring-0 cursor-pointer"
                 />
-                <span>Add Dynamic Elevation Wave (Cinematic Drone Look)</span>
+                <span>{t("Add Dynamic Elevation Wave (Cinematic Drone Look)")}</span>
               </label>
             </div>
           </div>
@@ -311,7 +315,7 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
                 <div className="flex items-center justify-between text-xs">
                   <span className="flex items-center gap-2 text-cyan-300 font-semibold">
                     <RotateCw className="w-4 h-4 animate-spin text-teal-400" />
-                    <span>Rendering 360° Rotating Video Frame-by-Frame...</span>
+                    <span>{t("Rendering 360° Rotating Video Frame-by-Frame...")}</span>
                   </span>
                   <span className="font-mono text-teal-400 font-bold">{progress}%</span>
                 </div>
@@ -328,7 +332,7 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
               <div className="p-4 rounded-2xl bg-teal-950/40 border border-teal-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-2.5 text-xs text-teal-300 font-semibold">
                   <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0" />
-                  <span>Your 360° rotation video has been successfully rendered!</span>
+                  <span>{t("Your 360° rotation video has been successfully rendered!")}</span>
                 </div>
                 <button
                   type="button"
@@ -336,13 +340,13 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
                   className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-teal-400 to-cyan-400 text-slate-950 shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Download Video File</span>
+                  <span>{t("Download Video File")}</span>
                 </button>
               </div>
             )}
 
             <div className="flex items-center justify-between pt-2">
-              <span className="text-xs text-cyan-400/60 font-mono">Client-Side MediaRecorder API</span>
+              <span className="text-xs text-cyan-400/60 font-mono">{t("Client-Side MediaRecorder API")}</span>
               <button
                 type="button"
                 disabled={isRecording}
@@ -350,7 +354,7 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
                 className="px-8 py-3.5 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-lg shadow-cyan-400/30 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
               >
                 <Video className="w-4 h-4 fill-slate-950" />
-                <span>{isRecording ? 'Rendering Video...' : 'Start 360° Video Render'}</span>
+                <span>{t(isRecording ? 'Rendering Video...' : 'Start 360° Video Render')}</span>
               </button>
             </div>
           </div>
@@ -361,10 +365,10 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Platform Ready
+            {t("Platform Ready")}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Where Can You Use 360 Rotation Videos?
+            {t("Where Can You Use 360 Rotation Videos?")}
           </h2>
         </div>
 
@@ -373,9 +377,9 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
             <div className="p-2.5 rounded-xl bg-cyan-500/15 text-cyan-400 w-fit">
               <Smartphone className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">TikTok &amp; Instagram Reels</h3>
+            <h3 className="font-bold text-white text-base">{t("TikTok & Instagram Reels")}</h3>
             <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Export in 9:16 vertical mode to instantly showcase immersive AI environments, game backgrounds, and virtual worlds on mobile feeds.
+              {t("Export in 9:16 vertical mode to instantly showcase immersive AI environments, game backgrounds, and virtual worlds on mobile feeds.")}
             </p>
           </div>
 
@@ -383,9 +387,9 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
             <div className="p-2.5 rounded-xl bg-teal-500/15 text-teal-400 w-fit">
               <ShoppingBag className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">Store &amp; Showroom Showcases</h3>
+            <h3 className="font-bold text-white text-base">{t("Store & Showroom Showcases")}</h3>
             <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Pan through a showroom panorama for a store or portfolio. Check the destination platform's format requirements before uploading.
+              {t("Pan through a showroom panorama for a store or portfolio. Check the destination platform's format requirements before uploading.")}
             </p>
           </div>
 
@@ -393,9 +397,9 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
             <div className="p-2.5 rounded-xl bg-blue-500/15 text-blue-400 w-fit">
               <Monitor className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">YouTube Shorts &amp; Websites</h3>
+            <h3 className="font-bold text-white text-base">{t("YouTube Shorts & Websites")}</h3>
             <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Export standard 16:9 widescreen video loops for website hero backgrounds, video trailers, and YouTube Shorts clips.
+              {t("Export standard 16:9 widescreen video loops for website hero backgrounds, video trailers, and YouTube Shorts clips.")}
             </p>
           </div>
         </div>
@@ -405,10 +409,10 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Frequently Asked Questions
+            {t("Frequently Asked Questions")}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">
-            360 Photo to Video FAQs
+            {t("360 Photo to Video FAQs")}
           </h2>
         </div>
 
@@ -425,7 +429,7 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
                   onClick={() => setActiveFaq(isOpen ? null : idx)}
                   className="w-full py-4 px-5 text-left flex items-center justify-between gap-4 font-semibold text-sm text-white hover:text-cyan-300 cursor-pointer transition-colors"
                 >
-                  <span>{faq.q}</span>
+                  <span>{t(faq.q)}</span>
                   <ChevronDown
                     className={`w-4 h-4 text-cyan-400 shrink-0 transition-transform duration-200 ${
                       isOpen ? 'rotate-180' : ''
@@ -434,7 +438,7 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
                 </button>
                 {isOpen && (
                   <div className="px-5 pb-4 text-xs text-cyan-100/80 leading-relaxed border-t border-cyan-500/15 pt-3">
-                    {faq.a}
+                    {t(faq.a)}
                   </div>
                 )}
               </div>
@@ -446,10 +450,10 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
       {/* Final Action Callout */}
       <section className="rounded-3xl border border-cyan-400/40 bg-gradient-to-r from-[#031d42] via-[#042858] to-[#011430] p-8 sm:p-12 text-center space-y-6 shadow-2xl">
         <h2 className="text-2xl sm:text-4xl font-black text-white">
-          Need a New 360 Panorama to Animate?
+          {t("Need a New 360 Panorama to Animate?")}
         </h2>
         <p className="text-sm sm:text-base text-cyan-100/80 max-w-xl mx-auto">
-          Generate high-resolution equirectangular environments with AI, then convert to video in one click.
+          {t("Generate high-resolution equirectangular environments with AI, then convert to video in one click.")}
         </p>
         <div>
           <button
@@ -458,7 +462,7 @@ export function PhotoToVideoPage({ showcaseMode: isProductMode = false, onLaunch
             className="px-8 py-4 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-400 to-teal-400 text-slate-950 shadow-xl shadow-cyan-400/40 hover:scale-105 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
           >
             <Sparkles className="w-4 h-4 fill-slate-950" />
-            <span>Open AI Panorama Studio</span>
+            <span>{t("Open AI Panorama Studio")}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

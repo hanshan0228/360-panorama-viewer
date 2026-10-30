@@ -1,0 +1,2 @@
+/*
+  Content-Security-Policy: font-src 'self'; object-src 'none'; base-uri 'self'

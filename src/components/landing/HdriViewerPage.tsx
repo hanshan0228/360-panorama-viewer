@@ -1,3 +1,5 @@
+import { useLanguage, useTranslation, withLanguageHref } from '../../utils/i18n';
+import { specialistMessages } from '../../utils/specialistTranslations';
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
@@ -68,6 +70,8 @@ function createDisplayCanvas(width: number, height: number): { canvas: HTMLCanva
 }
 
 export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaChange, onLaunchStudio }: HdriViewerPageProps) {
+  const t = useTranslation(specialistMessages);
+  const [lang] = useLanguage();
   const linearRef = useRef<Float32Array | null>(null);
   const loadIdRef = useRef(0);
   const sliceControllerRef = useRef<AbortController | null>(null);
@@ -80,6 +84,7 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
   const [busy, setBusy] = useState(false);
   const [slicingSource, setSlicingSource] = useState<{ preview: HTMLCanvasElement; size: number; exposure: number; controller: AbortController } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorFileName, setErrorFileName] = useState('');
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const faces = faceResult?.preview === preview && faceResult.size === faceSize && faceResult.exposure === exposure ? faceResult.faces : [];
   const isSlicing = !!slicingSource && slicingSource.preview === preview && slicingSource.size === faceSize && slicingSource.exposure === exposure && !slicingSource.controller.signal.aborted;
@@ -144,7 +149,7 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
         const decoded = new HDRLoader().setDataType(FloatType).parse(buffer);
         const linear = decoded?.data as Float32Array | undefined;
         if (!linear?.length || !decoded.width || !decoded.height) {
-          throw new Error(`${file.name} carries no readable RGBE pixels.`);
+          throw new Error('{name} carries no readable RGBE pixels.');
         }
         linearRef.current = linear;
         setExposure(0);
@@ -166,10 +171,11 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
       }
     } catch (loadError) {
       if (loadId !== loadIdRef.current) return;
+      setErrorFileName(file.name);
       setError(
         loadError instanceof Error && loadError.message
           ? loadError.message
-          : `${file.name} is not a Radiance .hdr file this decoder understands.`
+          : '{name} is not a Radiance .hdr file this decoder understands.'
       );
     } finally {
       if (loadId === loadIdRef.current) setBusy(false);
@@ -295,30 +301,24 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
     <div className="space-y-16 pb-16">
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs text-cyan-400/70 pt-2">
-        <a href="/" className="hover:text-cyan-300 transition-colors">Home</a>
+        <a href={withLanguageHref("/", lang)} className="hover:text-cyan-300 transition-colors">{t("Home")}</a>
         <span>/</span>
-        <span className="text-cyan-200">{cubemapMode ? 'HDRI to Cubemap' : 'HDRI Viewer'}</span>
+        <span className="text-cyan-200">{cubemapMode ? t("HDRI to Cubemap") : t("HDRI Viewer")}</span>
       </nav>
 
       {/* Hero */}
       <section className="text-center space-y-6 max-w-3xl mx-auto">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono font-semibold">
           <Sun className="w-3.5 h-3.5" />
-          <span>RADIANCE RGBE DECODER &bull; ACES TONE MAPPING &bull; 100% CLIENT-SIDE</span>
+          <span>{t("RADIANCE RGBE DECODER • ACES TONE MAPPING • 100% CLIENT-SIDE")}</span>
         </div>
         <h1 className="text-3xl sm:text-5xl font-black text-white leading-tight">
-          {cubemapMode ? 'HDRI to Cubemap — Convert .HDR to 6 PNG Faces' : 'HDRI Viewer — Open .HDR Files Online and Export Cube Faces'}
+          {cubemapMode ? t("HDRI to Cubemap — Convert .HDR to 6 PNG Faces") : t("HDRI Viewer — Open .HDR Files Online and Export Cube Faces")}
         </h1>
-        <p className="text-sm sm:text-base text-cyan-100/80 leading-relaxed">
-          Drop a Radiance .hdr environment map into the browser to see it with real exposure control, download a
-          tone-mapped 2:1 PNG, or slice six cube faces for Blender, Unreal Engine and Unity. No install, no
-          upload, no account.
-        </p>
+        <p className="text-sm sm:text-base text-cyan-100/80 leading-relaxed">{t("Drop a Radiance .hdr environment map into the browser to see it with real exposure control, download a tone-mapped 2:1 PNG, or slice six cube faces for Blender, Unreal Engine and Unity. No install, no upload, no account.")}</p>
       </section>
 
-      <p className="text-sm text-cyan-100/80">
-        Already have a PNG, JPEG or WebP panorama? Use the <a href="/cubemap-generator/" className="text-cyan-300 underline">panorama to cubemap generator</a> for six-face previews, sample panoramas and a filename-to-axis setup guide.
-      </p>
+      <p className="text-sm text-cyan-100/80">{t("Already have a PNG, JPEG or WebP panorama? Use the")}{' '}<a href={withLanguageHref("/cubemap-generator/", lang)} className="text-cyan-300 underline">{t("panorama to cubemap generator")}</a>{' '}{t("for six-face previews, sample panoramas and a filename-to-axis setup guide.")}</p>
 
       {/* Tool */}
       <section className="max-w-4xl mx-auto space-y-6">
@@ -330,11 +330,11 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <label className="flex-1 px-6 py-4 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-400 to-teal-400 text-slate-950 shadow-lg shadow-amber-400/25 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2 focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-cyan-300">
               <FileUp className="w-4 h-4 text-slate-950" />
-              <span>{busy ? 'Decoding HDR pixels...' : 'Open a .HDR / 360° image'}</span>
+              <span>{busy ? t("Decoding HDR pixels...") : t("Open a .HDR / 360° image")}</span>
               <input
                 type="file"
                 accept=".hdr,.png,.jpg,.jpeg,.webp,image/vnd.radiance"
-                aria-label="Open an HDRI or panorama file"
+                aria-label={t("Open an HDRI or panorama file")}
                 className="sr-only"
                 onChange={(event) => {
                   void handleFile(event.target.files?.[0]);
@@ -344,12 +344,12 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
             </label>
             <div className="text-xs text-cyan-300/70 text-center sm:text-left">
               <div className="font-mono text-teal-300">.hdr &bull; .png &bull; .jpg &bull; .webp</div>
-              <div>Up to 50 MiB / 8K &mdash; decoded in your tab</div>
+              <div>{t("Up to 50 MiB / 8K — decoded in your tab")}</div>
             </div>
           </div>
 
           {error && (
-            <div role="alert" className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-xs text-rose-200">{error}</div>
+            <div role="alert" className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-xs text-rose-200">{t(error).replace('{name}', () => errorFileName)}</div>
           )}
 
           {fileInfo && (
@@ -357,31 +357,29 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
               <span className="px-2.5 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-200 max-w-[16rem] truncate">{fileInfo.name}</span>
               <span className="px-2.5 py-1 rounded-full bg-teal-500/15 border border-teal-500/30 text-teal-200">{fileInfo.width} &times; {fileInfo.height}</span>
               <span className={`px-2.5 py-1 rounded-full border ${fileInfo.hdr ? 'bg-amber-500/15 border-amber-500/30 text-amber-200' : 'bg-slate-500/15 border-slate-500/30 text-slate-300'}`}>
-                {fileInfo.hdr ? 'linear HDR pixels' : 'LDR image (8-bit)'}
+                {fileInfo.hdr ? t("linear HDR pixels") : t("LDR image (8-bit)")}
               </span>
             </div>
           )}
 
           {fileInfo && fileInfo.width !== fileInfo.height * 2 && (
-            <p role="status" className="text-xs text-amber-200">This image is not 2:1. Flat preview and PNG download work; use a full equirectangular panorama for 360 viewing or cube export.</p>
+            <p role="status" className="text-xs text-amber-200">{t("This image is not 2:1. Flat preview and PNG download work; use a full equirectangular panorama for 360 viewing or cube export.")}</p>
           )}
           <div className="rounded-2xl overflow-hidden border border-cyan-500/25 bg-black/60 min-h-[10rem] flex items-center justify-center">
-            <div ref={previewHostRef} className={preview ? 'w-full' : 'hidden'} role="img" aria-label="Tone-mapped environment preview" />
-            {!preview && <span className="text-xs text-cyan-400/60 py-16">Your HDRI preview renders here</span>}
+            <div ref={previewHostRef} className={preview ? 'w-full' : 'hidden'} role="img" aria-label={t("Tone-mapped environment preview")} />
+            {!preview && <span className="text-xs text-cyan-400/60 py-16">{t("Your HDRI preview renders here")}</span>}
           </div>
 
           {fileInfo?.hdr && (
             <div className="rounded-2xl border border-cyan-500/20 bg-[#05142b]/60 p-4 space-y-3">
               <div className="flex items-center justify-between text-xs">
                 <span className="flex items-center gap-2 font-semibold text-white">
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-amber-300" />
-                  Exposure
-                </span>
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-amber-300" />{' '}{t("Exposure")}</span>
                 <span className="font-mono text-amber-200">{exposure > 0 ? '+' : ''}{exposure.toFixed(1)} EV</span>
               </div>
               <input
                 type="range"
-                aria-label="Exposure in EV"
+                aria-label={t("Exposure in EV")}
                 min={-10}
                 max={6}
                 step={0.1}
@@ -389,10 +387,7 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
                 onChange={(event) => setExposure(Number(event.target.value))}
                 className="w-full accent-amber-400 cursor-pointer"
               />
-              <div className="text-[11px] text-cyan-300/60">
-                Tone mapping is ACES filmic plus an sRGB encode: highlights roll off instead of clipping, so a sun
-                disk stays brighter than the sky behind it.
-              </div>
+              <div className="text-[11px] text-cyan-300/60">{t("Tone mapping is ACES filmic plus an sRGB encode: highlights roll off instead of clipping, so a sun disk stays brighter than the sky behind it.")}</div>
             </div>
           )}
 
@@ -404,7 +399,7 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
                 className="px-5 py-3 rounded-xl font-bold text-xs bg-gradient-to-r from-cyan-400 to-teal-400 text-slate-950 shadow-lg shadow-cyan-400/25 hover:scale-105 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Download tone-mapped PNG</span>
+                <span>{t("Download tone-mapped PNG")}</span>
               </button>
               <button
                 type="button"
@@ -413,16 +408,16 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
                 className="px-5 py-3 rounded-xl font-bold text-xs border border-cyan-400/40 text-cyan-200 hover:border-cyan-300 hover:text-white transition-all cursor-pointer inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Eye className="w-3.5 h-3.5" />
-                <span>Open in 360&deg; viewer</span>
+                <span>{t("Open in 360° viewer")}</span>
               </button>
               <div className="flex items-center gap-2">
                 <select
                   value={faceSize}
                   onChange={(event) => { setFaceSize(Number(event.target.value)); setFaceResult(null); }}
                   className="px-3 py-3 rounded-xl text-xs bg-[#05142b] border border-cyan-500/30 text-cyan-100 cursor-pointer"
-                  aria-label="Cube face size"
+                  aria-label={t("Cube face size")}
                 >
-                  {FACE_SIZES.map(size => <option key={size} value={size}>{size} px faces</option>)}
+                  {FACE_SIZES.map(size => <option key={size} value={size}>{size}{' '}{t("px faces")}</option>)}
                 </select>
                 <button
                   type="button"
@@ -431,20 +426,20 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
                   className="px-5 py-3 rounded-xl font-bold text-xs border border-amber-400/40 text-amber-200 hover:border-amber-300 hover:text-white transition-all cursor-pointer inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Box className="w-3.5 h-3.5" />
-                  <span>{isSlicing ? 'Slicing cube faces...' : 'Slice to 6 cube faces'}</span>
+                  <span>{isSlicing ? t("Slicing cube faces...") : t("Slice to 6 cube faces")}</span>
                 </button>
               </div>
             </div>
           )}
 
-          {preview && <p className="text-xs text-cyan-200/70">PNG and cube-face downloads are tone-mapped 8-bit images. Keep the original .hdr for HDR lighting. <a href="/blog/hdri-vs-ldr-environment-lighting/" className="text-cyan-300 underline">HDRI vs LDR guide</a></p>}
+          {preview && <p className="text-xs text-cyan-200/70">{t("PNG and cube-face downloads are tone-mapped 8-bit images. Keep the original .hdr for HDR lighting.")}{' '}<a href={withLanguageHref("/blog/hdri-vs-ldr-environment-lighting/", lang)} className="text-cyan-300 underline">{t("HDRI vs LDR guide")}</a></p>}
 
           {faces.length === 6 && (
             <div className="space-y-4">
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
                 {faces.map(face => (
                   <div key={face.name} className="space-y-1.5">
-                    <img src={face.dataUrl} alt={`${face.label} cube face`} className="w-full rounded-lg border border-cyan-500/25" />
+                    <img src={face.dataUrl} alt={t('{label} cube face').replace('{label}', () => t(face.label))} className="w-full rounded-lg border border-cyan-500/25" />
                     <div className="text-[10px] font-mono text-center text-cyan-300/80">{face.name}.png</div>
                   </div>
                 ))}
@@ -455,14 +450,14 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
                 className="w-full px-5 py-3 rounded-xl font-bold text-xs border border-teal-400/40 text-teal-200 hover:border-teal-300 hover:text-white transition-all cursor-pointer inline-flex items-center justify-center gap-2"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Download all 6 faces (ZIP)</span>
+                <span>{t("Download all 6 faces (ZIP)")}</span>
               </button>
             </div>
           )}
 
           <div className="flex items-center justify-center gap-2 text-[11px] text-cyan-400/70">
             <Lock className="w-3 h-3" />
-            <span>Client-side only. Your HDR environment never touches a server.</span>
+            <span>{t("Client-side only. Your HDR environment never touches a server.")}</span>
           </div>
         </div>
       </section>
@@ -470,8 +465,8 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
       {/* Pipeline */}
       <section className="space-y-6 max-w-4xl mx-auto">
         <div className="text-center space-y-2">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400">Under the Hood</div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">What Happens to Your HDR Pixels</h2>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400">{t("Under the Hood")}</div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">{t("What Happens to Your HDR Pixels")}</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
@@ -481,8 +476,8 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
           ].map(item => (
             <div key={item.title} className="bg-[#05142b]/70 border border-cyan-500/20 rounded-2xl p-5 space-y-2">
               <item.icon className="w-4 h-4 text-amber-300" />
-              <h3 className="font-bold text-white text-sm">{item.title}</h3>
-              <p className="text-xs text-cyan-200/70 leading-relaxed">{item.text}</p>
+              <h3 className="font-bold text-white text-sm">{t(item.title)}</h3>
+              <p className="text-xs text-cyan-200/70 leading-relaxed">{t(item.text)}</p>
             </div>
           ))}
         </div>
@@ -491,8 +486,8 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
       {/* How to */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">Step by Step</div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">How to View an HDRI and Export It</h2>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Step by Step")}</div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">{t("How to View an HDRI and Export It")}</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
           {steps.map((step, idx) => (
@@ -501,9 +496,9 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
                 <span className="w-7 h-7 shrink-0 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-300 text-xs font-black flex items-center justify-center">
                   {idx + 1}
                 </span>
-                <h3 className="font-bold text-white text-sm">{step.title}</h3>
+                <h3 className="font-bold text-white text-sm">{t(step.title)}</h3>
               </div>
-              <p className="text-xs text-cyan-200/70 leading-relaxed">{step.text}</p>
+              <p className="text-xs text-cyan-200/70 leading-relaxed">{t(step.text)}</p>
             </div>
           ))}
         </div>
@@ -512,24 +507,24 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
       {/* Comparison */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">Comparison</div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">Choose the Right Environment Format</h2>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Comparison")}</div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">{t("Choose the Right Environment Format")}</h2>
         </div>
         <div className="overflow-x-auto rounded-2xl border border-cyan-500/25 bg-[#030e20]">
           <table className="w-full text-left text-xs">
             <thead className="bg-[#051733] text-cyan-200 border-b border-cyan-500/30 font-semibold uppercase tracking-wider">
               <tr>
-                <th className="py-4 px-5">File</th>
-                <th className="py-4 px-5">Dynamic Range</th>
-                <th className="py-4 px-5">Best Use</th>
+                <th className="py-4 px-5">{t("File")}</th>
+                <th className="py-4 px-5">{t("Dynamic Range")}</th>
+                <th className="py-4 px-5">{t("Best Use")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cyan-500/15 text-cyan-100/90">
               {comparison.map(row => (
-                <tr key={row.format}>
-                  <td className="py-3.5 px-5 font-semibold text-white">{row.format}</td>
-                  <td className="py-3.5 px-5">{row.range}</td>
-                  <td className="py-3.5 px-5">{row.use}</td>
+                <tr key={t(row.format)}>
+                  <td className="py-3.5 px-5 font-semibold text-white">{t(row.format)}</td>
+                  <td className="py-3.5 px-5">{t(row.range)}</td>
+                  <td className="py-3.5 px-5">{t(row.use)}</td>
                 </tr>
               ))}
             </tbody>
@@ -540,8 +535,8 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
       {/* FAQ */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">Frequently Asked Questions</div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">HDRI Viewer Questions &amp; Answers</h2>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Frequently Asked Questions")}</div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">{t("HDRI Viewer Questions & Answers")}</h2>
         </div>
         <div className="max-w-3xl mx-auto space-y-3">
           {faqs.map((faq, idx) => {
@@ -555,11 +550,11 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
                   aria-controls={`hdri-faq-${idx}`}
                   className="w-full py-4 px-5 text-left flex items-center justify-between gap-4 font-semibold text-sm text-white hover:text-cyan-300 cursor-pointer transition-colors"
                 >
-                  <span>{faq.q}</span>
+                  <span>{t(faq.q)}</span>
                   <ChevronDown className={`w-4 h-4 text-cyan-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
                 </button>
                   <div id={`hdri-faq-${idx}`} hidden={!isOpen} className="px-5 pb-4 text-xs text-cyan-100/80 leading-relaxed border-t border-cyan-500/15 pt-3">
-                    {faq.a}
+                    {t(faq.a)}
                   </div>
               </div>
             );
@@ -570,22 +565,22 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
       {/* Related */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">Pair It With</div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">More Free 360&deg; Tools for the Same Pipeline</h2>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Pair It With")}</div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">{t("More Free 360° Tools for the Same Pipeline")}</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
           {related.map(tool => (
             <a
               key={tool.href}
-              href={tool.href}
+              href={withLanguageHref(tool.href, lang)}
               onClick={(e) => { e.preventDefault(); onNavigateTab(tool.tab, tool.href); }}
               className="group rounded-2xl border border-cyan-500/25 bg-[#05142b]/70 p-5 hover:border-cyan-400/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2 text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
                 <CheckCircle2 className="w-4 h-4 text-teal-400" />
-                <span>{tool.label}</span>
+                <span>{t(tool.label)}</span>
               </div>
-              <p className="text-xs text-cyan-200/70 pt-1.5">{tool.note}</p>
+              <p className="text-xs text-cyan-200/70 pt-1.5">{t(tool.note)}</p>
             </a>
           ))}
         </div>
@@ -593,18 +588,15 @@ export function HdriViewerPage({ cubemapMode = false, onNavigateTab, onPanoramaC
 
       {/* CTA */}
       <section className="rounded-3xl border border-amber-400/40 bg-gradient-to-r from-[#031d42] via-[#042858] to-[#011430] p-8 sm:p-12 text-center space-y-6 shadow-2xl">
-        <h2 className="text-2xl sm:text-4xl font-black text-white">Need a New HDRI Instead of a Viewer?</h2>
-        <p className="text-sm sm:text-base text-cyan-100/80 max-w-xl mx-auto">
-          Describe the lighting you want and the AI HDRI generator builds a seamless 2:1 environment you can tone
-          map, slice, or drop straight into Blender as world lighting.
-        </p>
+        <h2 className="text-2xl sm:text-4xl font-black text-white">{t("Need a New HDRI Instead of a Viewer?")}</h2>
+        <p className="text-sm sm:text-base text-cyan-100/80 max-w-xl mx-auto">{t("Describe the lighting you want and the AI HDRI generator builds a seamless 2:1 environment you can tone map, slice, or drop straight into Blender as world lighting.")}</p>
         <button
           type="button"
           onClick={onLaunchStudio}
           className="px-8 py-4 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-400 to-teal-400 text-slate-950 shadow-xl shadow-amber-400/40 hover:scale-105 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
         >
           <Sparkles className="w-4 h-4 fill-slate-950" />
-          <span>Open AI Panorama Studio</span>
+          <span>{t("Open AI Panorama Studio")}</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </section>

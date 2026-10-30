@@ -1,3 +1,4 @@
+import { emailTestEnv, challengeToken, emailServicesFixture } from './email_services_fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -9,6 +10,7 @@ import { createCommercialServer, hashPassword, readStore, writeStore } from '../
 import { paypalCatalog, validatePayPalPlan, formatAdminBilling, createD1PayPalLedger, createJsonPayPalLedger } from '../server/paypal.mjs';
 
 const env = {
+  ...emailTestEnv,
   ADMIN_PASSWORD: 'isolated-paypal-test-password', PAYPAL_MODE: 'sandbox',
   PAYPAL_CLIENT_ID: 'synthetic-client', PAYPAL_CLIENT_SECRET: 'synthetic-secret', PAYPAL_WEBHOOK_ID: 'synthetic-webhook',
   PAYPAL_PRO_MONTHLY_PLAN_ID: 'P-PROMONTH', PAYPAL_PRO_YEARLY_PLAN_ID: 'P-PROYEAR',
@@ -93,6 +95,7 @@ async function fixture(testContext, backend) {
     if (subscription) return Response.json(subscription);
     throw new Error(`Unexpected mocked API: ${url.pathname}`);
   };
+  const emailServices = emailServicesFixture(fakePayPal);
   let call;
   let invoices;
   let suspend;
@@ -110,8 +113,9 @@ async function fixture(testContext, backend) {
     };
     ledger = createD1PayPalLedger(db);
     testContext.after(() => database.close());
-    testContext.mock.method(globalThis, 'fetch', fakePayPal);
+    testContext.mock.method(globalThis, 'fetch', emailServices.fetch);
     call = async (route, body, token, headers = {}) => {
+      if (route === 'user/auth' && body) body = { birthDate: '1990-01-01', turnstileToken: challengeToken(), ...body };
       const request = new Request(`https://review.example/api/${route}`, { method: body === undefined ? 'GET' : 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -125,10 +129,11 @@ async function fixture(testContext, backend) {
     const file = path.join(directory, 'store.json');
     ledger = createJsonPayPalLedger(() => readStore(file), store => writeStore(store, file));
     writeStore({ schemaVersion: 2, adminPasswordHash: hashPassword(env.ADMIN_PASSWORD), users: [], subscriptions: [], invoices: [] }, file);
-    const server = createCommercialServer({ env, fetch: fakePayPal, storeFile: file });
+    const server = createCommercialServer({ env, fetch: emailServices.fetch, storeFile: file });
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     testContext.after(async () => { await new Promise(resolve => server.close(resolve)); fs.rmSync(directory, { recursive: true, force: true }); });
     call = async (route, body, token, headers = {}) => {
+      if (route === 'user/auth' && body) body = { birthDate: '1990-01-01', turnstileToken: challengeToken(), ...body };
       const response = await fetch(`http://127.0.0.1:${server.address().port}/api/${route}`, {
         method: body === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -138,8 +143,12 @@ async function fixture(testContext, backend) {
     invoices = () => readStore(file).invoices;
     suspend = (id, status = 'suspended') => { const store = readStore(file); store.users.find(user => user.id === id).status = status; writeStore(store, file); };
   }
+  const admin = await call('admin/login', { username: 'admin', password: env.ADMIN_PASSWORD });
+  assert.equal(admin.status, 200);
+  assert.equal((await call('admin/billing', { config: { freeMonthlyCredits: 4 } }, admin.data.token)).status, 200);
   const account = await call('user/auth', { email: 'owner@example.com', name: 'Owner', password: 'synthetic-user-password' });
   assert.equal(account.status, 200);
+  assert.equal((await call('user/verify-email', { token: emailServices.latestToken('owner@example.com') })).status, 200);
   const token = account.data.token;
   const create = (plan = 'pro', billingCycle = 'monthly', extra = {}) => call('paypal/create-subscription', { plan, billingCycle, ...extra }, token);
   const profile = async () => (await call('user/me', undefined, token)).data.user;
@@ -162,12 +171,13 @@ for (const backend of ['Node', 'D1']) {
     const api = await fixture(testContext, backend);
     assert.equal((await api.call('paypal/create-subscription', { plan: 'pro', billingCycle: 'monthly' })).status, 401);
     const guest = await api.call('user/guest', {});
-    assert.equal((await api.call('paypal/create-subscription', { plan: 'pro', billingCycle: 'monthly' }, guest.data.token)).status, 403);
+    assert.equal(guest.status, 403);
+    assert.equal((await api.call('paypal/create-subscription', { plan: 'pro', billingCycle: 'monthly' }, 'invalid-guest-token')).status, 401);
     const config = await api.call('paypal/config');
     assert.equal(config.data.enabled, true);
     assert.equal(JSON.stringify(config).includes(env.PAYPAL_CLIENT_SECRET), false);
-    assert.equal(config.data.plans.pro.yearly.credits, 12000);
-    const created = await api.create('pro', 'monthly', { userId: guest.data.user.id, amountCents: 1, credits: 999999 });
+    assert.equal(config.data.plans.pro.yearly.credits, 1440);
+    const created = await api.create('pro', 'monthly', { userId: 'usr_guest_disallowed', amountCents: 1, credits: 999999 });
     assert.equal(created.status, 200);
     assert.equal((await api.subscription()).userId, api.userId);
     assert.equal(await api.balance(), 4);
@@ -183,12 +193,12 @@ for (const backend of ['Node', 'D1']) {
     assert.equal((await api.call('paypal/webhook', { event_type: 'BILLING.SUBSCRIPTION.ACTIVATED', resource: { id: remote.id } }, undefined, signature)).status, 200);
     assert.equal(await api.balance(), 4);
     assert.equal((await api.sale('PAYMENT1')).status, 200);
-    assert.equal(await api.balance(), 1004);
+    assert.equal(await api.balance(), 124);
     assert.equal((await api.sale('PAYMENT1', {}, 'WH-REDELIVERY')).status, 200);
-    assert.equal(await api.balance(), 1004);
+    assert.equal(await api.balance(), 124);
     const results = await Promise.all([api.sale('PAYMENT2'), api.sale('PAYMENT2', {}, 'WH-PARALLEL')]);
     assert.ok(results.every(result => result.status === 200));
-    assert.equal(await api.balance(), 2004);
+    assert.equal(await api.balance(), 244);
     assert.equal(api.invoices().length, 2);
     assert.equal((await api.subscription()).paidThrough, '2026-11-13T00:30:00.000Z');
     assert.equal((await api.create()).status, 409);
@@ -212,6 +222,21 @@ for (const backend of ['Node', 'D1']) {
     assert.equal(await api.balance(), 4);
   });
 
+  test(`${backend} PayPal: suspended users can view and cancel existing subscription, but cannot create new ones`, async testContext => {
+    const api = await fixture(testContext, backend);
+    await api.create("pro", "monthly");
+    const remote = api.remoteSubscriptions.get("I-SUB1");
+    remote.status = "ACTIVE";
+    api.suspend(api.userId);
+    assert.equal((await api.call("paypal/create-subscription", { plan: "enterprise", billingCycle: "monthly" }, api.token)).status, 403);
+    const current = await api.subscription();
+    assert.ok(current);
+    assert.equal(current.userId, api.userId);
+    const cancelled = await api.call("paypal/cancel-subscription", { subscriptionId: current.id }, api.token);
+    assert.equal(cancelled.status, 200);
+    assert.equal((await api.subscription()).status, "CANCELLED");
+  });
+
   test(`${backend} PayPal: annual credits, cancellation ownership, and delayed payments preserve cancelled status`, async testContext => {
     const api = await fixture(testContext, backend);
     await api.create('pro', 'yearly');
@@ -219,8 +244,8 @@ for (const backend of ['Node', 'D1']) {
     remote.status = 'ACTIVE'; remote.status_update_time = '2026-10-13T00:15:00Z';
     const other = await api.call('user/auth', { email: 'other@example.com', name: 'Other', password: 'other-test-password' });
     assert.equal((await api.call('paypal/cancel-subscription', {}, other.data.token)).status, 404);
-    assert.equal((await api.sale('YEARPAY', { amount: { total: '118.80', currency: 'USD' }, create_time: '2024-02-29T00:00:00Z' })).status, 200);
-    assert.equal(await api.balance(), 12004);
+    assert.equal((await api.sale('YEARPAY', { amount: { total: '99.00', currency: 'USD' }, create_time: '2024-02-29T00:00:00Z' })).status, 200);
+    assert.equal(await api.balance(), 1444);
     assert.equal((await api.subscription()).paidThrough, '2025-02-28T00:00:00.000Z');
     assert.equal((await api.profile()).plan, 'free', 'Expired prepaid access must not keep a paid plan forever');
     assert.equal((await api.call('paypal/cancel-subscription', {}, api.token)).status, 409);
@@ -228,9 +253,9 @@ for (const backend of ['Node', 'D1']) {
     assert.equal(api.calls.some(call => call.pathname.endsWith('/cancel')), false);
     assert.equal((await api.call('paypal/cancel-subscription', { subscriptionId: (await api.subscription()).id }, api.token)).status, 200);
     assert.equal((await api.subscription()).status, 'CANCELLED');
-    assert.equal(await api.balance(), 12004);
-    assert.equal((await api.sale('YEARPAY', { amount: { total: '118.80', currency: 'USD' } })).status, 200);
-    assert.equal(await api.balance(), 12004);
+    assert.equal(await api.balance(), 1444);
+    assert.equal((await api.sale('YEARPAY', { amount: { total: '99.00', currency: 'USD' } })).status, 200);
+    assert.equal(await api.balance(), 1444);
     assert.equal((await api.subscription()).status, 'CANCELLED');
     assert.equal((await api.subscription()).paidThrough, '2025-02-28T00:00:00.000Z');
   });
@@ -324,7 +349,7 @@ test('D1 PayPal: a suspension racing fulfillment returns failure without advanci
   assert.equal((await api.sale('RACEDSUSPENSION')).status, 200);
   assert.equal((await api.sale('RACEDSUSPENSION')).status, 200);
   assert.equal(api.invoices().length, 1);
-  assert.equal(await api.balance(), 1004);
+  assert.equal(await api.balance(), 124);
 });
 
 test('admin billing preserves legacy records and normalizes annual cents and suspended subscriptions', () => {
@@ -375,6 +400,10 @@ test('monthly catalog uses revised prices and preserves annual offers', () => {
   const catalog = paypalCatalog(env);
   assert.equal(catalog.pro.monthly.amountCents, 990);
   assert.equal(catalog.enterprise.monthly.amountCents, 2999);
-  assert.equal(catalog.pro.yearly.amountCents, 11880);
-  assert.equal(catalog.enterprise.yearly.amountCents, 34800);
+  assert.equal(catalog.pro.yearly.amountCents, 9900);
+  assert.equal(catalog.enterprise.yearly.amountCents, 29900);
+  assert.equal(catalog.pro.monthly.credits, 120);
+  assert.equal(catalog.pro.yearly.credits, 1440);
+  assert.equal(catalog.enterprise.monthly.credits, 400);
+  assert.equal(catalog.enterprise.yearly.credits, 4800);
 });

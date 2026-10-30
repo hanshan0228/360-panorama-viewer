@@ -1,3 +1,6 @@
+import { useLanguage, useTranslation, withLanguageHref } from '../../utils/i18n';
+import { generatorMessages } from '../../utils/generatorTranslations';
+import { commerceMessages } from '../../utils/commerceTranslations';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   X,
@@ -19,10 +22,18 @@ interface EmbedModalProps {
 }
 
 export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalProps) {
+  const t = useTranslation(generatorMessages);
+  const shareText = useTranslation(commerceMessages);
+  const [lang] = useLanguage();
+  const attributionLabel = t('Interactive 360° Scene powered by');
+  const iframeTitle = t('Interactive 360° panorama');
+  const attributionHref = `https://360panoramaviewer.com${withLanguageHref('/', lang)}`;
   const [autoRotate, setAutoRotate] = useState(true);
   const [includeAttribution, setIncludeAttribution] = useState(true);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '4:3' | '100%'>('16:9');
   const [isCopied, setIsCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+  const copyAttempt = useRef(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -36,60 +47,74 @@ export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalPr
     };
   }, [isOpen]);
 
-  const isRemoteUrl = Boolean(
-    currentPanoramaUrl &&
-    (currentPanoramaUrl.startsWith('http://') || currentPanoramaUrl.startsWith('https://'))
-  );
+  let isRemoteUrl = false;
+  try {
+    const url = new URL(currentPanoramaUrl);
+    isRemoteUrl = (url.protocol === 'https:' || url.protocol === 'http:') && Boolean(url.hostname);
+  } catch { /* Local or invalid URLs cannot be shared in an iframe. */ }
 
   const iframeSrc = useMemo(() => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://360panoramaviewer.com';
     const params = new URLSearchParams();
     params.set('embed', 'true');
+    params.set('lang', lang);
     if (autoRotate) params.set('autorotate', '1');
     if (isRemoteUrl) {
       params.set('pano', currentPanoramaUrl);
     }
 
     return `${origin}/?${params.toString()}#embed`;
-  }, [autoRotate, isRemoteUrl, currentPanoramaUrl]);
+  }, [autoRotate, isRemoteUrl, currentPanoramaUrl, lang]);
 
   const embedCode = useMemo(() => {
-    const heightStyle = aspectRatio === '16:9' ? '500px' : aspectRatio === '4:3' ? '600px' : '450px';
+    const frameStyle = aspectRatio === '100%'
+      ? 'border:none;display:block;width:100%;height:450px;'
+      : `border:none;display:block;width:100%;height:auto;aspect-ratio:${aspectRatio.replace(':', '/')};`;
 
     const attributionHtml = includeAttribution
       ? `\n<p style="font-size:12px;color:#718096;text-align:center;margin-top:6px;font-family:sans-serif;">` +
-        `Interactive 360° Scene powered by ` +
-        `<a href="https://360panoramaviewer.com/" target="_blank" rel="noopener noreferrer" style="color:#00F2FE;text-decoration:none;font-weight:600;">` +
+        `${attributionLabel} ` +
+        `<a href="${attributionHref}" target="_blank" rel="noopener noreferrer" style="color:#00F2FE;text-decoration:none;font-weight:600;">` +
         `360 Panorama Viewer</a></p>`
       : '';
 
     return (
       `<div style="position:relative;width:100%;max-width:100%;overflow:hidden;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,0.5);">\n` +
       `  <iframe\n` +
+      `    title="${iframeTitle}"\n` +
       `    src="${iframeSrc}"\n` +
       `    width="100%"\n` +
-      `    height="${heightStyle}"\n` +
       `    frameborder="0"\n` +
       `    allow="accelerometer; gyroscope; vr; fullscreen"\n` +
       `    allowfullscreen="true"\n` +
       `    loading="lazy"\n` +
-      `    style="border:none;display:block;"\n` +
+      `    style="${frameStyle}"\n` +
       `  ></iframe>\n` +
       `</div>${attributionHtml}`
     );
-  }, [iframeSrc, includeAttribution, aspectRatio]);
+  }, [iframeSrc, includeAttribution, aspectRatio, attributionLabel, attributionHref, iframeTitle]);
+
+  useEffect(() => {
+    copyAttempt.current++;
+    // oxlint-disable-next-line react/set-state-in-effect
+    setIsCopied(false); setCopyError(false);
+  }, [embedCode, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleCopy = () => {
-    const writePromise = navigator.clipboard?.writeText?.(embedCode);
-    if (writePromise && typeof writePromise.catch === 'function') {
-      // Clipboard can reject (permissions, insecure context); the copy state below is still useful.
-      writePromise.catch(() => {});
+  const handleCopy = async () => {
+    if (!isRemoteUrl) return;
+    const attempt = ++copyAttempt.current;
+    setIsCopied(false); setCopyError(false);
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(embedCode);
+      if (attempt !== copyAttempt.current) return;
+      setIsCopied(true);
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+    } catch {
+      if (attempt === copyAttempt.current) setCopyError(true);
     }
-    setIsCopied(true);
-    confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
-    setTimeout(() => setIsCopied(false), 2500);
   };
 
   return (
@@ -98,34 +123,34 @@ export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalPr
       onCancel={(event) => { event.preventDefault(); onClose(); }}
       aria-modal="true"
       aria-labelledby="embed-modal-title"
-      className="fixed inset-0 z-50 m-0 w-screen h-dvh max-w-none max-h-none border-0 flex items-start sm:items-center justify-center text-sky-100 bg-transparent backdrop:bg-black/85 backdrop:backdrop-blur-md p-3 sm:p-4 py-6 sm:py-8 animate-in fade-in duration-200 overflow-y-auto"
+      className="app-dialog max-w-2xl border-0 p-0 rounded-3xl text-sky-100 bg-transparent backdrop:bg-black/85 backdrop:backdrop-blur-md"
     >
-      <div className="glass-panel border border-cyan-400/40 rounded-3xl max-w-2xl w-full p-5 sm:p-7 shadow-[0_25px_70px_rgba(0,0,0,0.9)] space-y-4 sm:space-y-6 relative max-h-[90vh] overflow-y-auto my-auto">
+      <div className="glass-panel border border-cyan-400/40 rounded-3xl w-full p-5 sm:p-7 shadow-[0_25px_70px_rgba(0,0,0,0.9)] space-y-4 sm:space-y-6 relative overflow-hidden">
         {/* Glow ambient background */}
         <div className="absolute top-0 right-0 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-cyan-500/20 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-cyan-500/20 text-cyan-300 rounded-2xl border border-cyan-500/30">
+        <div className="flex items-start justify-between gap-2 border-b border-cyan-500/20 pb-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="hidden sm:block p-2.5 bg-cyan-500/20 text-cyan-300 rounded-2xl border border-cyan-500/30">
               <Code2 className="w-5 h-5 text-cyan-400" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3 id="embed-modal-title" className="font-black text-lg text-white">Embed 360° Panorama Viewer</h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 id="embed-modal-title" className="font-black text-lg text-white">{t("Embed 360° Panorama Viewer")}</h3>
                 <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-cyan-400/20 text-cyan-300 rounded-md border border-cyan-400/40">
                   IFRAME
                 </span>
               </div>
               <p className="text-xs text-cyan-300/70 mt-0.5">
-                Drop this responsive 3D sphere viewer onto any blog, portfolio, or CMS in seconds.
+                {t("Drop this responsive 3D sphere viewer onto any blog, portfolio, or CMS in seconds.")}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close modal"
+            aria-label={t("Close modal")}
             className="p-2 text-cyan-400 hover:text-white hover:bg-cyan-500/20 rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -136,7 +161,7 @@ export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalPr
           <div className="p-3 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 flex items-start gap-2.5 text-xs text-cyan-200">
             <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
             <p className="text-[11px] leading-relaxed">
-              <strong>Embedding note:</strong>This panorama is a temporary local image. To embed it on another website, host the image at a public HTTPS URL and use <code className="text-cyan-300">?pano=https://...</code> in the viewer URL.
+              <strong>{t("Embedding note:")}</strong>{t("This image is local or has no valid remote URL. Open the sharing dialog, create a share link, then choose Embed code there. Publishing does not automatically connect this viewer to the shared image.")}
             </p>
           </div>
         )}
@@ -144,7 +169,7 @@ export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalPr
         {/* Configuration Options */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="bg-[#030d20] border border-cyan-500/20 rounded-2xl p-3.5 space-y-2">
-            <span className="text-[11px] font-bold text-cyan-200 block">Aspect Ratio</span>
+            <span className="text-[11px] font-bold text-cyan-200 block">{t("Aspect Ratio")}</span>
             <div className="flex gap-1.5">
               {(['16:9', '4:3', '100%'] as const).map((ratio) => (
                 <button
@@ -164,7 +189,7 @@ export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalPr
           </div>
 
           <div className="bg-[#030d20] border border-cyan-500/20 rounded-2xl p-3.5 flex flex-col justify-between">
-            <span className="text-[11px] font-bold text-cyan-200">Auto-Rotation</span>
+            <span className="text-[11px] font-bold text-cyan-200">{t("Auto-Rotation")}</span>
             <button
               type="button"
               onClick={() => setAutoRotate((prev) => !prev)}
@@ -174,13 +199,13 @@ export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalPr
                   : 'bg-[#020712] border-cyan-500/15 text-cyan-400/60 hover:text-white'
               }`}
             >
-              <span>{autoRotate ? 'Enabled' : 'Disabled'}</span>
+              <span>{autoRotate ? t("Enabled") : t("Disabled")}</span>
               <RotateCw className={`w-3.5 h-3.5 ${autoRotate ? 'animate-spin' : ''}`} style={{ animationDuration: '6s' }} />
             </button>
           </div>
 
           <div className="bg-[#030d20] border border-cyan-500/20 rounded-2xl p-3.5 flex flex-col justify-between">
-            <span className="text-[11px] font-bold text-cyan-200">Referral Badge</span>
+            <span className="text-[11px] font-bold text-cyan-200">{t("Referral Badge")}</span>
             <button
               type="button"
               onClick={() => setIncludeAttribution((prev) => !prev)}
@@ -190,17 +215,17 @@ export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalPr
                   : 'bg-[#020712] border-cyan-500/15 text-cyan-400/60 hover:text-white'
               }`}
             >
-              <span>{includeAttribution ? 'Included' : 'Hidden'}</span>
+              <span>{includeAttribution ? t("Included") : t("Hidden")}</span>
               <ShieldCheck className="w-3.5 h-3.5 text-teal-300" />
             </button>
           </div>
         </div>
 
         {/* Code Snippet Box */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-cyan-300/80">
-            <span className="font-mono">HTML Embed Snippet</span>
-            <span className="text-[11px] text-cyan-400/60">Works on WordPress, Notion, Shopify, Webflow</span>
+        {isRemoteUrl && <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-cyan-300/80">
+            <span className="font-mono">{t("HTML Embed Snippet")}</span>
+            <span className="text-[11px] text-cyan-400/60">{t("Works on WordPress, Notion, Shopify, Webflow")}</span>
           </div>
 
           <div className="relative">
@@ -208,40 +233,42 @@ export function EmbedModal({ isOpen, onClose, currentPanoramaUrl }: EmbedModalPr
               <code>{embedCode}</code>
             </pre>
           </div>
-        </div>
+          {copyError && <p role="alert" className="text-xs text-rose-300">{shareText('Copy failed. Select and copy the link above.').split(/[.,\u3002\uFF0C]/)[0]}. {t('HTML Embed Snippet')}</p>}
+        </div>}
 
         {/* Copy Action & Footer */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
           <div className="flex items-center gap-1.5 text-xs text-cyan-300/70">
             <Sparkles className="w-3.5 h-3.5 text-teal-400" />
-            <span>Zero dependencies &bull; Accelerated WebGL 2.0 &bull; Mobile Gyro Ready</span>
+            <span>{t("Zero dependencies • Accelerated WebGL 2.0 • Mobile Gyro Ready")}</span>
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <a
+            {isRemoteUrl && <a
               href={iframeSrc}
               target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-3 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 text-cyan-200 hover:text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <span>Test Preview</span>
+              <span>{t("Test Preview")}</span>
               <ExternalLink className="w-3.5 h-3.5" />
-            </a>
+            </a>}
 
             <button
               type="button"
+              disabled={!isRemoteUrl}
               onClick={handleCopy}
-              className="shimmer-btn flex-1 sm:flex-none px-6 py-3 bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-black text-xs rounded-2xl shadow-xl shadow-cyan-400/30 flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-all"
+              className="shimmer-btn flex-1 sm:flex-none px-6 py-3 bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-black text-xs rounded-2xl shadow-xl shadow-cyan-400/30 flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {isCopied ? (
                 <>
                   <Check className="w-4 h-4 stroke-[3]" />
-                  <span>Copied to Clipboard!</span>
+                  <span>{t("Copied to Clipboard!")}</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-4 h-4" />
-                  <span>Copy Embed Code</span>
+                  <span>{t("Copy Embed Code")}</span>
                 </>
               )}
             </button>

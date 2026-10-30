@@ -1,3 +1,5 @@
+import { useLanguage, useTranslation, withLanguageHref } from '../../utils/i18n';
+import { specialistMessages } from '../../utils/specialistTranslations';
 import { useState, useMemo } from 'react';
 import {
   Sparkles,
@@ -18,6 +20,8 @@ interface AiHdriGeneratorPageProps {
 }
 
 export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGeneratorPageProps) {
+  const t = useTranslation(specialistMessages);
+  const [lang] = useLanguage();
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const [exposureLevel, setExposureLevel] = useState<number>(1.2);
 
@@ -35,23 +39,23 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
   const faqs = [
     {
       q: 'What is an AI HDRI Generator and how does it work?',
-      a: 'An AI HDRI Generator transforms natural language text descriptions or concept images into 360° equirectangular High Dynamic Range (HDR) environment textures. It calculates a complete 360° horizontal by 180° vertical spherical wrap, balances dynamic range across highlights and shadows, and outputs a format ready for Image-Based Lighting (IBL) in 3D software.',
+      a: 'Generate a 2:1 environment image from text or reference images, then preview or export it. Radiance .HDR export wraps image values in RGBE format; it does not recover measured scene radiance from an ordinary image.',
     },
     {
       q: 'Can I export in Radiance .HDR or EXR format for Blender and Unreal Engine?',
-      a: 'Yes. 360 Panorama Viewer allows downloading the full 2:1 equirectangular map in high-resolution PNG as well as generating 32-bit floating point Radiance .HDR files and 6-sided cubemap slices formatted specifically for Blender World Shaders, Unreal Engine 5 Skylights, and Unity Skyboxes.',
+      a: 'PNG, Radiance .HDR and six-face PNG ZIP workflows are available. OpenEXR is not supported. PNG faces are display images, not an Unreal TextureCube asset; check engine format requirements before importing.',
     },
     {
       q: 'How does 360 Panorama Viewer solve the 360° boundary seam problem?',
-      a: 'Standard 2D AI models produce a jarring vertical line where the left and right edges meet (x=0 and x=W). 360 Panorama Viewer integrates a proprietary Poisson harmonic seam blending engine that calculates gradient continuity across the boundary, guaranteeing 100% seamless 360° rotation with zero seam artifacts.',
+      a: 'Seam blending smooths the left and right image boundaries. Inspect the full rotation after generation; visible artifacts can remain and results depend on the source image.',
     },
     {
       q: 'Is this suitable for realistic lighting and reflection probes in 3D scenes?',
-      a: 'Absolutely. Because the AI synthesizes physically grounded light sources (sun position, horizon gradients, ambient sky bounce), you can drop the generated HDRI directly into your 3D viewport to get accurate specular highlights, realistic shadow dropoffs, and authentic metallic reflections.',
+      a: 'Generated environments are useful for visual exploration. They are not calibrated lighting measurements. For physically accurate illumination, use a measured HDR source and verify exposure and orientation in your 3D software.',
     },
     {
       q: 'Is the AI HDRI Generator free to use?',
-      a: 'Yes! Every new user receives 4 complimentary trial credits upon onboarding to generate, inspect, and export HDRI maps. You can preview in real-time WebGL, slice into cubemaps, and download assets without requiring a credit card.',
+      a: 'Local viewing and PNG slicing are free. AI generation uses credits; any trial allowance depends on current availability and the account display.',
     },
     {
       q: 'How do I import the generated HDRI into Blender?',
@@ -63,11 +67,11 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
     <div className="space-y-16 pb-16">
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs text-cyan-400/70 pt-2">
-        <a href="/" className="hover:text-cyan-300 transition-colors">Home</a>
+        <a href={withLanguageHref("/", lang)} className="hover:text-cyan-300 transition-colors">{t("Home")}</a>
         <span>/</span>
-        <span className="text-cyan-300">Tools</span>
+        <span className="text-cyan-300">{t("Tools")}</span>
         <span>/</span>
-        <span className="text-white font-medium">AI HDRI Generator</span>
+        <span className="text-white font-medium">{t("AI HDRI Generator")}</span>
       </nav>
 
       {/* Hero Section */}
@@ -75,20 +79,14 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
         <div className="max-w-4xl space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-400/15 border border-cyan-400/40 text-cyan-300 text-xs font-semibold tracking-wide">
             <Sun className="w-3.5 h-3.5 text-amber-400" />
-            <span>32-BIT RADIANCE HDRI &bull; BLENDER &amp; UNREAL READY</span>
+            <span>{t("RADIANCE .HDR WORKFLOW • ENVIRONMENT PREVIEW")}</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
-            AI HDRI Generator:{' '}
-            <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-amber-300 bg-clip-text text-transparent">
-              Create 360° HDR Environments
-            </span>
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">{t("AI HDRI Generator:")}{' '}
+            <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-amber-300 bg-clip-text text-transparent">{t("Create 360° HDR Environments")}</span>
           </h1>
 
-          <p className="text-base sm:text-lg text-cyan-100/80 leading-relaxed max-w-3xl">
-            Generate photorealistic 360° high dynamic range lighting maps and panoramic skyboxes in seconds.
-            Equirectangular 2:1 textures with 4K clarity, harmonic seam healing, and direct 3D engine compatibility.
-          </p>
+          <p className="text-base sm:text-lg text-cyan-100/80 leading-relaxed max-w-3xl">{t("Generate 2:1 panoramic environment images from text or references. Preview the result, inspect the seam, and choose PNG, Radiance .HDR or six-face PNG exports for your workflow.")}</p>
 
           <div className="flex flex-wrap items-center gap-4 pt-2">
             <button
@@ -97,7 +95,7 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
               className="px-6 py-3.5 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 shadow-lg shadow-cyan-400/30 hover:shadow-cyan-400/60 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
             >
               <Sparkles className="w-4 h-4 fill-slate-950" />
-              <span>Generate Free HDRI Now</span>
+              <span>{t("Generate an Environment")}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
 
@@ -107,22 +105,22 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
               className="px-5 py-3.5 rounded-xl font-semibold text-sm bg-cyan-950/60 border border-cyan-500/40 text-cyan-200 hover:text-white hover:bg-cyan-900/60 transition-all cursor-pointer flex items-center gap-2"
             >
               <Box className="w-4 h-4 text-cyan-400" />
-              <span>Cubemap 6-Face Slicer</span>
+              <span>{t("Cubemap 6-Face Slicer")}</span>
             </button>
 
             <a
-              href="/hdri-viewer/"
+              href={withLanguageHref("/hdri-viewer/", lang)}
               className="px-5 py-3.5 rounded-xl font-semibold text-sm bg-cyan-950/60 border border-amber-500/40 text-amber-200 hover:text-white hover:bg-cyan-900/60 transition-all cursor-pointer flex items-center gap-2"
             >
               <Sun className="w-4 h-4 text-amber-400" />
-              <span>Open a .HDR File</span>
+              <span>{t("Open a .HDR File")}</span>
             </a>
           </div>
 
           <div className="flex flex-wrap items-center gap-6 pt-4 text-xs text-cyan-300/70 border-t border-cyan-500/15">
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-teal-400" />
-              <span>Zero Seam Discontinuity</span>
+              <span>{t("Seam Blending")}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-teal-400" />
@@ -130,7 +128,7 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
             </span>
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-teal-400" />
-              <span>Free 4-Credit Trial Onboarding</span>
+              <span>{t("AI Generation Uses Credits")}</span>
             </span>
           </div>
         </div>
@@ -140,15 +138,11 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-              Interactive 3D Viewport
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-white">
-              Inspect Dynamic Lighting &amp; 360° Reflections
-            </h2>
+            <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Interactive 3D Viewport")}</div>
+            <h2 className="text-xl sm:text-2xl font-bold text-white">{t("Inspect a 360° Environment Preview")}</h2>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-cyan-300/80">Simulated EV:</span>
+            <span className="text-xs text-cyan-300/80">{t("Simulated EV:")}</span>
             <div className="flex items-center gap-1 bg-[#051326] border border-cyan-500/30 rounded-lg p-1 text-xs">
               {[0.8, 1.2, 1.6].map((ev) => (
                 <button
@@ -178,7 +172,7 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
           </div>
           <div className="absolute top-4 left-4 pointer-events-none bg-slate-950/80 backdrop-blur-md border border-cyan-400/30 rounded-lg px-3 py-1.5 text-xs text-cyan-200 flex items-center gap-2">
             <Sun className="w-3.5 h-3.5 text-amber-400" />
-            <span>Sample: Golden Hour Sunset HDRI (Drag to rotate 360°)</span>
+            <span>{t("Sample: Golden Hour Sunset HDRI (Drag to rotate 360°)")}</span>
           </div>
         </div>
       </section>
@@ -186,12 +180,8 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
       {/* Core Advantages Grid */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Engineered For 3D Pipelines
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Why 3D Artists Choose Our HDRI Engine
-          </h2>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Engineered For 3D Pipelines")}</div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">{t("Why 3D Artists Choose Our HDRI Engine")}</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -199,40 +189,32 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
             <div className="p-2.5 rounded-xl bg-cyan-500/15 text-cyan-400 w-fit">
               <Sun className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">Physically Grounded IBL</h3>
-            <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Synthesizes realistic sun disk intensity and ambient horizon bounce for accurate specular highlights and soft contact shadows.
-            </p>
+            <h3 className="font-bold text-white text-base">{t("Environment Preview")}</h3>
+            <p className="text-xs text-cyan-200/70 leading-relaxed">{t("Explore environment appearance and reflections. Ordinary generated image values do not provide calibrated HDR lighting measurements.")}</p>
           </div>
 
           <div className="bg-[#05142b]/70 border border-cyan-500/20 rounded-2xl p-5 space-y-3 hover:border-cyan-400/40 transition-colors">
             <div className="p-2.5 rounded-xl bg-teal-500/15 text-teal-400 w-fit">
               <ShieldCheck className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">Zero Seam Discontinuity</h3>
-            <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Proprietary harmonic Poisson seam blending joins the 0° and 360° boundaries seamlessly with zero brightness steps.
-            </p>
+            <h3 className="font-bold text-white text-base">{t("Seam Blending")}</h3>
+            <p className="text-xs text-cyan-200/70 leading-relaxed">{t("Boundary blending reduces visible transitions between the left and right edges. Inspect the result for remaining artifacts.")}</p>
           </div>
 
           <div className="bg-[#05142b]/70 border border-cyan-500/20 rounded-2xl p-5 space-y-3 hover:border-cyan-400/40 transition-colors">
             <div className="p-2.5 rounded-xl bg-blue-500/15 text-blue-400 w-fit">
               <Zap className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">4K Ultra-Clarity</h3>
-            <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Super-resolution detailing reconstructs distant mountain ridges, cloud turbulence, and architectural geometry.
-            </p>
+            <h3 className="font-bold text-white text-base">{t("4K Ultra-Clarity")}</h3>
+            <p className="text-xs text-cyan-200/70 leading-relaxed">{t("Choose a suitable output size and inspect fine detail. Upscaling does not recover information missing from the source.")}</p>
           </div>
 
           <div className="bg-[#05142b]/70 border border-cyan-500/20 rounded-2xl p-5 space-y-3 hover:border-cyan-400/40 transition-colors">
             <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-400 w-fit">
               <Box className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">One-Click Cubemap Export</h3>
-            <p className="text-xs text-cyan-200/70 leading-relaxed">
-              Convert the spherical map directly into 6 rectilinear cube faces (+X, -X, +Y, -Y, +Z, -Z) ready for Unity skybox shaders.
-            </p>
+            <h3 className="font-bold text-white text-base">{t("One-Click Cubemap Export")}</h3>
+            <p className="text-xs text-cyan-200/70 leading-relaxed">{t("Convert the spherical map directly into 6 rectilinear cube faces (+X, -X, +Y, -Y, +Z, -Z) ready for Unity skybox shaders.")}</p>
           </div>
         </div>
       </section>
@@ -240,12 +222,8 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
       {/* How It Works (Step by Step Schema) */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Simple 4-Step Workflow
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">
-            How to Generate an AI HDRI in 30 Seconds
-          </h2>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Simple 4-Step Workflow")}</div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">{t("How to Generate an Environment Image")}</h2>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -258,7 +236,7 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
             {
               step: '02',
               title: 'Harmonic Synthesis',
-              desc: 'The AI constructs a 2:1 spherical projection while running automated boundary gradient matching to eliminate vertical seams.',
+              desc: 'Generate a 2:1 panorama and apply boundary blending. Check the result before using it in a project.',
             },
             {
               step: '03',
@@ -278,8 +256,8 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
               <div className="text-3xl font-black font-mono text-cyan-500/20 group-hover:text-cyan-400/30 transition-colors mb-2">
                 {item.step}
               </div>
-              <h3 className="text-base font-bold text-white mb-2">{item.title}</h3>
-              <p className="text-xs text-cyan-200/70 leading-relaxed">{item.desc}</p>
+              <h3 className="text-base font-bold text-white mb-2">{t(item.title)}</h3>
+              <p className="text-xs text-cyan-200/70 leading-relaxed">{t(item.desc)}</p>
             </div>
           ))}
         </div>
@@ -288,54 +266,50 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
       {/* Comparison Table vs Physical Rig vs Stock Libraries */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Benchmark Analysis
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">
-            AI HDRI Generator vs Traditional Workflows
-          </h2>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Benchmark Analysis")}</div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">{t("AI HDRI Generator vs Traditional Workflows")}</h2>
         </div>
 
         <div className="overflow-x-auto rounded-2xl border border-cyan-500/25 bg-[#030e20]">
           <table className="w-full text-left text-xs">
             <thead className="bg-[#051733] text-cyan-200 border-b border-cyan-500/30 font-semibold uppercase tracking-wider">
               <tr>
-                <th className="py-4 px-5">Workflow Metric</th>
-                <th className="py-4 px-5 text-cyan-400">360 Panorama Viewer</th>
-                <th className="py-4 px-5 text-slate-400">Physical Mirror Ball Rig</th>
-                <th className="py-4 px-5 text-slate-400">Stock 3D Libraries</th>
+                <th className="py-4 px-5">{t("Workflow Metric")}</th>
+                <th className="py-4 px-5 text-cyan-400">{t("360 Panorama Viewer")}</th>
+                <th className="py-4 px-5 text-slate-400">{t("Physical Mirror Ball Rig")}</th>
+                <th className="py-4 px-5 text-slate-400">{t("Stock 3D Libraries")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cyan-500/15 text-cyan-100/90">
               <tr>
-                <td className="py-3.5 px-5 font-semibold text-white">Turnaround Time</td>
-                <td className="py-3.5 px-5 text-teal-400 font-bold">15 - 30 seconds</td>
-                <td className="py-3.5 px-5 text-slate-400">2 - 5 hours shoot &amp; stitch</td>
-                <td className="py-3.5 px-5 text-slate-400">1 - 2 hours searching catalogs</td>
+                <td className="py-3.5 px-5 font-semibold text-white">{t("Turnaround Time")}</td>
+                <td className="py-3.5 px-5 text-teal-400 font-bold">{t("Depends on generation service")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("2 - 5 hours shoot & stitch")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("1 - 2 hours searching catalogs")}</td>
               </tr>
               <tr>
-                <td className="py-3.5 px-5 font-semibold text-white">Equipment Cost</td>
-                <td className="py-3.5 px-5 text-teal-400 font-bold">$0 (Web Browser)</td>
-                <td className="py-3.5 px-5 text-slate-400">$1,500 - $3,500 DSLR/Bracket</td>
-                <td className="py-3.5 px-5 text-slate-400">$20 - $50 per single asset</td>
+                <td className="py-3.5 px-5 font-semibold text-white">{t("Equipment Cost")}</td>
+                <td className="py-3.5 px-5 text-teal-400 font-bold">{t("$0 (Web Browser)")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("$1,500 - $3,500 DSLR/Bracket")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("$20 - $50 per single asset")}</td>
               </tr>
               <tr>
-                <td className="py-3.5 px-5 font-semibold text-white">Art Direction Freedom</td>
-                <td className="py-3.5 px-5 text-teal-400 font-bold">Infinite via Text Prompts</td>
-                <td className="py-3.5 px-5 text-slate-400">Constrained to real physical spots</td>
-                <td className="py-3.5 px-5 text-slate-400">Fixed static presets only</td>
+                <td className="py-3.5 px-5 font-semibold text-white">{t("Art Direction Freedom")}</td>
+                <td className="py-3.5 px-5 text-teal-400 font-bold">{t("Customizable with prompts")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("Constrained to real physical spots")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("Fixed static presets only")}</td>
               </tr>
               <tr>
-                <td className="py-3.5 px-5 font-semibold text-white">Seam Blending</td>
-                <td className="py-3.5 px-5 text-teal-400 font-bold">Automated Poisson gradient</td>
-                <td className="py-3.5 px-5 text-slate-400">Manual PTGui masking</td>
-                <td className="py-3.5 px-5 text-slate-400">Pre-stitched (unalterable)</td>
+                <td className="py-3.5 px-5 font-semibold text-white">{t("Seam Blending")}</td>
+                <td className="py-3.5 px-5 text-teal-400 font-bold">{t("Automated Poisson gradient")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("Manual PTGui masking")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("Pre-stitched (unalterable)")}</td>
               </tr>
               <tr>
-                <td className="py-3.5 px-5 font-semibold text-white">Engine Export</td>
-                <td className="py-3.5 px-5 text-teal-400 font-bold">Equirectangular + 6-Face Cubemap</td>
-                <td className="py-3.5 px-5 text-slate-400">Equirectangular only</td>
-                <td className="py-3.5 px-5 text-slate-400">Format varies</td>
+                <td className="py-3.5 px-5 font-semibold text-white">{t("Engine Export")}</td>
+                <td className="py-3.5 px-5 text-teal-400 font-bold">{t("Equirectangular + 6-Face Cubemap")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("Equirectangular only")}</td>
+                <td className="py-3.5 px-5 text-slate-400">{t("Format varies")}</td>
               </tr>
             </tbody>
           </table>
@@ -346,8 +320,8 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
       <section className="rounded-2xl border border-cyan-500/25 bg-[#031124] p-6 sm:p-8 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold text-white">Quick Integration: Blender World Shader</h3>
-            <p className="text-xs text-cyan-200/70">Connect the equirectangular map to light your scene with one click.</p>
+            <h3 className="text-lg font-bold text-white">{t("Quick Integration: Blender World Shader")}</h3>
+            <p className="text-xs text-cyan-200/70">{t("Connect the equirectangular map to light your scene with one click.")}</p>
           </div>
           <span className="text-[10px] font-mono px-2 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
             Blender 3.x / 4.x
@@ -367,12 +341,8 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
       {/* FAQ Accordion Section */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-            Frequently Asked Questions
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Everything You Need to Know About AI HDRI
-          </h2>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">{t("Frequently Asked Questions")}</div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">{t("Everything You Need to Know About AI HDRI")}</h2>
         </div>
 
         <div className="max-w-3xl mx-auto space-y-3">
@@ -388,7 +358,7 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
                   onClick={() => setActiveFaq(isOpen ? null : idx)}
                   className="w-full py-4 px-5 text-left flex items-center justify-between gap-4 font-semibold text-sm text-white hover:text-cyan-300 cursor-pointer transition-colors"
                 >
-                  <span>{faq.q}</span>
+                  <span>{t(faq.q)}</span>
                   <ChevronDown
                     className={`w-4 h-4 text-cyan-400 shrink-0 transition-transform duration-200 ${
                       isOpen ? 'rotate-180' : ''
@@ -397,7 +367,7 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
                 </button>
                 {isOpen && (
                   <div className="px-5 pb-4 text-xs text-cyan-100/80 leading-relaxed border-t border-cyan-500/15 pt-3">
-                    {faq.a}
+                    {t(faq.a)}
                   </div>
                 )}
               </div>
@@ -408,12 +378,8 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
 
       {/* Final Action Callout */}
       <section className="rounded-3xl border border-cyan-400/40 bg-gradient-to-r from-[#031d42] via-[#042858] to-[#011430] p-8 sm:p-12 text-center space-y-6 shadow-2xl">
-        <h2 className="text-2xl sm:text-4xl font-black text-white">
-          Ready to Generate Your Custom 3D HDRI?
-        </h2>
-        <p className="text-sm sm:text-base text-cyan-100/80 max-w-xl mx-auto">
-          Start with 4 free trial credits. Generate seamless 360° environments and export ready-to-use textures for your next 3D project.
-        </p>
+        <h2 className="text-2xl sm:text-4xl font-black text-white">{t("Ready to Generate Your Custom 3D HDRI?")}</h2>
+        <p className="text-sm sm:text-base text-cyan-100/80 max-w-xl mx-auto">{t("Generate 360° environments for your next project. AI generation uses credits; check the account display for any available trial.")}</p>
         <div>
           <button
             type="button"
@@ -421,7 +387,7 @@ export function AiHdriGeneratorPage({ onLaunchStudio, onOpenCubemap }: AiHdriGen
             className="px-8 py-4 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-400 to-teal-400 text-slate-950 shadow-xl shadow-cyan-400/40 hover:scale-105 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
           >
             <Sparkles className="w-4 h-4 fill-slate-950" />
-            <span>Launch HDRI Studio Free</span>
+            <span>{t("Open HDRI Studio")}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

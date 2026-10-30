@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useCallback, memo } from 'react';
 import * as THREE from 'three';
+import { useTranslation } from '../utils/i18n';
+import { viewerTranslations } from '../utils/viewerTranslations';
 import {
   Camera,
   Eye,
@@ -34,6 +36,7 @@ interface SphereViewerProps {
   hotspots?: PanoramaHotspot[];
   onAddHotspot?: (hotspot: PanoramaHotspot) => void;
   onRemoveHotspot?: (id: string) => void;
+  onTextureError?: (url: string) => void;
 }
 
 export const SphereViewer = memo(function SphereViewer({
@@ -46,8 +49,12 @@ export const SphereViewer = memo(function SphereViewer({
   hotspots = [],
   onAddHotspot,
   onRemoveHotspot,
+  onTextureError,
 }: SphereViewerProps) {
+  const t = useTranslation(viewerTranslations);
   const containerRef = useRef<HTMLDivElement>(null);
+  const onTextureErrorRef = useRef(onTextureError);
+  useEffect(() => { onTextureErrorRef.current = onTextureError; }, [onTextureError]);
   const isPointerOverRef = useRef(false);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -178,7 +185,7 @@ export const SphereViewer = memo(function SphereViewer({
         if (response === 'granted') {
           setIsGyroActive(true);
         } else {
-          alert('Please allow motion sensor access in your mobile browser');
+          alert(t('Please allow motion sensor access in your mobile browser'));
         }
       } catch {
         // Fallback
@@ -243,7 +250,10 @@ export const SphereViewer = memo(function SphereViewer({
     rendererRef.current = renderer;
 
     const textureLoader = new THREE.TextureLoader();
-    const texture = textureLoader.load(textureUrl);
+    let disposed = false;
+    const texture = textureLoader.load(textureUrl, undefined, undefined, () => {
+      if (!disposed) onTextureErrorRef.current?.(textureUrl);
+    });
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.ClampToEdgeWrapping;
@@ -342,7 +352,7 @@ export const SphereViewer = memo(function SphereViewer({
       const curWidth = container.clientWidth || 800;
       const curHeight = container.clientHeight || 500;
 
-      // Real-time Minimap & Heading updates (Benchmarked from panoramagenerator.com)
+      // Real-time Minimap & Heading updates
       const normLon = ((currentLonRef.current % 360) + 360) % 360;
       const CARDINALS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
       const cardIdx = Math.round(normLon / 45) % 8;
@@ -490,6 +500,7 @@ export const SphereViewer = memo(function SphereViewer({
     resizeObserver.observe(container);
 
     return () => {
+      disposed = true;
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
       resizeObserver.disconnect();
       if (renderer.domElement && container.contains(renderer.domElement)) {
@@ -726,7 +737,7 @@ export const SphereViewer = memo(function SphereViewer({
       id: `spot_${Date.now()}`,
       lon: pendingHotspotCoords.lon,
       lat: pendingHotspotCoords.lat,
-      title: newHotspotTitle || 'Tour Hotspot',
+      title: newHotspotTitle || t('Tour Hotspot'),
       description: newHotspotDesc,
     });
 
@@ -758,14 +769,14 @@ export const SphereViewer = memo(function SphereViewer({
           <div className="w-1/2 border-r border-slate-700/60" />
           <div className="w-1/2" />
           <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-slate-900/90 text-[10px] px-3 py-1 rounded-full text-cyan-300 border border-slate-700">
-            VR Cardboard Stereoscopic Split-Screen
+            {t("VR Cardboard Stereoscopic Split-Screen")}
           </div>
         </div>
       )}
 
       {activeMode === 'vr-cardboard' && onAddHotspot && (
         <div className="absolute top-14 left-1/2 -translate-x-1/2 z-20 rounded-lg bg-slate-900/90 px-3 py-1 text-[10px] text-slate-300 pointer-events-none">
-          Hotspots are unavailable in VR split-screen mode.
+          {t("Hotspots are unavailable in VR split-screen mode.")}
         </div>
       )}
 
@@ -773,10 +784,11 @@ export const SphereViewer = memo(function SphereViewer({
       {hotspotsAvailable && isAddingHotspotMode && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 px-4 py-2 bg-gradient-to-r from-cyan-400 to-teal-300 text-slate-950 font-bold border border-cyan-200 rounded-xl shadow-2xl text-xs flex items-center gap-2 animate-bounce">
           <MapPin className="w-4 h-4 text-slate-950" />
-          <span>Rotate view & click canvas to place spatial hotspot</span>
+          <span>{t("Rotate view & click canvas to place spatial hotspot")}</span>
           <button
             type="button"
             onClick={() => setIsAddingHotspotMode(false)}
+                aria-label={t('Cancel hotspot placement')}
             className="p-1 hover:bg-black/10 rounded-lg ml-1"
           >
             <X className="w-3.5 h-3.5" />
@@ -794,10 +806,10 @@ export const SphereViewer = memo(function SphereViewer({
               ? 'bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 font-bold shadow-sm shadow-cyan-500/30'
               : 'text-slate-400 hover:text-slate-200'
           }`}
-          title="360° Spherical Panoramic Mode"
+          title={t("360° Spherical Panoramic Mode")}
         >
           <Globe2 className="w-3.5 h-3.5" />
-          <span>360° Sphere</span>
+          <span>{t("360° Sphere")}</span>
         </button>
 
         <button
@@ -808,10 +820,10 @@ export const SphereViewer = memo(function SphereViewer({
               ? 'bg-cyan-600 text-white shadow-sm'
               : 'text-slate-400 hover:text-slate-200'
           }`}
-          title="180° IMAX Curved Screen Mode"
+          title={t("180° IMAX Curved Screen Mode")}
         >
           <Tv className="w-3.5 h-3.5" />
-          <span>180° Curved</span>
+          <span>{t("180° Curved")}</span>
         </button>
 
         <button
@@ -822,10 +834,10 @@ export const SphereViewer = memo(function SphereViewer({
               ? 'bg-teal-400 text-slate-950 font-bold shadow-sm shadow-teal-400/30'
               : 'text-slate-400 hover:text-slate-200'
           }`}
-          title="Little Planet Stereographic Fisheye"
+          title={t("Little Planet Stereographic Fisheye")}
         >
           <Eye className="w-3.5 h-3.5" />
-          <span>Little Planet</span>
+          <span>{t("Little Planet")}</span>
         </button>
 
         <button
@@ -836,10 +848,10 @@ export const SphereViewer = memo(function SphereViewer({
               ? 'bg-pink-600 text-white shadow-sm'
               : 'text-slate-400 hover:text-slate-200'
           }`}
-          title="VR Stereoscopic Cardboard Mode"
+          title={t("VR Stereoscopic Cardboard Mode")}
         >
           <Glasses className="w-3.5 h-3.5" />
-          <span>VR Split</span>
+          <span>{t("VR Split")}</span>
         </button>
       </div>
 
@@ -854,7 +866,7 @@ export const SphereViewer = memo(function SphereViewer({
                 ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 animate-pulse'
                 : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-white'
             }`}
-            title={isGyroActive ? 'Disable mobile gyroscope tracking' : 'Enable mobile gyroscope orientation'}
+            title={t(isGyroActive ? 'Disable mobile gyroscope tracking' : 'Enable mobile gyroscope orientation')}
           >
             <Smartphone className="w-4 h-4" />
           </button>
@@ -870,7 +882,7 @@ export const SphereViewer = memo(function SphereViewer({
                 ? 'bg-cyan-500 border-cyan-400 text-slate-950 font-bold'
                 : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-white'
             }`}
-            title={hotspotsAvailable ? 'Add spatial tour hotspot to 360° scene' : 'Hotspots are unavailable in VR split-screen and little-planet modes'}
+            title={t(hotspotsAvailable ? 'Add spatial tour hotspot to 360° scene' : 'Hotspots are unavailable in VR split-screen and little-planet modes')}
           >
             <MapPin className="w-4 h-4" />
           </button>
@@ -880,7 +892,7 @@ export const SphereViewer = memo(function SphereViewer({
           type="button"
           onClick={resetOrientation}
           className="p-2 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-xl text-slate-300 hover:text-white transition-colors cursor-pointer"
-          title="Reset view to front-facing center"
+          title={t("Reset view to front-facing center")}
         >
           <Compass className="w-4 h-4 text-cyan-400" />
         </button>
@@ -924,12 +936,13 @@ export const SphereViewer = memo(function SphereViewer({
             <button
               type="button"
               onClick={() => setActiveHotspot(null)}
+                aria-label={t('Close hotspot details')}
               className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
-          <p className="text-slate-300 leading-relaxed text-[11px]">{activeHotspot.description || 'No detailed description provided'}</p>
+          <p className="text-slate-300 leading-relaxed text-[11px]">{activeHotspot.description || t('No detailed description provided')}</p>
           {onRemoveHotspot && (
             <div className="flex justify-end pt-1">
               <button
@@ -940,7 +953,7 @@ export const SphereViewer = memo(function SphereViewer({
                 }}
                 className="text-[10px] text-red-400 hover:text-red-300 cursor-pointer"
               >
-                Delete Hotspot
+                {t("Delete Hotspot")}
               </button>
             </div>
           )}
@@ -957,11 +970,12 @@ export const SphereViewer = memo(function SphereViewer({
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <span className="font-semibold text-white flex items-center gap-1.5">
                 <MapPin className="w-4 h-4 text-cyan-400" />
-                New 360° Tour Hotspot
+                {t("New 360° Tour Hotspot")}
               </span>
               <button
                 type="button"
                 onClick={() => setPendingHotspotCoords(null)}
+                aria-label={t('Close hotspot form')}
                 className="text-slate-400 hover:text-white cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -969,24 +983,26 @@ export const SphereViewer = memo(function SphereViewer({
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1">Hotspot Title</label>
+              <label className="block text-slate-400 mb-1">{t("Hotspot Title")}</label>
               <input
                 type="text"
                 required
                 value={newHotspotTitle}
+                aria-label={t('Hotspot Title')}
                 onChange={(e) => setNewHotspotTitle(e.target.value)}
-                placeholder="e.g. Master Bedroom, Terrace View, Grand Lobby..."
+                placeholder={t("e.g. Master Bedroom, Terrace View, Grand Lobby...")}
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
               />
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1">Detailed Description</label>
+              <label className="block text-slate-400 mb-1">{t("Detailed Description")}</label>
               <textarea
                 rows={3}
                 value={newHotspotDesc}
+                aria-label={t('Detailed Description')}
                 onChange={(e) => setNewHotspotDesc(e.target.value)}
-                placeholder="Enter scene overview, spatial guide, or interactive notes..."
+                placeholder={t("Enter scene overview, spatial guide, or interactive notes...")}
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white resize-none"
               />
             </div>
@@ -997,20 +1013,20 @@ export const SphereViewer = memo(function SphereViewer({
                 onClick={() => setPendingHotspotCoords(null)}
                 className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg cursor-pointer"
               >
-                Cancel
+                {t("Cancel")}
               </button>
               <button
                 type="submit"
                 className="px-4 py-1.5 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-bold rounded-lg cursor-pointer shadow-lg shadow-cyan-500/20"
               >
-                Confirm & Add
+                {t("Confirm & Add")}
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* 2:1 Minimap & Heading Radar Overview (Benchmarked from panoramagenerator.com) */}
+      {/* 2:1 Minimap & Heading Radar Overview */}
       {showMinimap && activeMode !== 'little-planet' && activeMode !== 'vr-cardboard' && (
         <div
           data-testid="viewer-minimap"
@@ -1021,7 +1037,7 @@ export const SphereViewer = memo(function SphereViewer({
           <div className="flex items-center justify-between px-2.5 pt-2 font-mono text-[9px] uppercase tracking-wider text-slate-300">
             <span className="flex items-center gap-1 font-semibold text-slate-400">
               <Compass className="w-3 h-3 text-cyan-400" />
-              <span>Spatial Radar</span>
+              <span>{t("Spatial Radar")}</span>
             </span>
             <span ref={minimapHeadingRef} className="text-cyan-300 font-bold">
               N · 0°
@@ -1032,11 +1048,11 @@ export const SphereViewer = memo(function SphereViewer({
           <div
             onClick={handleMinimapClick}
             className="relative mx-2 mb-2 mt-1.5 aspect-[2/1] overflow-hidden rounded-lg cursor-crosshair border border-slate-700/80 bg-slate-950 group/minimap"
-            title="Click minimap to orient viewpoint heading"
+            title={t("Click minimap to orient viewpoint heading")}
           >
             <img
               src={textureUrl}
-              alt="Panorama radar minimap"
+              alt={t("Panorama radar minimap")}
               className="h-full w-full object-cover opacity-85 group-hover/minimap:opacity-100 transition-opacity"
             />
             {/* Viewport Frustum Wireframe Boxes (Supports 360 boundary wrapping) */}
@@ -1054,14 +1070,14 @@ export const SphereViewer = memo(function SphereViewer({
 
       {/* Main Floating Controls Bar */}
       {showControlsBar && (
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-1 px-3.5 py-1.5 glass-dock rounded-full shadow-[0_16px_40px_rgba(0,0,0,0.7)] z-20 text-xs text-slate-200">
+        <div className="viewer-controls absolute bottom-5 left-1/2 -translate-x-1/2 flex flex-wrap justify-center items-center w-max max-w-[calc(100%_-_2rem)] gap-1 px-2 sm:px-3.5 py-1.5 glass-dock rounded-2xl sm:rounded-full shadow-[0_16px_40px_rgba(0,0,0,0.7)] z-20 text-xs text-slate-200">
           <button
             type="button"
             onClick={() => setIsAutoRotating((prev) => !prev)}
             className={`p-2 rounded-full transition-all cursor-pointer ${
               isAutoRotating ? 'bg-gradient-to-r from-cyan-400 to-teal-300 text-slate-950 font-bold shadow-md shadow-cyan-500/40' : 'hover:bg-white/10 text-slate-300'
             }`}
-            title={isAutoRotating ? 'Pause auto-rotation (Spacebar)' : 'Start auto-rotation (Spacebar)'}
+            title={t(isAutoRotating ? 'Pause auto-rotation (Spacebar)' : 'Start auto-rotation (Spacebar)')}
           >
             {isAutoRotating ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
           </button>
@@ -1072,10 +1088,10 @@ export const SphereViewer = memo(function SphereViewer({
           <button
             type="button"
             onClick={() => setShowMinimap((p) => !p)}
-            className={`p-2 rounded-full transition-all cursor-pointer ${
+            className={`hidden sm:block p-2 rounded-full transition-all cursor-pointer ${
               showMinimap ? 'text-cyan-300 bg-cyan-500/20' : 'text-slate-400 hover:bg-white/10'
             }`}
-            title={showMinimap ? 'Hide radar minimap' : 'Show radar minimap'}
+            title={t(showMinimap ? 'Hide radar minimap' : 'Show radar minimap')}
           >
             <Compass className="w-3.5 h-3.5" />
           </button>
@@ -1086,7 +1102,7 @@ export const SphereViewer = memo(function SphereViewer({
               targetFovRef.current = Math.max(35, targetFovRef.current - 10);
             }}
             className="p-2 hover:bg-white/10 rounded-full text-slate-300 hover:text-white transition-colors cursor-pointer"
-            title="Zoom in (Narrow FOV)"
+            title={t("Zoom in (Narrow FOV)")}
           >
             <ZoomIn className="w-3.5 h-3.5" />
           </button>
@@ -1097,7 +1113,7 @@ export const SphereViewer = memo(function SphereViewer({
               targetFovRef.current = Math.min(100, targetFovRef.current + 10);
             }}
             className="p-2 hover:bg-white/10 rounded-full text-slate-300 hover:text-white transition-colors cursor-pointer"
-            title="Zoom out (Widen FOV)"
+            title={t("Zoom out (Widen FOV)")}
           >
             <ZoomOut className="w-3.5 h-3.5" />
           </button>
@@ -1111,10 +1127,11 @@ export const SphereViewer = memo(function SphereViewer({
             className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
               showSettingsDrawer ? 'bg-cyan-400 text-slate-950 font-bold shadow-md shadow-cyan-500/30' : 'hover:bg-white/10 text-slate-300'
             }`}
-            title="Tone adjustments, exposure & ambient audio"
+            title={t("Tone adjustments, exposure & ambient audio")}
+            aria-label={t("Tone & Audio")}
           >
             <Sliders className="w-3.5 h-3.5" />
-            <span>Tone & Audio</span>
+            <span className="hidden sm:inline">{t("Tone & Audio")}</span>
           </button>
 
           <div className="w-[1px] h-4 bg-white/15 mx-1" />
@@ -1123,7 +1140,7 @@ export const SphereViewer = memo(function SphereViewer({
             type="button"
             onClick={handleTakeSnapshot}
             className="p-2 hover:bg-white/10 rounded-full text-slate-300 hover:text-white transition-colors cursor-pointer"
-            title="Capture high-resolution viewport snapshot (PNG)"
+            title={t("Capture high-resolution viewport snapshot (PNG)")}
           >
             <Camera className="w-3.5 h-3.5" />
           </button>
@@ -1132,7 +1149,7 @@ export const SphereViewer = memo(function SphereViewer({
             type="button"
             onClick={handleToggleFullscreen}
             className="p-2 hover:bg-white/10 rounded-full text-slate-300 hover:text-white transition-colors cursor-pointer"
-            title="Toggle fullscreen immersive viewport"
+            title={t("Toggle fullscreen immersive viewport")}
           >
             {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
           </button>
@@ -1145,11 +1162,12 @@ export const SphereViewer = memo(function SphereViewer({
           <div className="flex items-center justify-between pb-2.5 border-b border-white/[0.08]">
             <span className="font-bold text-white flex items-center gap-2">
               <Sliders className="w-4 h-4 text-cyan-400" />
-              Tone & Ambient Audio
+              {t("Tone & Ambient Audio")}
             </span>
             <button
               type="button"
               onClick={() => setShowSettingsDrawer(false)}
+                aria-label={t('Close tone and audio settings')}
               className="w-6 h-6 rounded-full bg-white/[0.05] hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center text-xs cursor-pointer transition-colors"
             >
               ✕
@@ -1161,7 +1179,7 @@ export const SphereViewer = memo(function SphereViewer({
             <div className="flex items-center justify-between text-[11px] text-slate-400">
               <span className="flex items-center gap-1">
                 <Sun className="w-3.5 h-3.5 text-amber-400" />
-                ACES Exposure
+                {t("ACES Exposure")}
               </span>
               <span className="font-mono text-slate-300">{exposure.toFixed(2)}x</span>
             </div>
@@ -1171,6 +1189,7 @@ export const SphereViewer = memo(function SphereViewer({
               max="1.8"
               step="0.05"
               value={exposure}
+                aria-label={t('ACES Exposure')}
               onChange={(e) => setExposure(parseFloat(e.target.value))}
               className="w-full accent-cyan-400 cursor-pointer"
             />
@@ -1179,7 +1198,7 @@ export const SphereViewer = memo(function SphereViewer({
           {/* Contrast Slider */}
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[11px] text-slate-400">
-              <span>Contrast</span>
+              <span>{t("Contrast")}</span>
               <span className="font-mono text-slate-300">{contrast}%</span>
             </div>
             <input
@@ -1188,6 +1207,7 @@ export const SphereViewer = memo(function SphereViewer({
               max="150"
               step="2"
               value={contrast}
+                aria-label={t('Contrast')}
               onChange={(e) => setContrast(parseInt(e.target.value, 10))}
               className="w-full accent-cyan-400 cursor-pointer"
             />
@@ -1196,7 +1216,7 @@ export const SphereViewer = memo(function SphereViewer({
           {/* Saturation Slider */}
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[11px] text-slate-400">
-              <span>Saturation</span>
+              <span>{t("Saturation")}</span>
               <span className="font-mono text-slate-300">{saturation}%</span>
             </div>
             <input
@@ -1205,6 +1225,7 @@ export const SphereViewer = memo(function SphereViewer({
               max="160"
               step="5"
               value={saturation}
+                aria-label={t('Saturation')}
               onChange={(e) => setSaturation(parseInt(e.target.value, 10))}
               className="w-full accent-cyan-400 cursor-pointer"
             />
@@ -1219,14 +1240,14 @@ export const SphereViewer = memo(function SphereViewer({
                 ) : (
                   <Volume2 className="w-3.5 h-3.5 text-pink-400" />
                 )}
-                Spatial Ambient Audio (Web Audio)
+                {t("Spatial Ambient Audio (Web Audio)")}
               </span>
               <button
                 type="button"
                 onClick={() => setIsMuted((p) => !p)}
                 className="text-[10px] text-slate-400 hover:text-slate-200 cursor-pointer underline"
               >
-                {isMuted ? 'Unmute' : 'Mute'}
+                {t(isMuted ? 'Unmute' : 'Mute')}
               </button>
             </div>
 
@@ -1251,7 +1272,7 @@ export const SphereViewer = memo(function SphereViewer({
                       : 'bg-slate-950/60 border border-slate-800 text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  {sound.label}
+                  {t(sound.label)}
                 </button>
               ))}
             </div>

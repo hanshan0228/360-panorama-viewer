@@ -9,7 +9,7 @@ const args = process.argv.slice(2);
 const source = args[args.indexOf('--source') + 1];
 const originArg = args[args.indexOf('--origin') + 1];
 if (!args.includes('--source') || !source || source.startsWith('--')) throw new Error('Specify --source /absolute/path/to/credentials.env');
-const origin = new URL(args.includes('--origin') ? originArg : 'https://panorama-generator.pages.dev').origin;
+const origin = new URL(args.includes('--origin') ? originArg : 'https://360panoramaviewer.com').origin;
 if (!origin.startsWith('https://')) throw new Error('A public HTTPS origin is required for PayPal webhooks');
 const root = fileURLToPath(new URL('../', import.meta.url));
 const target = path.join(root, '.env.paypal.local');

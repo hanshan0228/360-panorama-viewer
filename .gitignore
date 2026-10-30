@@ -34,3 +34,7 @@ output
 *.sw?
 __pycache__/
 *.pyc
+
+# Test & CLI logs
+.playwright-cli
+docs/

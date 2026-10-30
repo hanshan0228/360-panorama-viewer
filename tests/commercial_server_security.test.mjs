@@ -1,3 +1,4 @@
+import { emailTestEnv, challengeToken, emailServicesFixture } from './email_services_fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -27,7 +28,8 @@ async function withServer(t, opts = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'panorama-security-'));
   const file = path.join(dir, 'store.json');
   writeStore(fixture(), file);
-  const server = createCommercialServer({ storeFile: file, env: { STRIPE_WEBHOOK_SECRET: secret, PAYMENT_MODE: 'sandbox' }, ...opts });
+  const emailServices = emailServicesFixture(opts.fetch);
+  const server = createCommercialServer({ ...opts, storeFile: file, env: { ...emailTestEnv, STRIPE_WEBHOOK_SECRET: secret, PAYMENT_MODE: 'sandbox', ...opts.env }, fetch: emailServices.fetch });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   t.after(async () => {
     await new Promise((resolve) => server.close(resolve));
@@ -35,9 +37,9 @@ async function withServer(t, opts = {}) {
   });
   const base = `http://127.0.0.1:${server.address().port}`;
   const post = (url, data, headers = {}) => fetch(base + url, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(data) });
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(url === '/api/user/auth' ? { birthDate: '1990-01-01', turnstileToken: challengeToken(), ...data } : data) });
   const webhook = (data) => post('/api/stripe/webhook', data, { 'Stripe-Signature': sign(JSON.stringify(data)) });
-  return { file, base, post, webhook, dir };
+  return { file, base, post, webhook, dir, emailServices };
 }
 
 test('password validation and legacy PBKDF2 compatibility', () => {
@@ -124,7 +126,8 @@ test('user auth registers new users, issues session tokens, and returns user pro
   assert.equal(authRes.status, 200);
   const { user, token } = await authRes.json();
   assert.equal(user.email, 'creator@studio360.io');
-  assert.equal(user.creditsBalance, 4);
+  assert.equal(user.creditsBalance, 0);
+  assert.equal(user.emailVerified, false);
   assert.ok(token);
 
   // 3. Fetch profile with token via /api/user/me
@@ -214,22 +217,23 @@ test('admin endpoints persist credit adjustments, status, user creation, billing
 });
 
 test('server-authoritative credit deduction and prevention of unauthorized claims', async (t) => {
-  const { post } = await withServer(t);
+  const { post, emailServices } = await withServer(t);
 
   // 1. Register a user with password
   const reg = await post('/api/user/auth', { email: 'user@example.com', name: 'User', password: 'password123' });
   assert.equal(reg.status, 200);
   const { _user, token } = await reg.json();
+  assert.equal((await post('/api/user/verify-email', { token: emailServices.latestToken('user@example.com') })).status, 200);
   const authHeaders = { Authorization: `Bearer ${token}` };
 
   // 2. Deduct credits server-side
   const deductRes = await post('/api/user/deduct-credits', { credits: 2 }, authHeaders);
   assert.equal(deductRes.status, 200);
   const deductData = await deductRes.json();
-  assert.equal(deductData.remaining, 2);
+  assert.equal(deductData.remaining, 6);
 
   // 3. Reject overdraft attempt
-  const overdraftRes = await post('/api/user/deduct-credits', { credits: 4 }, authHeaders);
+  const overdraftRes = await post('/api/user/deduct-credits', { credits: 7 }, authHeaders);
   assert.equal(overdraftRes.status, 400);
 
   // 4. Admin creates a user without password
@@ -248,13 +252,14 @@ test('server-authoritative credit deduction and prevention of unauthorized claim
 });
 
 test('generate proxy strictly verifies authentication, accounts, credits, endpoints, and reference images', async (t) => {
-  const { file, post } = await withServer(t);
+  const { file, post, emailServices } = await withServer(t);
 
-  // 1. Guest user initialization
-  const guestRes = await post('/api/user/guest', {});
+  // Generation is exercised using a verified registered account.
+  const guestRes = await post('/api/user/auth', { email: 'generation@example.test', password, mode: 'register' });
   assert.equal(guestRes.status, 200);
   const { user: guestUser, token: guestToken } = await guestRes.json();
-  assert.equal(guestUser.creditsBalance, 4);
+  assert.equal(guestUser.creditsBalance, 0);
+  assert.equal((await post('/api/user/verify-email', { token: emailServices.latestToken('generation@example.test') })).status, 200);
   const guestHeaders = { Authorization: `Bearer ${guestToken}` };
 
   // 2. Reject anonymous call without token
@@ -342,10 +347,10 @@ test('user and admin payloads never expose password hashes', async (t) => {
   assert.equal('password_hash' in credit.user, false, 'credit updates must not echo the stored hash');
 });
 
-test('guest trial minting is rate limited per client address', async (t) => {
+test('guest trial minting is disabled on repeated requests', async (t) => {
   const { post } = await withServer(t);
-  assert.equal((await post('/api/user/guest', {})).status, 200);
-  assert.equal((await post('/api/user/guest', {})).status, 429);
+  assert.equal((await post('/api/user/guest', {})).status, 403);
+  assert.equal((await post('/api/user/guest', {})).status, 403);
 });
 
 test('repeated failed sign-ins trip the user auth limiter', async (t) => {
@@ -387,8 +392,8 @@ test('stripe checkout binds orders to the authenticated session and charges year
   const order = readStore(file).orders.find((entry) => entry.checkoutSessionId === 'cs_mock_new');
   assert.ok(order, 'the paid session must be recorded before credits could ever be granted');
   assert.equal(order.userId, registered.user.id, 'orders must belong to the session user, not the request body');
-  assert.equal(order.amountCents, 11880);
-  assert.equal(order.credits, 12000, 'yearly plans grant twelve monthly allotments');
+  assert.equal(order.amountCents, 9900);
+  assert.equal(order.credits, 1440, 'yearly plans grant twelve monthly allotments');
 
   assert.equal(upstreamCalls.length, 1);
   const decoded = decodeURIComponent(upstreamCalls[0]);
