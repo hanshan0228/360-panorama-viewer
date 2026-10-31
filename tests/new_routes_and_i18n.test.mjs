@@ -192,6 +192,14 @@ test('mounted route metadata keeps new URLs independent and restores older route
     assert.ok(document.title.startsWith(expectedTitle), document.title);
     assert.equal(attributes.get('meta[property="og:title"]:content'), document.title);
     assert.equal(attributes.get('meta[name="twitter:title"]:content'), document.title);
+    if (currentPath === '/') {
+      const html = read('index.html');
+      assert.equal(document.title, html.match(/<title>([^<]+)<\/title>/)[1].replaceAll('&amp;', '&'));
+      assert.equal(attributes.get('meta[name="description"]:content'), html.match(/<meta name="description" content="([^"]+)"/)[1]);
+      for (const [attribute, value] of [['property="og:title"', document.title], ['name="twitter:title"', document.title], ['property="og:description"', attributes.get('meta[name="description"]:content')], ['name="twitter:description"', attributes.get('meta[name="description"]:content')]]) {
+        assert.equal(html.match(new RegExp(`<meta ${attribute} content="([^"]+)"`))[1].replaceAll('&amp;', '&'), value);
+      }
+    }
     if (currentPath.includes('hdri-to-cubemap') || currentPath.includes('360-product-video') || currentPath === '/cubemap-generator/') {
       const html = read(currentPath.replace(/^\//, '').replace(/\/?$/, '/index.html'));
       assert.equal(document.title, html.match(/<title>([^<]+)<\/title>/)[1]);

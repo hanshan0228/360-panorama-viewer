@@ -89,6 +89,16 @@ scene.background = panorama;</code></pre>
 <p>The example uses the code above with a renderer, camera, resize handling and six direction buttons. It loads the sample from this site without an external CDN, account, or AI request. To reproduce the snippet in your own app, use Vite or another module bundler with <code>three</code> installed. A bare module import will not work by opening an HTML file directly.</p>
 <p>If you need a cube texture instead, <a href="https://threejs.org/docs/pages/CubeTextureLoader.html">CubeTextureLoader</a> expects URLs in +X, −X, +Y, −Y, +Z, −Z order. Its cube convention differs from Three.js world coordinates. Check readable landmarks and the poles before choosing a face rotation or an X-axis swap; do not assume alphabetical filename order is correct.</p>
 
+<h3>Six-face loader order</h3>
+<p>For an existing Three.js scene served by a web server, put the extracted files under <code>/skybox/</code> and load them in the documented order:</p>
+<pre><code>const cube = await new THREE.CubeTextureLoader().loadAsync([
+  '/skybox/posx.png', '/skybox/negx.png',
+  '/skybox/posy.png', '/skybox/negy.png',
+  '/skybox/posz.png', '/skybox/negz.png'
+]);
+scene.background = cube;</code></pre>
+<p>This is a starting point, not a tested orientation preset for every engine. Compare the result with the labeled panorama and inspect the face boundaries and poles. The bundled example above demonstrates the original equirectangular image, not this six-face loader.</p>
+
 <h2 id="unity">Use the six PNG faces in Unity</h2>
 <p>For the Built-in Render Pipeline or URP, use <strong>Skybox/6 Sided</strong>. This shader is not supported by HDRP; follow the documentation for your render pipeline.</p>
 <ol>
@@ -102,13 +112,14 @@ scene.background = panorama;</code></pre>
 <caption>Converter output filenames and Unity 6 Sided material slots</caption>
 <thead><tr><th scope="col">ZIP entry</th><th scope="col">Unity texture slot</th></tr></thead>
 <tbody>
-<tr><td><code>posx.png</code></td><td>Right (+X)</td></tr>
-<tr><td><code>negx.png</code></td><td>Left (−X)</td></tr>
+<tr><td><code>posx.png</code></td><td>Left (+X)</td></tr>
+<tr><td><code>negx.png</code></td><td>Right (−X)</td></tr>
 <tr><td><code>posy.png</code></td><td>Up (+Y)</td></tr>
 <tr><td><code>negy.png</code></td><td>Down (−Y)</td></tr>
 <tr><td><code>posz.png</code></td><td>Front (+Z)</td></tr>
 <tr><td><code>negz.png</code></td><td>Back (−Z)</td></tr>
 </tbody></table></div>
+<p>Unity names its slots Left [+X] and Right [−X]; the converter labels +X as RIGHT and −X as LEFT. Start with the axis mapping above, then use the chart to check the result in your Unity version: matching axis names alone does not prove that every face has the correct orientation. This sample has not been packaged as a tested Unity project.</p>
 <p>You can also skip slicing and assign the original 2:1 panorama to a <strong>Skybox/Panoramic</strong> material with latitude-longitude mapping and 360° image coverage. See Unity’s <a href="https://docs.unity3d.com/Manual/shader-skybox-6sided.html">6 Sided reference</a> and <a href="https://docs.unity3d.com/Manual/shader-skybox-panoramic.html">Panoramic reference</a>. These are import instructions; the downloadable example does not include a Unity project.</p>
 
 <h2 id="ai">Replace the calibration chart with an AI environment</h2>
@@ -124,6 +135,7 @@ scene.background = panorama;</code></pre>
 <dt><strong>Does a larger face size improve the original detail?</strong></dt><dd>No. More output pixels cannot restore source detail. Check the source resolution and texture filtering when the result looks blurry.</dd>
 <dt><strong>Why are there lines between faces?</strong></dt><dd>Check the original seam, texture slots, face rotations, clamp wrapping and filtering. A mismatched source cannot be fixed by slicing it. Use the labeled sample to distinguish an import problem from an artwork problem.</dd>
 </dl>
+<p>Preparing a panorama for social media instead? Read the <a href="/blog/facebook-360-photo-not-working/">Facebook 360 troubleshooting guide</a>; cube faces are not a tagged 360 JPEG.</p>
 <aside class="cta"><p>Ready to use your own panorama? Convert locally, or generate a new environment with account credits.</p><a class="button" href="/cubemap-generator/">Open cubemap tool</a><a class="button ghost" href="/skybox-generator/">AI skybox studio</a></aside>
 </article>
 </main>

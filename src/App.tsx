@@ -305,8 +305,8 @@ export function App() {
   useEffect(() => {
     const tabSeoMap: Record<ActiveTab, { title: string; desc: string }> = {
       generator: {
-        title: '360 Panorama Viewer — AI 360° Panorama Generator & Online Studio',
-        desc: 'Create 2:1 panoramas from text or reference photos with AI credits. View 360 images and convert panoramas to six PNG cube faces locally for free.',
+        title: '360 Panorama Viewer Online — Free Viewer & AI Generator',
+        desc: 'View 360° photos locally for free, with no upload or signup. Generate panoramas from text or reference photos using AI credits.',
       },
       viewer: {
         title: 'Panorama Viewer — Free Online 360° Photo Viewer, No Upload',

@@ -31,7 +31,7 @@
       "headline": "Facebook 360 Photo Not Working? 7 Checks for a Flat Upload",
       "description": "Troubleshoot a flat Facebook 360 photo: check projection, GPano tags, export format and upload path, then repair metadata locally in your browser.",
       "datePublished": "2026-10-19",
-      "dateModified": "2026-10-19",
+      "dateModified": "2026-10-31",
       "inLanguage": "en",
       "author": {
         "@type": "Organization",
@@ -82,7 +82,7 @@
 <p class="eyebrow">Publishing / Troubleshooting</p>
 <h1>Facebook 360 Photo Not Working? 7 Checks for a Flat Upload</h1>
 <p class="standfirst">A flat upload can come from missing metadata, the wrong projection, or the publishing app. Check the source file first so you know which part of the workflow needs fixing.</p>
-<p class="meta">By 360 Panorama Viewer &middot; Updated <time datetime="2026-10-19">19 October 2026</time> &middot; 4 minute read</p>
+<p class="meta">By 360 Panorama Viewer &middot; Updated <time datetime="2026-10-31">31 October 2026</time> &middot; 4 minute read</p>
 
 <h2>First, check that the file actually contains a sphere</h2>
 <p>Open your image in the <a href="/360-panorama-viewer/">free 360 panorama viewer</a>. Look left, right, up and down. A full photo sphere includes the scene behind the camera, the sky overhead and the ground below. If the image is a narrow phone panorama, an ordinary photograph or a screenshot, changing its metadata cannot create the missing views.</p>
@@ -110,12 +110,18 @@
 </tbody></table></div>
 <p><code>UsePanoramaViewer=True</code> requests spherical viewing, but the receiving application decides how to display the file. Initial-view heading and pitch describe a starting direction; support for those optional controls varies between viewers.</p>
 <div class="callout"><p><strong>Do not fix a partial panorama by pretending it is complete.</strong> Cropping or stretching a phone panorama to 2:1 does not add sky, ground or a missing reverse view. Use a stitcher that preserves partial-sphere crop information, capture a full sphere, or generate the missing scene.</p></div>
+<h2>Inspect the file you actually upload</h2>
+<p>If you have <a href="https://exiftool.org/">ExifTool</a> installed, run this read-only command on both your original and final JPEG. Replace the filename with the path to each file:</p>
+<pre><code>exiftool -a -G1 -s -ImageWidth -ImageHeight -XMP-GPano:all "final-panorama.jpg"</code></pre>
+<p>Compare the image dimensions with <code>CroppedAreaImageWidthPixels</code> and <code>CroppedAreaImageHeightPixels</code>. For a full, uncropped sphere, the full dimensions should match too, and the crop offsets should be zero. Missing GPano output is a clue that this file has no readable GPano tags; it does not establish why Facebook displayed it flat. See the <a href="https://exiftool.org/faq.html">ExifTool FAQ</a> for the duplicate-tag and group options.</p>
+<p>Metadata can also include location and camera details. Inspect what you intend to share before publishing; adding panorama tags does not itself remove existing location data.</p>
 <h2>Repair metadata in the browser</h2>
 <ol><li>Finish editing the full equirectangular image.</li><li>Open the <a href="/360-metadata-injector/">360 metadata injector</a> and choose that final file.</li><li>Select <strong>Inject &amp; Download 360 JPEG</strong>.</li><li>Upload the downloaded JPEG directly, without passing it through another editor.</li></ol>
 <p>JPEG inputs keep their original encoded image data while the panorama packet is added. PNG and WebP inputs are encoded as JPEG first. Processing runs locally in your browser. Keep an original copy so you can compare results.</p>
 <h2>When metadata is not the answer</h2>
-<p>A seam, tilted horizon or blurry sky is a pixel problem. Metadata identifies how to display the scene; it does not repair the scene itself. Use the <a href="/blog/equirectangular-projection-explained/">projection guide</a> to check the geometry. If the social upload path still rejects a valid file, a browser viewer link can be a more dependable way to share the result.</p>
+<p>A seam, tilted horizon or blurry sky is a pixel problem. Metadata identifies how to display the scene; it does not repair the scene itself. Use the <a href="/blog/equirectangular-projection-explained/">projection guide</a> to check the geometry. If the social upload path still displays a valid file flat, test another supported sharing method separately; a local viewer check does not confirm that Facebook will recognize the upload.</p>
 <p>This guide concerns still photos. A panning clip exported by the <a href="/360-photo-to-video/">360 photo to video tool</a> is a conventional video view of the scene; JPEG tags cannot make a video spherical.</p>
+<p>Need to make a source image first? See <a href="/blog/how-to-make-a-360-panorama-without-a-360-camera/">how to make a panorama without a 360 camera</a>. To use an existing sphere in a game scene, follow the <a href="/blog/panorama-to-skybox-threejs-unity/">panorama-to-skybox guide</a>.</p>
 <h2>Tools for this workflow</h2><div class="grid"><a class="card" href="/360-metadata-injector/"><strong>Repair 360 metadata</strong><span>Add a Photo Sphere XMP packet to a final panorama.</span></a><a class="card" href="/360-panorama-viewer/"><strong>Check the source image</strong><span>Inspect the seam, horizon, zenith and nadir locally.</span></a></div>
 <p><a href="/blog/">Browse all 360 panorama guides</a></p>
 </article>
