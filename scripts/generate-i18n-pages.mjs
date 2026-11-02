@@ -496,6 +496,7 @@ function updateSitemapXml(updatedUrls) {
     { slug: 'photo-to-360-converter', prio: '0.9', change: 'weekly' },
     { slug: '360-product-video-generator', prio: '0.9', change: 'weekly' },
     { slug: 'hdri-to-cubemap', prio: '0.9', change: 'weekly' },
+    { slug: 'minecraft-panorama-maker', prio: '0.9', change: 'weekly' },
     { slug: 'ai-hdri-generator', prio: '0.9', change: 'weekly' },
     { slug: 'skybox-generator', prio: '0.9', change: 'weekly' },
     { slug: '360-image-maker', prio: '0.9', change: 'weekly' },
