@@ -575,13 +575,15 @@ export function ViewerTab({
             <div className="p-4 rounded-2xl bg-cyan-500/15 border border-cyan-400/30 text-cyan-400 group-hover:scale-110 group-hover:bg-cyan-500/25 transition-all duration-300 shadow-[0_0_20px_rgba(0,242,254,0.2)]">
               <Upload className="w-7 h-7 stroke-[2.2]" />
             </div>
-            <div className="text-base font-extrabold text-white tracking-tight">{t("Drag & drop 360° panorama here, or")}{' '}<span className="text-cyan-400 underline decoration-cyan-400/50 underline-offset-4">{t("browse local files")}</span>
+            <div className="text-base font-extrabold text-white tracking-tight">
+              <span className="hidden sm:inline">{t("Drag & drop 360° panorama here, or")}{' '}</span>
+              <span className="text-cyan-400 underline decoration-cyan-400/50 underline-offset-4">{t("browse local files")}</span>
             </div>
             <p className="text-xs text-cyan-200/70">{t("Supports standard 2:1 equirectangular panoramas (JPG, PNG, WebP)")}</p>
             <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
           </label>
 
-          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#030d1e] border border-cyan-500/25 rounded-full text-[11px] text-cyan-200 shadow-inner">
+          <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 bg-[#030d1e] border border-cyan-500/25 rounded-full text-[11px] text-cyan-200 shadow-inner">
             <ClipboardPaste className="w-3.5 h-3.5 text-cyan-400" />
             <span>{t("Quick Tip: Press")}{' '}<kbd className="px-2 py-0.5 bg-cyan-950 border border-cyan-500/40 rounded text-cyan-300 font-mono font-bold shadow-sm">Ctrl + V</kbd>{' '}{t("(or Cmd + V) to paste an image directly from your clipboard")}</span>
           </div>

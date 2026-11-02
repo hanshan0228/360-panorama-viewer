@@ -27,6 +27,7 @@ import {
   Compass,
   Sliders,
   RotateCw,
+  Eye,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { ActiveTab, StylePreset, StylePresetId, ResolutionTier, ManagedUser, SystemBillingConfig } from '../types/panorama';
@@ -1240,7 +1241,7 @@ export function GeneratorTab({
             <span className="text-[10px] text-cyan-400/80 uppercase font-mono font-bold block mb-1.5">
               {t("Scene templates:")}
             </span>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="studio-scene-templates flex flex-wrap gap-1.5">
               {QUICK_TRY_CHIPS.map((chip, idx) => (
                 <button
                   key={idx}
@@ -1271,7 +1272,7 @@ export function GeneratorTab({
               <Compass className="w-3.5 h-3.5 text-cyan-400" />
               <span>{t("Camera viewpoint (optional)")}</span>
             </label>
-            <div role="group" aria-label={t("Camera viewpoint")} className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+            <div role="group" aria-label={t("Camera viewpoint")} className="studio-camera-viewpoints grid grid-cols-2 sm:grid-cols-4 gap-1.5">
               {CAMERA_VIEWPOINTS.map((vp) => (
                 <button
                   key={vp.id}
@@ -1920,6 +1921,60 @@ export function GeneratorTab({
         if (share) setIsShareOpen(true);
       }} />
       <SharePanoramaModal isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} imageUrl={currentPanoramaUrl} prompt={isBundledPreview ? t('Demo panorama — not generated from your prompt') : workPrompt?.url === currentPanoramaUrl ? workPrompt.prompt : prompt} accountId={currentUser.id} />
+
+      {/* Mobile Sticky Generation Bar */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#030e20]/95 backdrop-blur-xl border-t border-cyan-500/30 p-2.5 px-4 shadow-[0_-8px_30px_rgba(0,0,0,0.8)] flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {currentPanoramaUrl && currentPanoramaUrl !== coastalCover ? (
+            <button
+              type="button"
+              onClick={() => {
+                document.getElementById('studio-preview')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-2.5 py-1.5 rounded-lg bg-teal-500/15 border border-teal-400/40 text-teal-300 text-[11px] font-bold flex items-center gap-1 active:scale-95 cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>{t("360° preview")}</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs text-cyan-300 font-mono font-bold bg-cyan-950/60 px-2.5 py-1.5 rounded-xl border border-cyan-500/20">
+              <Coins className="w-3.5 h-3.5 text-amber-400" />
+              <span>{creditsCost} {t("credits")}</span>
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          disabled={isGenerating}
+          onClick={() => {
+            if (!prompt.trim()) {
+              const input = document.getElementById('prompt-input');
+              input?.focus({ preventScroll: true });
+              input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              return;
+            }
+            handleGenerate();
+          }}
+          className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-md ${
+            isGenerating
+              ? 'bg-cyan-950/60 border border-cyan-500/30 text-cyan-400'
+              : 'shimmer-btn bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-500 text-slate-950 shadow-cyan-400/30'
+          }`}
+        >
+          {isGenerating ? (
+            <>
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              <span>{t("Generating —")}</span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-3.5 h-3.5 fill-current" />
+              <span>{prompt.trim() ? `${t("Generate (")}${creditsCost} ${t("Credits)")}` : t("Start creating")}</span>
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
 }

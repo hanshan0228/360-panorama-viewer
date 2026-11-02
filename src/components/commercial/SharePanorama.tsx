@@ -2,6 +2,7 @@ import { useLanguage, useTranslation } from '../../utils/i18n';
 import { commerceMessages } from '../../utils/commerceTranslations';
 import { preparePanoramaShare } from "../../utils/imageOptimizer";
 import { Component, useEffect, useRef, useState, type ReactNode } from "react";
+import { Share2 } from "lucide-react";
 import { SphereViewer } from "../SphereViewer";
 import { EmbedModal } from "./EmbedModal";
 import { combineAbortSignals } from "../../utils/abortSignal";
@@ -149,6 +150,21 @@ export function SharePanoramaModal({
             aria-label={t("Newly created share link")}
             className="w-full rounded-xl border border-teal-500/40 bg-slate-950 p-2.5 text-xs text-teal-100 font-mono select-all"
           />
+          {typeof navigator !== "undefined" && typeof navigator.share === "function" && (
+            <button
+              type="button"
+              className="shrink-0 rounded-xl bg-gradient-to-r from-teal-400 to-cyan-400 text-slate-950 font-bold px-3.5 py-2.5 text-xs hover:from-teal-300 hover:to-cyan-300 active:scale-95 transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+              onClick={() => {
+                void navigator.share({
+                  title: title.trim() || t("Share your panorama"),
+                  url: currentShareUrl ?? newlyCreatedUrl ?? "",
+                }).catch(() => {});
+              }}
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>{t("Share")}</span>
+            </button>
+          )}
           <button
             type="button"
             className="shrink-0 rounded-xl bg-teal-400 text-slate-950 font-bold px-4 py-2.5 text-xs hover:bg-teal-300 active:scale-95 transition-all shadow-md cursor-pointer"
@@ -255,6 +271,20 @@ export function SharePanoramaModal({
           </div>
           <p className="mt-1 text-xs text-slate-400">{share.width} × {share.height}</p>
           {!share.revoked && <><input aria-label={t("Share link for {title}").replace("{title}", () => String(share.title))} readOnly value={linkFor(share.id, lang)} onFocus={event => event.target.select()} className="my-2.5 w-full rounded-lg bg-slate-950 p-2 text-xs font-mono text-slate-300 border border-slate-800" /><div className="flex flex-wrap gap-2">
+            {typeof navigator !== "undefined" && typeof navigator.share === "function" && (
+              <button
+                type="button"
+                className={button}
+                onClick={() => {
+                  void navigator.share({
+                    title: share.title || t("Share your panorama"),
+                    url: linkFor(share.id, lang),
+                  }).catch(() => {});
+                }}
+              >
+                {t("Share")}
+              </button>
+            )}
             <button type="button" className={button} onClick={() => { if (!navigator.clipboard?.writeText) { setError("Select and copy the link above."); return; } void navigator.clipboard.writeText(linkFor(share.id, lang)).then(() => setNotice("Link copied.")).catch(() => setError("Copy failed. Select and copy the link above.")); }}>{t("Copy link")}</button>
             <button type="button" className={button} onClick={() => setEmbedShareId(share.id)}>{t("Embed code")}</button>
             <a className={button} href={linkFor(share.id, lang)} target="_blank" rel="noopener noreferrer">{t("Open")}</a>

@@ -160,6 +160,9 @@
 .studio-hero-panorama:active { cursor: grabbing; }
 .studio-hero-panorama-canvas { display: block; width: 100%; height: 100%; opacity: 0; transition: opacity .7s ease; }
 .studio-hero-panorama-hint { position: absolute; top: 1.1rem; right: 1.1rem; padding: .34rem .72rem; border: 1px solid rgba(180, 218, 205, .28); border-radius: 999px; background: rgba(6, 18, 25, .55); color: #d4e5e4; font-family: Consolas, monospace; font-size: .55rem; letter-spacing: .14em; pointer-events: none; backdrop-filter: blur(6px); opacity: 0; transition: opacity .6s ease; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+@media (min-width: 640px) { .viewer-projection-modes { max-width: none !important; } }
 /* Let panorama drags pass through the informational layers; keep actions clickable */
 .studio-hero-content, .studio-hero-caption { pointer-events: none; }
 .studio-hero-content :is(button, a) { pointer-events: auto; }
@@ -285,6 +288,7 @@
   .studio-shell .studio-generator > * { margin-bottom: 0; }
   .studio-shell .studio-generator > * + * { margin-top: 1.5rem; }
   .studio-shell .studio-hero { min-height: 0; border-radius: 1rem; }
+  .studio-hero-panorama-hint { top: auto; bottom: 0.75rem; right: 1rem; padding: .25rem .55rem; font-size: .5rem; }
   .studio-hero-content { padding: 1.5rem; }
   .studio-hero-content > .studio-coordinate { font-size: .55rem; letter-spacing: .08em; margin-bottom: 1rem; }
   .studio-shell .studio-hero h1 { font-size: clamp(2rem, 8.4vw, 2.75rem); line-height: 1.1; }
@@ -309,9 +313,16 @@
   .studio-controls label[for="prompt-input"] { flex-shrink: 0; }
   .studio-controls label[for="prompt-input"] + div { flex-wrap: wrap; justify-content: flex-end; }
   .studio-controls button { touch-action: manipulation; min-height: 44px; }
+  .studio-scene-templates { display: flex; flex-wrap: nowrap; overflow-x: auto; padding-bottom: .25rem; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .studio-scene-templates::-webkit-scrollbar { display: none; }
+  .studio-scene-templates > button { flex-shrink: 0; }
+  .studio-camera-viewpoints { display: flex; flex-wrap: nowrap; overflow-x: auto; padding-bottom: .25rem; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .studio-camera-viewpoints::-webkit-scrollbar { display: none; }
+  .studio-camera-viewpoints > button { flex: 1 0 auto; min-width: 72px; }
   .studio-reference-remove { opacity: 1; background: transparent; align-items: start; justify-content: end; }
   .studio-reference-remove button { border-radius: .5rem; background: rgba(112, 24, 32, .94); }
   .studio-advanced summary { min-height: 44px; padding-block: .75rem; }
+  .studio-generator { padding-bottom: 4.5rem; }
   .studio-shell #studio-generator-workbench > .glass-panel { padding: 1rem; }
   .studio-shell #studio-generator-workbench :is(textarea, select, input:not([type="file"]):not([type="checkbox"])) { font-size: 16px; }
   .studio-shell #studio-generator-workbench textarea { padding: .75rem; min-height: 8rem; line-height: 1.5; }

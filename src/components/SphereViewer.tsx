@@ -797,11 +797,11 @@ export const SphereViewer = memo(function SphereViewer({
       )}
 
       {/* Projection Mode Quick Switcher Tag */}
-      <div className="absolute top-4 left-4 right-4 sm:right-auto z-20 flex flex-wrap items-center gap-1.5 p-1 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-xl text-xs shadow-lg">
+      <div style={{ maxWidth: 'calc(100% - 118px)' }} className="viewer-projection-modes absolute top-3 left-3 sm:max-w-none z-20 flex flex-nowrap overflow-x-auto scrollbar-none items-center gap-1 p-1 bg-slate-900/85 backdrop-blur-md border border-slate-800 rounded-xl text-xs shadow-lg">
         <button
           type="button"
           onClick={() => selectProjectionMode('sphere')}
-          className={`px-2.5 py-1 rounded-lg font-medium flex items-center gap-1 transition-all cursor-pointer ${
+          className={`shrink-0 px-2.5 py-1 rounded-lg font-medium flex items-center gap-1 transition-all cursor-pointer ${
             activeMode === 'sphere'
               ? 'bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 font-bold shadow-sm shadow-cyan-500/30'
               : 'text-slate-400 hover:text-slate-200'
@@ -815,7 +815,7 @@ export const SphereViewer = memo(function SphereViewer({
         <button
           type="button"
           onClick={() => selectProjectionMode('curved')}
-          className={`px-2.5 py-1 rounded-lg font-medium flex items-center gap-1 transition-all cursor-pointer ${
+          className={`shrink-0 px-2.5 py-1 rounded-lg font-medium flex items-center gap-1 transition-all cursor-pointer ${
             activeMode === 'curved'
               ? 'bg-cyan-600 text-white shadow-sm'
               : 'text-slate-400 hover:text-slate-200'
@@ -829,7 +829,7 @@ export const SphereViewer = memo(function SphereViewer({
         <button
           type="button"
           onClick={() => selectProjectionMode('little-planet')}
-          className={`px-2.5 py-1 rounded-lg font-medium flex items-center gap-1 transition-all cursor-pointer ${
+          className={`shrink-0 px-2.5 py-1 rounded-lg font-medium flex items-center gap-1 transition-all cursor-pointer ${
             activeMode === 'little-planet'
               ? 'bg-teal-400 text-slate-950 font-bold shadow-sm shadow-teal-400/30'
               : 'text-slate-400 hover:text-slate-200'
@@ -843,7 +843,7 @@ export const SphereViewer = memo(function SphereViewer({
         <button
           type="button"
           onClick={() => selectProjectionMode(activeMode === 'vr-cardboard' ? 'sphere' : 'vr-cardboard')}
-          className={`px-2.5 py-1 rounded-lg font-medium flex items-center gap-1 transition-all cursor-pointer ${
+          className={`shrink-0 px-2.5 py-1 rounded-lg font-medium flex items-center gap-1 transition-all cursor-pointer ${
             activeMode === 'vr-cardboard'
               ? 'bg-pink-600 text-white shadow-sm'
               : 'text-slate-400 hover:text-slate-200'
@@ -856,7 +856,7 @@ export const SphereViewer = memo(function SphereViewer({
       </div>
 
       {/* Top Right Mini Compass, Gyroscope & Hotspots Trigger */}
-      <div className="absolute top-24 sm:top-4 right-4 z-20 flex items-center gap-2">
+      <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5">
         {gyroAvailable && (
           <button
             type="button"
