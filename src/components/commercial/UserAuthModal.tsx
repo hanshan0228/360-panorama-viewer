@@ -16,7 +16,7 @@ interface UserAuthModalProps {
   initialMode?: 'login' | 'register';
   trialCredits?: number;
   continueToCheckout?: boolean;
-  checkoutIntent?: { plan: 'pro' | 'enterprise'; cycle: 'monthly' | 'yearly' } | null;
+  checkoutIntent?: { plan: 'pro' | 'enterprise'; cycle: 'monthly' | 'yearly' } | { packId: string } | null;
   initialNotice?: string;
   verificationToken?: string;
   onVerificationComplete?: () => void;
@@ -192,7 +192,9 @@ export function UserAuthModal({ isOpen, onClose, onOpenWorks, currentUser, onAut
   };
 
   if (!isOpen) return null;
-  const offer = checkoutIntent ? pricing?.plans?.[checkoutIntent.plan]?.[checkoutIntent.cycle] : null;
+  const isPackIntent = checkoutIntent && 'packId' in checkoutIntent;
+  const selectedPack = isPackIntent ? (pricing?.oneTimePacks?.[checkoutIntent.packId] || (checkoutIntent.packId === 'pack-25' ? { name: 'Trial Pack', amountCents: 499, credits: 25 } : { name: 'Starter Pack', amountCents: 1990, credits: 100 })) : null;
+  const offer = checkoutIntent && !isPackIntent ? pricing?.plans?.[checkoutIntent.plan]?.[checkoutIntent.cycle] : null;
   return <dialog ref={dialogRef} aria-labelledby="auth-title" aria-describedby="auth-description" onCancel={event => { event.preventDefault(); closeDialog(); }}
     className="app-dialog p-0 max-w-md bg-[#030d1d] border border-cyan-500/30 rounded-3xl text-sky-100 backdrop:bg-slate-950/80 backdrop:backdrop-blur-md">
     <div className="auth-dialog-content p-6 space-y-5">
@@ -205,7 +207,12 @@ export function UserAuthModal({ isOpen, onClose, onOpenWorks, currentUser, onAut
         <button type="button" disabled={loading} aria-pressed={!isRegisterMode} onClick={() => switchMode(false)} className={`py-2 rounded-lg text-sm font-bold ${!isRegisterMode ? 'bg-cyan-300 text-slate-950' : 'text-cyan-200'}`}>{t("Sign in")}</button>
         <button type="button" disabled={loading} aria-pressed={isRegisterMode} onClick={() => switchMode(true)} className={`py-2 rounded-lg text-sm font-bold ${isRegisterMode ? 'bg-cyan-300 text-slate-950' : 'text-cyan-200'}`}>{t("Create account")}</button>
       </div>}
-      {!isLoggedIn && !verificationToken && checkoutIntent && <section aria-label={t("Selected plan")} className="rounded-xl border border-cyan-500/25 bg-cyan-950/30 p-3 space-y-1 text-sm">
+      {!isLoggedIn && !verificationToken && isPackIntent && selectedPack && <section aria-label={t("Selected pack")} className="rounded-xl border border-cyan-500/25 bg-cyan-950/30 p-3 space-y-1 text-sm">
+        <p className="font-bold">{selectedPack.name} · {selectedPack.credits} {t("credits available")}</p>
+        <p>{`${(selectedPack.amountCents / 100).toFixed(2)} USD · `}{t("No recurring charge · Credits never expire")}</p>
+        <p className="text-xs text-cyan-200/75">{t("No subscription or renewal obligations. You approve payment on PayPal after signing in.")}</p>
+      </section>}
+      {!isLoggedIn && !verificationToken && checkoutIntent && !isPackIntent && <section aria-label={t("Selected plan")} className="rounded-xl border border-cyan-500/25 bg-cyan-950/30 p-3 space-y-1 text-sm">
         <p className="font-bold">{checkoutIntent.plan === 'pro' ? 'Pro Creator' : 'Studio'} · {checkoutIntent.cycle === 'yearly' ? t("Annual billing") : t("Monthly billing")}</p>
         <p>{offer ? t("{amount} USD charged {cycle} · {credits} credits per payment").replace("{amount}", () => `$${(offer.amountCents / 100).toFixed(2)}`).replace("{cycle}", () => String(checkoutIntent.cycle === 'yearly' ? t('each year') : t('each month'))).replace("{credits}", () => String(offer.credits.toLocaleString())) : pricingError || pricing ? t("Price will be confirmed in checkout. Signing in does not start a subscription.") : t("Loading the selected plan price...")}</p>
         {offer && <p className="text-xs text-cyan-200/75">{t("Automatically renews until cancelled. You approve payment on PayPal after signing in.")}</p>}

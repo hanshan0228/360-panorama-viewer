@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Info,
   Check,
+  Gamepad2,
 } from 'lucide-react';
 import JSZip from 'jszip';
 import type { CubemapFace } from '../types/panorama';
@@ -31,6 +32,7 @@ export function CubemapTab({ currentPanoramaUrl, headingLevel = 1 }: CubemapTabP
   const [faceSize, setFaceSize] = useState<number>(512);
   const [result, setResult] = useState<SliceResult | null>(null);
   const [downloadSuccess, setDownloadSuccess] = useState<boolean>(false);
+  const [downloadMinecraftSuccess, setDownloadMinecraftSuccess] = useState<boolean>(false);
   const currentResult = result?.sourceUrl === currentPanoramaUrl && result.faceSize === faceSize ? result : null;
   const faces = currentResult?.faces ?? [];
   const isSlicing = currentResult === null;
@@ -80,6 +82,48 @@ export function CubemapTab({ currentPanoramaUrl, headingLevel = 1 }: CubemapTabP
   }, [currentPanoramaUrl, faceSize]);
 
   // Download all 6 faces as a ZIP package
+  const handleDownloadMinecraftZip = async () => {
+    if (faces.length === 0) return;
+    const zip = new JSZip();
+
+    const minecraftFaceMap: Record<string, string> = {
+      posz: 'panorama_0',
+      posx: 'panorama_1',
+      negz: 'panorama_2',
+      negx: 'panorama_3',
+      posy: 'panorama_4',
+      negy: 'panorama_5',
+    };
+
+    const packMcmeta = JSON.stringify({
+      pack: {
+        pack_format: 34,
+        description: 'Custom 360 Title Panorama - 360 Panorama Viewer',
+      },
+    }, null, 2);
+
+    zip.file('pack.mcmeta', packMcmeta);
+    const bgFolder = zip.folder('assets/minecraft/textures/gui/title/background');
+
+    for (const face of faces) {
+      const base64Data = face.dataUrl.split(',')[1];
+      const mcName = minecraftFaceMap[face.name] || face.name;
+      bgFolder?.file(`${mcName}.png`, base64Data, { base64: true });
+      zip.file(`${mcName}.png`, base64Data, { base64: true });
+    }
+
+    const content = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `minecraft-panorama-pack-${Date.now()}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    setDownloadMinecraftSuccess(true);
+    setTimeout(() => setDownloadMinecraftSuccess(false), 2500);
+  };
+
   const handleDownloadAllZip = async () => {
     if (faces.length === 0) return;
     const zip = new JSZip();
@@ -110,6 +154,14 @@ export function CubemapTab({ currentPanoramaUrl, headingLevel = 1 }: CubemapTabP
   };
 
   const getFaceByName = (name: string) => faces.find((f) => f.name === name);
+  const minecraftFaceMap: Record<string, string> = {
+    posz: 'panorama_0',
+    posx: 'panorama_1',
+    negz: 'panorama_2',
+    negx: 'panorama_3',
+    posy: 'panorama_4',
+    negy: 'panorama_5',
+  };
 
   return (
     <div className="space-y-8">
@@ -145,29 +197,51 @@ export function CubemapTab({ currentPanoramaUrl, headingLevel = 1 }: CubemapTabP
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleDownloadAllZip}
-          disabled={isSlicing || faces.length === 0}
-          className="shimmer-btn px-6 py-3 bg-gradient-to-r from-cyan-400 via-teal-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg shadow-cyan-500/30 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
-        >
-          {downloadSuccess ? (
-            <>
-              <Check className="w-4 h-4 text-white" />
-              <span>{t("ZIP Download Ready!")}</span>
-            </>
-          ) : isSlicing ? (
-            <>
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              <span>{t("Raycasting Slices...")}</span>
-            </>
-          ) : (
-            <>
-              <Archive className="w-4 h-4" />
-              <span>{t("Download All 6 Faces (ZIP)")}</span>
-            </>
-          )}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleDownloadAllZip}
+            disabled={isSlicing || faces.length === 0}
+            className="shimmer-btn px-5 py-3 bg-gradient-to-r from-cyan-400 via-teal-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg shadow-cyan-500/30 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
+          >
+            {downloadSuccess ? (
+              <>
+                <Check className="w-4 h-4 text-white" />
+                <span>{t("ZIP Download Ready!")}</span>
+              </>
+            ) : isSlicing ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>{t("Raycasting Slices...")}</span>
+              </>
+            ) : (
+              <>
+                <Archive className="w-4 h-4" />
+                <span>{t("Download 6 Faces (ZIP)")}</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDownloadMinecraftZip}
+            disabled={isSlicing || faces.length === 0}
+            className="px-5 py-3 bg-[#111f15] hover:bg-[#183020] border border-emerald-500/40 hover:border-emerald-400 text-emerald-200 hover:text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-950/40 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
+            title={t("Pack into a ready-to-use Minecraft resource pack with panorama_0 to 5")}
+          >
+            {downloadMinecraftSuccess ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-300" />
+                <span>{t("Minecraft Pack Ready!")}</span>
+              </>
+            ) : (
+              <>
+                <Gamepad2 className="w-4 h-4 text-emerald-400" />
+                <span>{t("Minecraft Pack (ZIP)")}</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {slicingError && (
@@ -226,7 +300,7 @@ export function CubemapTab({ currentPanoramaUrl, headingLevel = 1 }: CubemapTabP
             </div>
             <div>
               <div className="text-xs font-bold text-white">{t(f.label)}</div>
-              <div className="text-[10px] text-slate-400 font-mono">{f.name}.png</div>
+              <div className="text-[10px] text-slate-400 font-mono">{`${f.name}.png · ${minecraftFaceMap[f.name]}.png`}</div>
             </div>
             <button
               type="button"
@@ -244,7 +318,7 @@ export function CubemapTab({ currentPanoramaUrl, headingLevel = 1 }: CubemapTabP
       <div className="border-t border-white/[0.08] pt-6 space-y-4">
         <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
           <Info className="w-4 h-4 text-cyan-400" />{' '}{t("How to Import Cubemaps into Game Engines")}</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-400">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-slate-400">
           <div className="glass-card p-4 rounded-2xl space-y-1.5">
             <div className="font-semibold text-slate-200">{t("Unity Skybox Import Guide")}</div>
             <p className="text-[11px] leading-relaxed">{t("1. Download and extract the 6-face ZIP into your Unity Assets folder.")}{' '}<br />{' '}{t("2. Create a new Material and set its Shader to `Skybox/6 Sided`.")}{' '}<br />{' '}{t("3. Assign the textures to Front (+Z), Back (-Z), Left (-X), Right (+X), Up (+Y), and Down (-Y).")}</p>
@@ -253,6 +327,14 @@ export function CubemapTab({ currentPanoramaUrl, headingLevel = 1 }: CubemapTabP
             <div className="font-semibold text-slate-200">{t("Unreal Engine & Godot: choose the right source")}</div>
             <p className="text-[11px] leading-relaxed">{t("For Unreal HDRI Backdrop, import a supported original .hdr environment; the six PNGs are not a TextureCube asset.")}{' '}<br />{' '}{t("For Godot PanoramaSkyMaterial, use the original equirectangular panorama.")}{' '}<br />
               <a href="/cubemap-generator/#engine-setup" className="text-cyan-300 underline">{t("Read the cubemap engine setup guide")}</a>.
+            </p>
+          </div>
+          <div className="glass-card p-4 rounded-2xl space-y-1.5">
+            <div className="font-semibold text-emerald-300">{t("Minecraft Title Screen Guide")}</div>
+            <p className="text-[11px] leading-relaxed">
+              {t("1. Click 'Minecraft Pack (ZIP)' to get a formatted resource pack.")}<br />
+              {t("2. Put the ZIP into `.minecraft/resourcepacks/`.")}<br />
+              {t("3. In Minecraft: Options -> Resource Packs -> enable pack.")}
             </p>
           </div>
         </div>

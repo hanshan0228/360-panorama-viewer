@@ -52,6 +52,7 @@ function sqliteD1(database) {
 
 async function fixture(testContext, backend) {
   const remoteSubscriptions = new Map();
+  const remoteOrders = new Map();
   const catalog = paypalCatalog(env);
   const calls = [];
   let signatureValid = true;
@@ -85,6 +86,36 @@ async function fixture(testContext, backend) {
       remoteSubscriptions.set(subscription.id, subscription);
       assert.equal(options.headers['PayPal-Request-Id'], subscription.custom_id);
       return Response.json(minimalCreationResponse ? { id: subscription.id, status: subscription.status, links: subscription.links } : subscription);
+    }
+    if (url.pathname === '/v2/checkout/orders' && options.method === 'POST') {
+      const unit = body.purchase_units?.[0];
+      const orderId = `ORD${remoteOrders.size + 1}`;
+      const order = { id: orderId, status: 'CREATED', custom_id: unit?.custom_id,
+        amount: unit?.amount?.value, currency_code: unit?.amount?.currency_code,
+        links: [{ rel: 'approve', href: `https://www.sandbox.paypal.com/checkoutnow?token=${orderId}` }] };
+      remoteOrders.set(orderId, order);
+      return Response.json(order);
+    }
+    if (url.pathname.startsWith('/v2/checkout/orders/') && url.pathname.endsWith('/capture')) {
+      const orderId = url.pathname.split('/')[4];
+      const order = remoteOrders.get(orderId);
+      if (!order) return new Response(JSON.stringify({ error: 'Order not found' }), { status: 404 });
+      order.status = 'COMPLETED';
+      const captureId = `CAP-${orderId}`;
+      return Response.json({
+        id: orderId, status: 'COMPLETED',
+        purchase_units: [{
+          payments: {
+            captures: [{ id: captureId, status: 'COMPLETED', amount: { currency_code: order.currency_code || 'USD', value: order.amount } }],
+          },
+        }],
+      });
+    }
+    if (url.pathname.startsWith('/v2/checkout/orders/')) {
+      const orderId = url.pathname.split('/')[4];
+      const order = remoteOrders.get(orderId);
+      if (order) return Response.json(order);
+      return new Response(JSON.stringify({ error: 'Order not found' }), { status: 404 });
     }
     const id = url.pathname.split('/')[4];
     const subscription = remoteSubscriptions.get(id);
@@ -161,6 +192,7 @@ async function fixture(testContext, backend) {
     },
   }, undefined, signature);
   return { call, create, token, userId: account.data.user.id, profile, balance, subscription, sale, remoteSubscriptions, invoices, suspend, ledger,
+    remoteOrders,
     failNextCreation() { failCreation = true; }, suspendOnNextGrant() { suspendBeforeGrant = true; },
     useMinimalCreationResponse() { minimalCreationResponse = true; },
     calls, failSignature() { signatureValid = false; }, tamperPlan(callback) { tamperPlan = callback; } };
@@ -332,6 +364,57 @@ for (const backend of ['Node', 'D1']) {
     const published = await api.ledger.current(api.userId);
     await api.ledger.discardPending(published.id, api.userId);
     assert.equal((await api.ledger.current(api.userId)).paypalId, published.paypalId);
+  });
+
+  test(`${backend} PayPal: one-time credit pack creation, validation, guest rejection, capture and fulfillment`, async testContext => {
+    const api = await fixture(testContext, backend);
+    const config = await api.call('paypal/config');
+    assert.ok(config.data.oneTimePacks['pack-25']);
+    assert.equal(config.data.oneTimePacks['pack-25'].amountCents, 499);
+    assert.equal(config.data.oneTimePacks['pack-25'].credits, 25);
+    assert.ok(config.data.oneTimePacks['pack-100']);
+    assert.equal(config.data.oneTimePacks['pack-100'].amountCents, 1990);
+    assert.equal(config.data.oneTimePacks['pack-100'].credits, 100);
+
+    assert.equal((await api.call('paypal/create-order', { packId: 'pack-25' })).status, 401);
+    assert.equal((await api.call('paypal/create-order', { packId: 'pack-25' }, 'invalid-token')).status, 401);
+    assert.equal((await api.call('paypal/create-order', { packId: 'nonexistent-pack' }, api.token)).status, 400);
+
+    const orderRes = await api.call('paypal/create-order', { packId: 'pack-25' }, api.token);
+    assert.equal(orderRes.status, 200);
+    assert.equal(orderRes.data.success, true);
+    assert.ok(orderRes.data.orderId);
+    assert.ok(orderRes.data.approvalUrl.includes('https://www.sandbox.paypal.com'));
+
+    const captureRes = await api.call('paypal/capture-order', { orderId: orderRes.data.orderId }, api.token);
+    assert.equal(captureRes.status, 200);
+    assert.equal(captureRes.data.success, true);
+    assert.equal(captureRes.data.creditsAdded, 25);
+    assert.equal(await api.balance(), 29);
+
+    const repeatRes = await api.call('paypal/capture-order', { orderId: orderRes.data.orderId }, api.token);
+    assert.equal(repeatRes.status, 200);
+    assert.equal(repeatRes.data.alreadyFulfilled, true);
+    assert.equal(await api.balance(), 29);
+
+    const invs = api.invoices();
+    assert.ok(invs.some(inv => (inv.checkout_session_id ?? inv.checkoutSessionId) === orderRes.data.orderId));
+
+    // 7. Webhook PAYMENT.CAPTURE.COMPLETED fulfills pending order
+    const orderRes2 = await api.call('paypal/create-order', { packId: 'pack-25' }, api.token);
+    assert.equal(orderRes2.status, 200);
+    const hookRes = await api.call('paypal/webhook', {
+      id: 'WH-CAP-1',
+      event_type: 'PAYMENT.CAPTURE.COMPLETED',
+      resource: {
+        id: 'CAP-HOOK-1',
+        status: 'COMPLETED',
+        amount: { value: '4.99', currency_code: 'USD' },
+        supplementary_data: { related_ids: { order_id: orderRes2.data.orderId } },
+      },
+    }, undefined, signature);
+    assert.equal(hookRes.status, 200);
+    assert.equal(await api.balance(), 54);
   });
 }
 

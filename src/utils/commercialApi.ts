@@ -25,10 +25,19 @@ export interface PayPalSubscription {
   approvalUrl: string;
 }
 
+export interface OneTimePack {
+  id: string;
+  name: string;
+  amountCents: number;
+  credits: number;
+  popular?: boolean;
+}
+
 export interface PayPalConfig {
   enabled: boolean;
   mode: string;
   plans: Record<'pro' | 'enterprise', Record<'monthly' | 'yearly', { amountCents: number; credits: number }>>;
+  oneTimePacks?: Record<string, OneTimePack>;
 }
 
 export async function paypalRequest<Result>(route: string, body?: unknown, sessionToken?: string | null): Promise<Result> {

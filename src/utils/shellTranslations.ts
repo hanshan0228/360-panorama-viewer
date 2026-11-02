@@ -94,7 +94,13 @@ export const shellTranslations: TranslationMessages = {
     "Free trial unavailable. Sign in to continue.": "免费试用暂不可用，请登录后继续。",
     "Free": "免费",
     "Pro": "Pro",
-    "Enterprise": "企业版"
+    "Enterprise": "企业版",
+    "Confirming your PayPal payment...": "正在与 PayPal 确认付款结果……",
+    "Payment successful! {credits} credits have been added to your account.": "支付成功！已向您的账户添加 {credits} 点积分。",
+    "Failed to complete PayPal order.": "无法完成 PayPal 订单。",
+    "PayPal payment was cancelled. No charges were made.": "PayPal 支付已取消，未产生任何费用。",
+    "Minecraft Panorama Maker": "Minecraft 全景图制作器",
+    "Custom title screen resource pack": "自定义标题界面材质包"
   },
   "es": {
     "Account created. Verify your email to receive starter credits.": "Cuenta creada. Verifica tu correo para recibir los créditos iniciales.",
@@ -188,7 +194,13 @@ export const shellTranslations: TranslationMessages = {
     "Free trial unavailable. Sign in to continue.": "La prueba gratuita no está disponible. Inicia sesión para continuar.",
     "Free": "Gratis",
     "Pro": "Pro",
-    "Enterprise": "Empresa"
+    "Enterprise": "Empresa",
+    "Confirming your PayPal payment...": "Confirmando tu pago de PayPal...",
+    "Payment successful! {credits} credits have been added to your account.": "¡Pago completado! Se han añadido {credits} créditos a tu cuenta.",
+    "Failed to complete PayPal order.": "No se pudo completar el pedido de PayPal.",
+    "PayPal payment was cancelled. No charges were made.": "El pago de PayPal fue cancelado. No se realizó ningún cargo.",
+    "Minecraft Panorama Maker": "Creador de panoramas de Minecraft",
+    "Custom title screen resource pack": "Paquete de recursos para la pantalla de inicio personalizada"
   },
   "de": {
     "Account created. Verify your email to receive starter credits.": "Konto erstellt. Bestätige deine E-Mail, um Start-Credits zu erhalten.",
@@ -282,7 +294,13 @@ export const shellTranslations: TranslationMessages = {
     "Free trial unavailable. Sign in to continue.": "Die kostenlose Testversion ist nicht verfügbar. Zum Fortfahren anmelden.",
     "Free": "Kostenlos",
     "Pro": "Pro",
-    "Enterprise": "Enterprise"
+    "Enterprise": "Enterprise",
+    "Confirming your PayPal payment...": "Bestätige deine PayPal-Zahlung...",
+    "Payment successful! {credits} credits have been added to your account.": "Zahlung erfolgreich! {credits} Credits wurden deinem Konto gutgeschrieben.",
+    "Failed to complete PayPal order.": "PayPal-Bestellung konnte nicht abgeschlossen werden.",
+    "PayPal payment was cancelled. No charges were made.": "PayPal-Zahlung wurde abgebrochen. Es wurden keine Gebühren berechnet.",
+    "Minecraft Panorama Maker": "Minecraft Panorama-Ersteller",
+    "Custom title screen resource pack": "Ressourcenpaket für benutzerdefinierten Titelbildschirm"
   },
   "ja": {
     "Account created. Verify your email to receive starter credits.": "アカウントを作成しました。メールを確認して初回クレジットを受け取ってください。",
@@ -376,6 +394,12 @@ export const shellTranslations: TranslationMessages = {
     "Free trial unavailable. Sign in to continue.": "無料体験を利用できません。ログインして続行してください。",
     "Free": "無料",
     "Pro": "Pro",
-    "Enterprise": "エンタープライズ"
+    "Enterprise": "エンタープライズ",
+    "Confirming your PayPal payment...": "PayPalでの支払結果を確認しています...",
+    "Payment successful! {credits} credits have been added to your account.": "支払いが完了しました！アカウントに {credits} クレジットが付与されました。",
+    "Failed to complete PayPal order.": "PayPal注文の処理を完了できませんでした。",
+    "PayPal payment was cancelled. No charges were made.": "PayPal支払いはキャンセルされました。請求は発生していません。",
+    "Minecraft Panorama Maker": "Minecraft パノラマメーカー",
+    "Custom title screen resource pack": "カスタムタイトル画面用リソースパック"
   }
 };

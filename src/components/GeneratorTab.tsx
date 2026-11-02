@@ -43,7 +43,6 @@ import { IntegrationBadges } from './commercial/IntegrationBadges';
 import coastalCover from '../assets/coastal-cover.png';
 import { CommercialFaq } from './commercial/CommercialFaq';
 import { PhotoToVideoModal } from './commercial/PhotoToVideoModal';
-import { EmbedModal } from './commercial/EmbedModal';
 import { exportVrReadyJpegBlob } from '../utils/xmpInjector';
 import { healPanoramaSeam } from '../utils/seamHealer';
 import { processPanoramaImage } from '../utils/panoramaProcessor';
@@ -119,9 +118,14 @@ interface GeneratorTabProps {
   externalStyle?: StylePresetId;
 }
 
-const DEFAULT_TEXT_PROMPT = 'futuristic cyberpunk city at night, neon holograms, rain reflections, volumetric fog, 8k equirectangular 360 panorama';
-
 const STYLE_PRESETS: StylePreset[] = [
+  {
+    id: 'custom',
+    name: 'None (follow my description)',
+    description: 'No preset scene or visual style is added.',
+    promptSuffix: '',
+    previewColor: 'from-slate-500 to-slate-700',
+  },
   {
     id: 'cyberpunk',
     name: 'Cyberpunk Neon',
@@ -164,49 +168,15 @@ const STYLE_PRESETS: StylePreset[] = [
     promptSuffix: 'ancient fantasy temple ruins, floating celestial stones, glowing magical runes, aurora sky',
     previewColor: 'from-emerald-400 to-teal-600',
   },
-  {
-    id: 'custom',
-    name: 'Raw / Custom Prompt',
-    description: 'Pure input mode with no extra style suffixes added',
-    promptSuffix: '',
-    previewColor: 'from-slate-500 to-slate-700',
-  },
 ];
 
 const QUICK_TRY_CHIPS = [
-  { label: 'Cyberpunk Tokyo, 2087', prompt: 'futuristic cyberpunk city at night with flying vehicles, wet reflective asphalt, holographic neon signage, 8k equirectangular 360', style: 'cyberpunk' as StylePresetId },
-  { label: 'Alpine Mountain Lake', prompt: 'majestic snow-capped alpine mountains at sunrise, crystal clear turquoise lake reflection, morning mist, golden sunbeams, 8k equirectangular 360', style: 'nature' as StylePresetId },
-  { label: 'Sci-Fi Space Station', prompt: 'deep space orbital station observation deck, purple nebula dust, glowing galaxies, ringed planet, star clusters, 8k equirectangular 360', style: 'space' as StylePresetId },
-  { label: 'Ancient Rome, 80 AD', prompt: 'ancient Rome forum and colosseum at golden hour, marble pillars, toga citizens, sun-drenched stone plaza, 8k equirectangular 360', style: 'fantasy' as StylePresetId },
-  { label: 'Renaissance Florence, 1503', prompt: 'Renaissance Florence cathedral dome, terracotta rooftops, Arno river reflection, warm Mediterranean twilight, 8k 360', style: 'interior' as StylePresetId },
-  { label: 'Minimalist Luxury Villa', prompt: 'ultra-luxury modern minimalist villa interior, floor-to-ceiling glass windows overlooking private ocean infinity pool, warm architectural lighting, 8k 360', style: 'interior' as StylePresetId },
-];
-
-const SAMPLE_REFERENCE_PRESETS = [
-  {
-    id: 'ref-interior',
-    name: 'Modern Living Room',
-    desc: 'Oak timber & architectural glass',
-    style: 'interior' as StylePresetId,
-    previewGrad: 'from-amber-600 to-stone-800',
-    promptSnippet: 'luxury interior architecture, oak wood paneling, warm ambient lighting',
-  },
-  {
-    id: 'ref-alpine',
-    name: 'Alpine Glacial Lake',
-    desc: 'Granite peaks & turquoise water',
-    style: 'nature' as StylePresetId,
-    previewGrad: 'from-teal-600 to-sky-900',
-    promptSnippet: 'alpine mountain range, crystalline turquoise glacial lake, pine forest',
-  },
-  {
-    id: 'ref-cyber',
-    name: 'Neon Cyber City',
-    desc: 'Rainy asphalt & neon glow',
-    style: 'cyberpunk' as StylePresetId,
-    previewGrad: 'from-pink-600 to-purple-900',
-    promptSnippet: 'cyberpunk neon metropolis, rain reflections on pavement, holographic signs',
-  },
+  { label: 'Cyberpunk Tokyo, 2087', prompt: 'futuristic cyberpunk city at night with flying vehicles, wet reflective asphalt, holographic neon signage, 8k equirectangular 360' },
+  { label: 'Alpine Mountain Lake', prompt: 'majestic snow-capped alpine mountains at sunrise, crystal clear turquoise lake reflection, morning mist, golden sunbeams, 8k equirectangular 360' },
+  { label: 'Sci-Fi Space Station', prompt: 'deep space orbital station observation deck, purple nebula dust, glowing galaxies, ringed planet, star clusters, 8k equirectangular 360' },
+  { label: 'Ancient Rome, 80 AD', prompt: 'ancient Rome forum and colosseum at golden hour, marble pillars, toga citizens, sun-drenched stone plaza, 8k equirectangular 360' },
+  { label: 'Renaissance Florence, 1503', prompt: 'Renaissance Florence cathedral dome, terracotta rooftops, Arno river reflection, warm Mediterranean twilight, 8k 360' },
+  { label: 'Minimalist Luxury Villa', prompt: 'ultra-luxury modern minimalist villa interior, floor-to-ceiling glass windows overlooking private ocean infinity pool, warm architectural lighting, 8k 360' },
 ];
 
 export function GeneratorTab({
@@ -219,7 +189,7 @@ export function GeneratorTab({
   billingConfig = DEFAULT_BILLING_CONFIG,
   onUserChange = () => {},
   currentPanoramaUrl,
-  onPanoramaChange,
+  onPanoramaChange: onParentPanoramaChange,
   getPanoramaOwner,
   onNavigateTab = () => {},
   externalInputMode,
@@ -235,21 +205,15 @@ export function GeneratorTab({
     if (externalInputMode === undefined) setInputMode(newMode);
     onInputModeChange?.(newMode);
   };
-  const [prompt, setPrompt] = useState(
-    externalPrompt || (inputMode === 'image' ? '' : DEFAULT_TEXT_PROMPT)
-  );
-  const [selectedStyle, setSelectedStyle] = useState<StylePresetId>(externalStyle ?? (inputMode === 'image' ? 'custom' : 'cyberpunk'));
-  const [previousPresets, setPreviousPresets] = useState({ prompt: externalPrompt, style: externalStyle, inputMode: externalInputMode, mode: inputMode });
+  const [prompt, setPrompt] = useState(externalPrompt ?? '');
+  const [selectedStyle, setSelectedStyle] = useState<StylePresetId>(externalStyle ?? 'custom');
+  const [previousPresets, setPreviousPresets] = useState({ prompt: externalPrompt, style: externalStyle, inputMode: externalInputMode });
 
   // Apply changed external presets once, without overwriting subsequent local edits.
-  if (externalPrompt !== previousPresets.prompt || externalStyle !== previousPresets.style || externalInputMode !== previousPresets.inputMode || inputMode !== previousPresets.mode) {
-    setPreviousPresets({ prompt: externalPrompt, style: externalStyle, inputMode: externalInputMode, mode: inputMode });
-    if (inputMode !== previousPresets.mode && inputMode === 'image' && prompt === DEFAULT_TEXT_PROMPT && !externalPrompt) {
-      setPrompt('');
-      if (!externalStyle && selectedStyle === 'cyberpunk') setSelectedStyle('custom');
-    }
-    if (externalPrompt !== previousPresets.prompt && externalPrompt) setPrompt(externalPrompt);
-    if (externalStyle !== previousPresets.style && externalStyle) setSelectedStyle(externalStyle);
+  if (externalPrompt !== previousPresets.prompt || externalStyle !== previousPresets.style || externalInputMode !== previousPresets.inputMode) {
+    setPreviousPresets({ prompt: externalPrompt, style: externalStyle, inputMode: externalInputMode });
+    if (externalPrompt !== previousPresets.prompt && externalPrompt !== undefined) setPrompt(externalPrompt);
+    if (externalStyle !== previousPresets.style && externalStyle !== undefined) setSelectedStyle(externalStyle);
     // Preserve the last controlled mode if the parent releases control.
     if (externalInputMode !== previousPresets.inputMode && externalInputMode) setInputMode(externalInputMode);
   }
@@ -264,9 +228,7 @@ export function GeneratorTab({
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [workPrompt, setWorkPrompt] = useState<{ url: string; prompt: string } | null>(null);
   const [saveStatus, setSaveStatus] = useState<{ url: string; status: 'saved' | 'unsaved' | 'unknown' } | null>(null);
-  const [isEmbedModalOpen, setIsEmbedModalOpen] = useState(false);
   const [isPreviewActive, setIsPreviewActive] = useState(false);
-  const [initialPanoramaUrl] = useState(currentPanoramaUrl);
 
   const handleAppendTag = (tag: string) => {
     setPrompt((prev) => {
@@ -280,6 +242,7 @@ export function GeneratorTab({
   // Reference photos state for Image-to-Pano mode
   const [referenceImages, setReferenceImages] = useState<Array<{ id: string; name: string; preview: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isLoadingSample, setIsLoadingSample] = useState(false);
 
   const [apiError, setApiError] = useState<string | null>(null);
   const [isUpscalingClarity, setIsUpscalingClarity] = useState(false);
@@ -288,6 +251,12 @@ export function GeneratorTab({
   const [resultQuality, setResultQuality] = useState<{ url: string; quality?: PanoramaQuality } | null>(null);
   const [enhanced4kUrl, setEnhanced4kUrl] = useState<string | null>(null);
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
+
+  const expectedPanoramaUrl = useRef(currentPanoramaUrl);
+  const onPanoramaChange = useCallback((url: string, owner?: string | null) => {
+    expectedPanoramaUrl.current = url;
+    onParentPanoramaChange(url, owner);
+  }, [onParentPanoramaChange]);
 
   // User credit and commercial checkout state
   const generationRef = useRef({ mounted: false, request: 0, processing: null as AbortController | null, thumbnails: new Set<AbortController>() });
@@ -311,7 +280,6 @@ export function GeneratorTab({
         setGenerationTiming(null);
         setIsPreviewActive(false);
         setIsVideoModalOpen(false);
-        setIsEmbedModalOpen(false);
       }
     };
     window.addEventListener('panorama-session-changed', invalidateGeneration);
@@ -327,6 +295,18 @@ export function GeneratorTab({
       window.removeEventListener('storage', handleStorage);
     };
   }, [currentUser.id]);
+
+  useEffect(() => {
+    if (currentPanoramaUrl === expectedPanoramaUrl.current) return;
+    expectedPanoramaUrl.current = currentPanoramaUrl;
+    generationRef.current.request++;
+    generationRef.current.processing?.abort();
+    generationRef.current.processing = null;
+    originalOwner.current = null;
+    setOriginalRawUrl(null); setEnhanced4kUrl(null); setResultQuality(null); setSaveStatus(null); setWorkPrompt(null); setGenerationTiming(null);
+    setIsGenerating(false); setIsUpscalingClarity(false); setIsPreviewActive(false);
+    setIsShareOpen(false); setIsVideoModalOpen(false); setFeedbackNotice(null); setApiError(null);
+  }, [currentPanoramaUrl]);
 
   // Dynamic credit cost from admin billing configuration
   const creditsCost =
@@ -354,7 +334,7 @@ export function GeneratorTab({
 
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
-      if (!isActive || isShareOpen || isWorksOpen || isEmbedModalOpen || isVideoModalOpen || document.querySelector('dialog[open]') ||
+      if (!isActive || isShareOpen || isWorksOpen || isVideoModalOpen || document.querySelector('dialog[open]') ||
         (e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])'))) return;
       const items = e.clipboardData?.items;
       if (!items) return;
@@ -368,7 +348,7 @@ export function GeneratorTab({
     };
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [loadPreviewPanoramaFile, isShareOpen, isWorksOpen, isEmbedModalOpen, isVideoModalOpen, isActive]);
+  }, [loadPreviewPanoramaFile, isShareOpen, isWorksOpen, isVideoModalOpen, isActive]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -400,41 +380,36 @@ export function GeneratorTab({
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleAddSampleReference = (preset: typeof SAMPLE_REFERENCE_PRESETS[0]) => {
-    if (referenceImages.length >= 3) {
-      alert(t("You can attach a maximum of 3 reference photos."));
-      return;
+  const handleAddSampleReference = async () => {
+    if (isLoadingSample || referenceImages.length >= 3) return;
+    const request = generationRef.current.request;
+    setIsLoadingSample(true);
+    try {
+      const preview = await processPanoramaImage(coastalCover, {
+        preserveNative: true, sharpness: 0, contrastBoost: 1,
+      }, false);
+      if (!generationRef.current.mounted || generationRef.current.request !== request) return;
+      setReferenceImages(prev => prev.length < 3 ? [...prev, {
+        id: `ref_coastal_${Date.now()}`,
+        name: t('Bundled coastal sample'),
+        preview,
+      }] : prev);
+    } catch {
+      if (generationRef.current.mounted && generationRef.current.request === request) {
+        setApiError(t('Could not load the sample image. Upload your own photo instead.'));
+      }
+    } finally {
+      if (generationRef.current.mounted) setIsLoadingSample(false);
     }
+  };
 
-    // Generate a quick thumbnail canvas as sample preview
-    const c = document.createElement('canvas');
-    c.width = 400;
-    c.height = 200;
-    const ctx = c.getContext('2d');
-    if (ctx) {
-      const grad = ctx.createLinearGradient(0, 0, 400, 200);
-      grad.addColorStop(0, preset.style === 'interior' ? '#854d0e' : preset.style === 'nature' ? '#0284c7' : '#ec4899');
-      grad.addColorStop(1, '#0f172a');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 400, 200);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 20px sans-serif';
-      ctx.fillText(t(preset.name), 20, 100);
-    }
-
-    setReferenceImages((prev) => [
-      ...prev,
-      {
-        id: `ref_sample_${preset.id}_${Date.now()}`,
-        name: preset.name,
-        preview: c.toDataURL('image/png'),
-      },
-    ]);
-
-    // Supplement prompt if empty or brief
-    if (!prompt.includes(preset.promptSnippet)) {
-      setPrompt((prev) => `${prev}, guided by ${preset.promptSnippet}`);
-    }
+  const handlePreviewSample = () => {
+    if (isGenerating || isUpscalingClarity) return;
+    originalOwner.current = null;
+    setOriginalRawUrl(null); setEnhanced4kUrl(null); setResultQuality(null); setSaveStatus(null); setWorkPrompt(null); setGenerationTiming(null);
+    setFeedbackNotice(null); setApiError(null);
+    onPanoramaChange(coastalCover, null);
+    setIsPreviewActive(true);
   };
 
   const handleRemoveReference = (id: string) => {
@@ -442,6 +417,13 @@ export function GeneratorTab({
   };
 
   const handleGenerate = async () => {
+    if (inputMode === 'image' && isLoadingSample) return;
+    const styleObj = STYLE_PRESETS.find(s => s.id === selectedStyle);
+    if (!prompt.trim() && !(inputMode === 'image' && referenceImages.length > 0) && !styleObj?.promptSuffix.trim()) {
+      setApiError(t('Describe a scene, add a reference photo, or choose a preset before generating.'));
+      document.getElementById('prompt-input')?.focus();
+      return;
+    }
     // 1. Account status check
     const user = currentUser;
     const sessionToken = typeof localStorage !== 'undefined' ? localStorage.getItem('panorama_server_user_token') : null;
@@ -497,9 +479,8 @@ export function GeneratorTab({
     }, 1000);
 
     try {
-      const styleObj = STYLE_PRESETS.find((s) => s.id === selectedStyle);
-
-      const fullPrompt = buildPanoramaPrompt(prompt, styleObj?.promptSuffix || '', referenceImages.length > 0);
+      const refPreviews = inputMode === 'image' ? referenceImages.map(r => r.preview) : [];
+      const fullPrompt = buildPanoramaPrompt(prompt, styleObj?.promptSuffix || '', refPreviews.length > 0);
 
       // Attempt AI image generation across execution pipeline (Single, Failover, or Round-Robin).
       // An undersized result only moves on to the next model when this attempt was confirmed fully
@@ -530,7 +511,6 @@ export function GeneratorTab({
             resolution,
             sessionToken,
           };
-          const refPreviews = referenceImages.map((r) => r.preview);
           const genResult = await generateWithGemini(fullPrompt, modelConfig, refPreviews);
           if (!isCurrentGeneration()) return;
           if (genResult.library?.saved && genResult.library.id && sessionToken) {
@@ -640,7 +620,7 @@ export function GeneratorTab({
       originalOwner.current = sessionToken;
       setOriginalRawUrl(rawGenUrl);
       setWorkPrompt(null);
-      setSaveStatus({ url: finalDataUrl, status: bestAttempt?.library ? bestAttempt.library.saved ? 'saved' : 'unsaved' : 'unknown' });
+      setSaveStatus({ url: rawGenUrl, status: bestAttempt?.library ? bestAttempt.library.saved ? 'saved' : 'unsaved' : 'unknown' });
       setResultQuality({ url: finalDataUrl, quality: bestAttempt?.quality });
       setEnhanced4kUrl(null);
 
@@ -805,7 +785,6 @@ export function GeneratorTab({
     if (!prompt.trim()) {
       const random = QUICK_TRY_CHIPS[Math.floor(Math.random() * QUICK_TRY_CHIPS.length)];
       setPrompt(random.prompt);
-      setSelectedStyle(random.style);
       return;
     }
     const enhancements = [
@@ -885,6 +864,8 @@ export function GeneratorTab({
     }
   };
 
+  const isBundledPreview = currentPanoramaUrl === coastalCover || originalRawUrl === coastalCover;
+
   return (
     <div className={`studio-generator space-y-12 ${isViewerHomepage ? 'studio-home' : 'studio-creator'}`}>
       {/* =========================================================================
@@ -909,7 +890,7 @@ export function GeneratorTab({
               input?.scrollIntoView({ block: 'center' });
             }}>{isViewerHomepage ? t("Create with AI") : t("Start creating")} <ArrowUpRight aria-hidden="true" size={17} /></button>
             {!isViewerHomepage && <button type="button" className="studio-secondary-action" onClick={() => {
-              setIsPreviewActive(true);
+              handlePreviewSample();
               document.getElementById('studio-preview')?.scrollIntoView({ block: 'center' });
               document.getElementById('studio-preview')?.focus({ preventScroll: true });
             }}><Play aria-hidden="true" size={15} /> {t("Try the 360° demo")}</button>}
@@ -995,24 +976,24 @@ export function GeneratorTab({
                 {t("Your photos are sent to an image-capable model to generate a new panorama based on the visible scene. Describe any changes below. Unseen areas are generated by AI and may differ from reality.")}
               </p>
 
-              {/* Upload Drop Area */}
-              <div
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                multiple
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-cyan-500/30 hover:border-cyan-400/60 rounded-xl p-3 text-center cursor-pointer bg-cyan-950/20 hover:bg-cyan-950/40 transition-colors"
+                className="w-full border-2 border-dashed border-cyan-500/30 hover:border-cyan-400/60 rounded-xl p-3 text-center cursor-pointer bg-cyan-950/20 hover:bg-cyan-950/40 transition-colors"
               >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="image/*"
-                  multiple
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
                 <Upload className="w-5 h-5 text-cyan-400 mx-auto mb-1 opacity-80" />
                 <span className="text-xs font-semibold text-cyan-200">
-                  {t("Click or drag photos here (Max 3)")}
+                  {t("Choose photos (up to 3)")}
                 </span>
-              </div>
+              </button>
 
               {/* Reference Image Previews */}
               {referenceImages.length > 0 && (
@@ -1038,23 +1019,18 @@ export function GeneratorTab({
                 </div>
               )}
 
-              {/* Preset Reference Chips */}
               <div className="pt-2 border-t border-cyan-500/15">
-                <span className="text-[10px] text-cyan-400/80 uppercase font-mono font-bold block mb-1.5">
-                  {t("Try Sample References:")}
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {SAMPLE_REFERENCE_PRESETS.map((preset) => (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => handleAddSampleReference(preset)}
-                      className="px-2 py-1 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/25 rounded-lg text-[11px] text-cyan-200 hover:text-white transition-colors cursor-pointer"
-                    >
-                      + {t(preset.name)}
-                    </button>
-                  ))}
-                </div>
+                <button
+                  type="button"
+                  disabled={isLoadingSample || referenceImages.length >= 3}
+                  aria-busy={isLoadingSample}
+                  onClick={handleAddSampleReference}
+                  className="px-2 py-1 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/25 rounded-lg text-[11px] text-cyan-200 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {isLoadingSample && <RefreshCw aria-hidden="true" className="inline-block w-3 h-3 mr-1 animate-spin" />}
+                  {t('Use coastal sample')}
+                </button>
+                <p className="mt-1.5 text-[11px] text-cyan-200/70">{t('This bundled image is a reference example, not a result of your prompt.')}</p>
               </div>
             </div>
           )}
@@ -1080,7 +1056,6 @@ export function GeneratorTab({
                   onClick={() => {
                     const random = QUICK_TRY_CHIPS[Math.floor(Math.random() * QUICK_TRY_CHIPS.length)];
                     setPrompt(random.prompt);
-                    setSelectedStyle(random.style);
                   }}
                   className="text-[11px] text-cyan-300 hover:text-white flex items-center gap-1 px-2.5 py-1 rounded-xl bg-cyan-500/15 border border-cyan-500/30 hover:border-cyan-400 transition-all cursor-pointer font-semibold active:scale-95 shadow-sm"
                   title={t("Pick a random high-quality prompt")}
@@ -1100,42 +1075,10 @@ export function GeneratorTab({
             />
           </div>
 
-          {/* 360° Prompt Studio (Keyword Helper) */}
-          <details className="studio-advanced relative z-10">
-            <summary>
-              <span className="flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                <span>{t("Prompt keywords")}</span>
-              </span>
-            </summary>
-
-              <div className="space-y-2 pt-1.5 border-t border-cyan-500/15 animate-in fade-in duration-150">
-                {PROMPT_BUILDER_CATEGORIES.map((cat, idx) => (
-                  <div key={idx} className="space-y-1">
-                    <span className="text-[10px] uppercase font-mono font-bold text-cyan-400/70 block">
-                      {t(cat.name)}:
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {cat.tags.map((tag, tIdx) => (
-                        <button
-                          key={tIdx}
-                          type="button"
-                          onClick={() => handleAppendTag(tag)}
-                          className="px-2 py-0.5 bg-cyan-950/70 hover:bg-cyan-900/80 border border-cyan-500/20 hover:border-cyan-400 text-cyan-200 hover:text-white rounded-lg text-[10px] font-medium transition-all cursor-pointer active:scale-95"
-                        >
-                          + {t(tag)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-          </details>
-
-          {/* Quick "Try:" Chips */}
+          {/* Scene Templates */}
           <div className="relative z-10">
             <span className="text-[10px] text-cyan-400/80 uppercase font-mono font-bold block mb-1.5">
-              {t("Try Prompts:")}
+              {t("Scene templates:")}
             </span>
             <div className="flex flex-wrap gap-1.5">
               {QUICK_TRY_CHIPS.map((chip, idx) => (
@@ -1144,7 +1087,6 @@ export function GeneratorTab({
                   type="button"
                   onClick={() => {
                     setPrompt(chip.prompt);
-                    setSelectedStyle(chip.style);
                   }}
                   className="px-2.5 py-1 bg-cyan-950/40 hover:bg-cyan-900/70 border border-cyan-500/20 hover:border-cyan-400/50 rounded-xl text-[11px] text-cyan-200 hover:text-white transition-all cursor-pointer font-medium"
                 >
@@ -1154,9 +1096,9 @@ export function GeneratorTab({
             </div>
           </div>
 
-          {/* Style Presets Grid */}
+          {/* Visual Style Selector */}
           <div className="space-y-2 relative z-10">
-            <label htmlFor="environment-style" className="text-xs font-bold text-cyan-100">{t("Environment style")}</label>
+            <label htmlFor="environment-style" className="text-xs font-bold text-cyan-100">{t("Visual style (optional)")}</label>
             <select id="environment-style" value={selectedStyle} onChange={event => setSelectedStyle(event.target.value as StylePresetId)} className="studio-style-select">
               {STYLE_PRESETS.map(style => <option key={style.id} value={style.id}>{t(style.name)}</option>)}
             </select>
@@ -1188,7 +1130,30 @@ export function GeneratorTab({
             </div>
 
             <details className="studio-advanced">
-              <summary>{t("Advanced: seam blending")}</summary>
+              <summary>{t("Advanced: prompt keywords and seam blending")}</summary>
+              <p className="text-xs font-bold text-cyan-100">{t("Prompt keywords")}</p>
+              <div className="space-y-2 pt-1.5 border-t border-cyan-500/15 animate-in fade-in duration-150">
+                {PROMPT_BUILDER_CATEGORIES.map((cat, idx) => (
+                  <div key={idx} className="space-y-1">
+                    <span className="text-[10px] uppercase font-mono font-bold text-cyan-400/70 block">
+                      {t(cat.name)}:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {cat.tags.map((tag, tIdx) => (
+                        <button
+                          key={tIdx}
+                          type="button"
+                          onClick={() => handleAppendTag(tag)}
+                          className="px-2 py-0.5 bg-cyan-950/70 hover:bg-cyan-900/80 border border-cyan-500/20 hover:border-cyan-400 text-cyan-200 hover:text-white rounded-lg text-[10px] font-medium transition-all cursor-pointer active:scale-95"
+                        >
+                          + {t(tag)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <div className="space-y-2 pt-3">
               <button
                 type="button"
@@ -1224,7 +1189,7 @@ export function GeneratorTab({
                     className="mt-2 px-3 py-1.5 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-cyan-500/25"
                   >
                     <Zap className="w-3.5 h-3.5 fill-current" />
-                    <span>{t("Top Up Credits or Upgrade Plan Now →")}</span>
+                    <span>{t("View plans")}</span>
                   </button>
                 )}
               </div>
@@ -1252,10 +1217,20 @@ export function GeneratorTab({
 
           {/* Primary Generate Button */}
           <div className="pt-2 relative z-10">
+            {(currentUser.id.startsWith('usr_guest') || (currentUser.plan === 'free' && !currentUser.emailVerified)) && (
+              <div id="studio-trial-notice" className="studio-trial-notice mb-3 text-xs text-cyan-200">
+                <p className="font-semibold">{t('Before you generate')}</p>
+                <p>{currentUser.id.startsWith('usr_guest')
+                  ? t('Create an account and verify your email. Eligible accounts receive {credits} starter credits once; no subscription required.').replace('{credits}', () => String(billingConfig.freeMonthlyCredits))
+                  : t('Verify your email before generating. Trial credits are subject to eligibility.')}</p>
+                <button type="button" onClick={() => onNavigateTab('pricing')} className="mt-1 underline">{t('View plans')}</button>
+              </div>
+            )}
             <button
               type="button"
-              disabled={isGenerating || isUpscalingClarity}
+              disabled={isGenerating || isUpscalingClarity || (inputMode === 'image' && isLoadingSample)}
               onClick={handleGenerate}
+              aria-describedby={currentUser.id.startsWith('usr_guest') || (currentUser.plan === 'free' && !currentUser.emailVerified) ? 'studio-trial-notice' : undefined}
               className="shimmer-btn w-full py-4 bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl shadow-cyan-400/35 hover:shadow-cyan-400/60 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer tracking-wide"
             >
               {isGenerating ? (
@@ -1278,10 +1253,6 @@ export function GeneratorTab({
             {generationTiming && (
               <p role="status" className="mt-2 text-xs text-slate-300">{generationTiming}</p>
             )}
-            {saveStatus && saveStatus.url === currentPanoramaUrl && <div role="status" className="mt-3 rounded-xl border border-cyan-400/40 bg-cyan-950/50 p-3 text-sm font-semibold text-cyan-100">
-              {t(saveStatus.status === 'saved' ? 'Saved privately in My works' : saveStatus.status === 'unsaved' ? 'Not saved to My works. Download the model original before leaving.' : 'Save status unknown. Download the model original before leaving.')}
-              {saveStatus.status !== 'saved' && <button type="button" onClick={handleDownloadOriginal} className="ml-2 underline">{t('Download model original')}</button>}
-            </div>}
           </div>
         </div>
 
@@ -1369,6 +1340,11 @@ export function GeneratorTab({
               </div>
             )}
 
+            {isBundledPreview && (isPreviewActive || currentPanoramaUrl !== coastalCover) && <div className="studio-demo-notice px-5 py-3 text-xs text-cyan-200">
+              <p>{t('Demo panorama — not generated from your prompt')}</p>
+              <button type="button" className="mt-2 min-h-11 underline" onClick={() => onNavigateTab('showcase')}>{t('Browse public panoramas')}</button>
+            </div>}
+
             {/* Feedback notification toast */}
             {feedbackNotice && (
               <div className="px-5 py-2 bg-gradient-to-r from-cyan-950/90 via-blue-950/90 to-cyan-950/90 border-b border-cyan-500/30 flex items-center justify-between text-xs text-cyan-200 animate-in fade-in duration-150">
@@ -1396,7 +1372,7 @@ export function GeneratorTab({
               }}
               className="studio-preview-stage h-[490px] w-full relative bg-[#020712]"
             >
-              {isPreviewActive || currentPanoramaUrl !== initialPanoramaUrl ? (
+              {isPreviewActive || currentPanoramaUrl !== coastalCover ? (
                 <SphereViewer textureUrl={currentPanoramaUrl} initialAutoRotate={false} className="w-full h-full" />
               ) : (
                 <div className="studio-preview-placeholder">
@@ -1404,14 +1380,26 @@ export function GeneratorTab({
                   <span className="studio-coordinate">{t("A SPACE FOR POSSIBILITY")}</span>
                   <h3>{t("Your world goes here.")}</h3>
                   <p>{t("Generate a panorama to explore it here.")}<br />{t("Or explore the bundled 360° sample — no credits used.")}</p>
-                  <button type="button" className="studio-secondary-action" onClick={() => setIsPreviewActive(true)}><Play size={15} aria-hidden="true" /> {t("Open 360° demo")}</button>
+                  <button type="button" className="studio-secondary-action" onClick={handlePreviewSample}><Play size={15} aria-hidden="true" /> {t("Open 360° demo")}</button>
+                  <button type="button" className="min-h-11 underline text-sm text-cyan-200" onClick={() => onNavigateTab('showcase')}>{t('Browse public panoramas')}</button>
                 </div>
               )}
             </div>
           </div>
 
           {/* Multi-Format Export Action Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+          {saveStatus && saveStatus.url === originalRawUrl && (
+            <div role="status" className="studio-save-notice rounded-xl border border-cyan-400/40 bg-cyan-950/50 p-3 text-sm text-cyan-100">
+              <p>{t(saveStatus.status === 'saved'
+                ? 'The model original is saved in My works. Cropping and edits stay in this browser; download the current version to keep them.'
+                : saveStatus.status === 'unsaved'
+                  ? 'The model original is not saved in My works. Download the original and current version before leaving.'
+                  : 'The model original save status is unknown. Download the original and current version before leaving.')}</p>
+              <button type="button" onClick={handleDownloadOriginal} className="mt-2 underline">{t('Download model original')}</button>
+              <button type="button" onClick={handleDownloadPng} className="ml-3 mt-2 underline">{t('Download current version')}</button>
+            </div>
+          )}
+          <div className="studio-export-actions grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={handleDownloadPng}
@@ -1429,6 +1417,18 @@ export function GeneratorTab({
               <div className="text-[10px] text-cyan-300/60 mt-0.5">{t("2:1 Equirectangular")}</div>
             </button>
 
+            <button
+              type="button"
+              disabled={isGenerating}
+              onClick={() => setIsShareOpen(true)}
+              className="glass-card p-3.5 rounded-2xl text-left cursor-pointer hover:border-teal-400/50 transition-all"
+            >
+              <div className="text-xs font-bold text-white">{t('Share panorama')}</div>
+            </button>
+          </div>
+          <details className="studio-export-options studio-advanced">
+            <summary>{t('More export options')}</summary>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3">
             <button
               type="button"
               onClick={handleDownloadVrJpg}
@@ -1482,7 +1482,7 @@ export function GeneratorTab({
 
             <button
               type="button"
-              onClick={() => setIsEmbedModalOpen(true)}
+              onClick={() => setIsShareOpen(true)}
               className="glass-card p-3.5 rounded-2xl text-left cursor-pointer group hover:border-pink-400/50 transition-all"
             >
               <div className="flex items-center justify-between mb-2 text-pink-400 group-hover:text-pink-300">
@@ -1530,7 +1530,8 @@ export function GeneratorTab({
               <div className="text-xs font-bold text-white">{t("3D Globe")}</div>
               <div className="text-[10px] text-cyan-300/60 mt-0.5">{t("Planetary Orbit Simulator")}</div>
             </button>
-          </div>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -1575,18 +1576,10 @@ export function GeneratorTab({
         signal.throwIfAborted();
         if (localStorage.getItem('panorama_server_user_token') !== accountToken) throw new Error(t("Account changed. Reopen My works."));
         originalOwner.current = accountToken;
-        setOriginalRawUrl(original); setEnhanced4kUrl(null); setResultQuality(null); setSaveStatus(null); setGenerationTiming(null); setWorkPrompt({ url: original, prompt: selectedPrompt }); onPanoramaChange(original, accountToken); setIsPreviewActive(true);
+        setOriginalRawUrl(original); setEnhanced4kUrl(null); setResultQuality(null); setSaveStatus({ url: original, status: 'saved' }); setGenerationTiming(null); setWorkPrompt({ url: original, prompt: selectedPrompt }); onPanoramaChange(original, accountToken); setIsPreviewActive(true);
         if (share) setIsShareOpen(true);
       }} />
-      <SharePanoramaModal isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} imageUrl={currentPanoramaUrl} prompt={workPrompt?.url === currentPanoramaUrl ? workPrompt.prompt : prompt} accountId={currentUser.id} />
-
-      {/* Embed 360 Viewer Modal */}
-      <EmbedModal
-        isOpen={isEmbedModalOpen}
-        onClose={() => setIsEmbedModalOpen(false)}
-        currentPanoramaUrl={currentPanoramaUrl}
-      />
-
+      <SharePanoramaModal isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} imageUrl={currentPanoramaUrl} prompt={isBundledPreview ? t('Demo panorama — not generated from your prompt') : workPrompt?.url === currentPanoramaUrl ? workPrompt.prompt : prompt} accountId={currentUser.id} />
     </div>
   );
 }

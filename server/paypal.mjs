@@ -49,6 +49,15 @@ export function formatAdminBilling({ subscriptions = [], paypalSubscriptions = [
   };
 }
 
+export const DEFAULT_ONE_TIME_PACKS = {
+  'pack-25': { id: 'pack-25', name: 'Trial Pack', amountCents: 499, credits: 25, popular: true },
+  'pack-100': { id: 'pack-100', name: 'Starter Pack', amountCents: 1990, credits: 100, popular: false },
+};
+
+export function paypalOneTimePacks(billing = {}) {
+  return billing.oneTimePacks || DEFAULT_ONE_TIME_PACKS;
+}
+
 export function paypalCatalog(env, billing = {}) {
   const monthlyPrice = billing.proMonthlyPriceUsd ?? 9.9;
   const rawCredits = billing.proMonthlyCredits ?? 120;
@@ -138,6 +147,7 @@ function periodEnd(timestamp, cycle) {
 
 const reply = (data, status = 200) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
 const validId = value => typeof value === 'string' && /^I-[A-Z0-9]+$/.test(value);
+const validOrderId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{3,64}$/.test(value);
 
 export async function handlePayPalRequest({ request, env, ledger, authenticate, fetchImpl = fetch }) {
   const url = new URL(request.url);
@@ -145,7 +155,8 @@ export async function handlePayPalRequest({ request, env, ledger, authenticate, 
   try {
     if (pathname === '/api/paypal/config' && request.method === 'GET') {
       return reply({ success: true, enabled: paypalConfigured(env), mode: env.PAYPAL_MODE || 'sandbox',
-        plans: paypalCatalog(env, await ledger.billing()) });
+        plans: paypalCatalog(env, await ledger.billing()),
+        oneTimePacks: paypalOneTimePacks(await ledger.billing()) });
     }
     if (!paypalConfigured(env)) return reply({ error: 'PayPal subscriptions are not configured on this server' }, 503);
     const api = createPayPalApi(env, fetchImpl);
@@ -162,9 +173,22 @@ export async function handlePayPalRequest({ request, env, ledger, authenticate, 
       });
       if (verified.verification_status !== 'SUCCESS') return reply({ error: 'Invalid PayPal signature' }, 400);
       const payment = event.event_type === 'PAYMENT.SALE.COMPLETED';
+      const capture = event.event_type === 'PAYMENT.CAPTURE.COMPLETED';
       const lifecycle = ['BILLING.SUBSCRIPTION.ACTIVATED', 'BILLING.SUBSCRIPTION.CANCELLED',
         'BILLING.SUBSCRIPTION.SUSPENDED', 'BILLING.SUBSCRIPTION.EXPIRED', 'BILLING.SUBSCRIPTION.PAYMENT.FAILED'].includes(event.event_type);
-      if (!payment && !lifecycle) return reply({ received: true, ignored: true });
+      if (!payment && !lifecycle && !capture) return reply({ received: true, ignored: true });
+      if (capture) {
+        const resource = event.resource;
+        const orderId = resource.supplementary_data?.related_ids?.order_id || resource.custom_id;
+        if (orderId && typeof orderId === 'string' && ledger.findOrder) {
+          const local = await ledger.findOrder(orderId);
+          if (local && local.status === 'pending' && resource.status === 'COMPLETED' &&
+            resource.amount?.currency_code === 'USD' && moneyCents(resource.amount?.value) === local.amountCents) {
+            await ledger.fulfillOrder(local.checkoutSessionId, resource.id);
+          }
+        }
+        return reply({ received: true });
+      }
       const subscriptionId = payment ? event.resource?.billing_agreement_id : event.resource?.id;
       if (!validId(subscriptionId)) return reply({ error: 'Invalid subscription event' }, 400);
       const remote = await api(`/v1/billing/subscriptions/${subscriptionId}`);
@@ -219,6 +243,90 @@ export async function handlePayPalRequest({ request, env, ledger, authenticate, 
       }
       await ledger.updateRemote(subscription.id, await api(`/v1/billing/subscriptions/${subscription.paypalId}`));
       return reply({ success: true });
+    }
+    if (pathname === '/api/paypal/create-order' && request.method === 'POST') {
+      if (user.status !== 'active') {
+        return reply({ error: 'This account is suspended and cannot make purchases' }, 403);
+      }
+      const body = await request.json().catch(() => ({}));
+      const packs = paypalOneTimePacks(await ledger.billing());
+      const pack = packs[body.packId];
+      if (!pack || !Number.isSafeInteger(pack.amountCents) || pack.amountCents <= 0 || !Number.isSafeInteger(pack.credits) || pack.credits <= 0) {
+        return reply({ error: 'Invalid credit pack selection' }, 400);
+      }
+      const origin = env.PAYPAL_RETURN_ORIGIN || url.origin;
+      const localId = crypto.randomUUID();
+      const remote = await api('/v2/checkout/orders', {
+        intent: 'CAPTURE',
+        purchase_units: [{
+          reference_id: 'default',
+          custom_id: localId,
+          description: `360 Panorama Viewer - ${pack.credits} Credits (${pack.name})`,
+          amount: {
+            currency_code: 'USD',
+            value: (pack.amountCents / 100).toFixed(2),
+          },
+        }],
+        application_context: {
+          brand_name: '360 Panorama Viewer',
+          shipping_preference: 'NO_SHIPPING',
+          user_action: 'PAY_NOW',
+          return_url: `${origin}/?paypal_order=return`,
+          cancel_url: `${origin}/?paypal_order=cancelled`,
+        },
+      }, localId);
+      const approvalUrl = remote.links?.find(link => link.rel === 'approve')?.href;
+      const approvedUrl = approvalUrl ? new URL(approvalUrl) : null;
+      if (!validOrderId(remote.id) || approvedUrl?.protocol !== 'https:' ||
+        !['www.paypal.com', 'www.sandbox.paypal.com'].includes(approvedUrl?.hostname)) {
+        throw new Error('PayPal did not return a valid approval URL');
+      }
+      await ledger.insertOrder({
+        checkoutSessionId: remote.id,
+        userId: user.id,
+        status: 'pending',
+        plan: pack.id,
+        billingCycle: 'one-time',
+        currency: 'usd',
+        amountCents: pack.amountCents,
+        credits: pack.credits,
+        createdAt: new Date().toISOString(),
+      });
+      return reply({ success: true, orderId: remote.id, approvalUrl });
+    }
+    if (pathname === '/api/paypal/capture-order' && request.method === 'POST') {
+      if (user.status !== 'active') {
+        return reply({ error: 'This account is suspended and cannot complete purchases' }, 403);
+      }
+      const body = await request.json().catch(() => ({}));
+      if (!validOrderId(body.orderId)) {
+        return reply({ error: 'Invalid order ID' }, 400);
+      }
+      const local = await ledger.findOrder(body.orderId);
+      if (!local) return reply({ error: 'Order not found' }, 404);
+      if (local.userId !== user.id) return reply({ error: 'Order ownership mismatch' }, 403);
+      if (local.status === 'fulfilled') {
+        return reply({ success: true, alreadyFulfilled: true, creditsAdded: local.credits, orderId: local.checkoutSessionId });
+      }
+      if (local.status !== 'pending') {
+        return reply({ error: 'Order cannot be captured' }, 400);
+      }
+      let remote;
+      try {
+        remote = await api(`/v2/checkout/orders/${body.orderId}/capture`, {}, `capture-${body.orderId}`);
+      } catch {
+        remote = await api(`/v2/checkout/orders/${body.orderId}`);
+      }
+      if (remote.status !== 'COMPLETED') {
+        return reply({ error: 'PayPal order has not been completed' }, 400);
+      }
+      const capture = remote.purchase_units?.[0]?.payments?.captures?.[0];
+      const captureId = capture?.id || remote.id;
+      if (capture && (capture.amount?.currency_code !== 'USD' || moneyCents(capture.amount?.value) !== local.amountCents)) {
+        return reply({ error: 'Payment amount or currency does not match' }, 400);
+      }
+      await ledger.fulfillOrder(local.checkoutSessionId, captureId);
+      return reply({ success: true, creditsAdded: local.credits, orderId: local.checkoutSessionId });
     }
     if (pathname !== '/api/paypal/create-subscription' || request.method !== 'POST') return reply({ error: 'Route not found' }, 404);
     if (user.status !== 'active') {
@@ -285,7 +393,7 @@ export function createD1PayPalLedger(db) {
       WHEN EXISTS (SELECT 1 FROM paypal_subscriptions WHERE user_id = users.id AND paid_through > ? AND plan = 'enterprise') THEN 'enterprise'
       WHEN EXISTS (SELECT 1 FROM paypal_subscriptions WHERE user_id = users.id AND paid_through > ?) THEN 'pro' ELSE 'free' END
       WHERE id = ? AND EXISTS (SELECT 1 FROM paypal_subscriptions WHERE user_id = users.id AND paid_through != '')
-      AND NOT EXISTS (SELECT 1 FROM orders WHERE user_id = users.id AND status = 'fulfilled')`)
+      AND NOT EXISTS (SELECT 1 FROM orders WHERE user_id = users.id AND status = 'fulfilled' AND billing_cycle != 'one-time')`)
       .bind(new Date().toISOString(), new Date().toISOString(), userId).run(),
     async billing() { const row = await db.prepare("SELECT value FROM admin_config WHERE key = 'billing_config'").first(); return row ? JSON.parse(row.value) : {}; },
     find: id => db.prepare(`${selectSubscription} WHERE id = ?`).bind(id || '').first(),
@@ -320,6 +428,31 @@ export function createD1PayPalLedger(db) {
       ]);
       if (!await db.prepare('SELECT id FROM invoices WHERE id = ?').bind(invoiceId).first()) throw new Error('Payment has not been fulfilled');
     },
+    insertOrder: row => db.prepare(`INSERT INTO orders (checkout_session_id, user_id, status, plan, billing_cycle, currency, amount_cents, credits, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(
+        row.checkoutSessionId, row.userId, row.status, row.plan, row.billingCycle, row.currency, row.amountCents, row.credits, row.createdAt
+      ).run(),
+    findOrder: async orderId => {
+      const row = await db.prepare(`SELECT checkout_session_id AS checkoutSessionId, user_id AS userId, status, plan, billing_cycle AS billingCycle, currency, amount_cents AS amountCents, credits, created_at AS createdAt FROM orders WHERE checkout_session_id = ?`).bind(orderId).first();
+      return row || null;
+    },
+    async fulfillOrder(orderId, captureId) {
+      const invoiceId = `paypal:order:${captureId}`;
+      if (await db.prepare('SELECT id FROM invoices WHERE id = ?').bind(invoiceId).first()) return;
+      const order = await db.prepare('SELECT * FROM orders WHERE checkout_session_id = ?').bind(orderId).first();
+      if (!order || order.status === 'fulfilled') return;
+      const user = await db.prepare('SELECT status FROM users WHERE id = ?').bind(order.user_id).first();
+      if (user?.status !== 'active') throw new Error('Account unavailable');
+      await db.batch([
+        db.prepare(`UPDATE users SET credits_balance = credits_balance + ?, credits_total = credits_total + ?
+          WHERE id = ? AND status = 'active' AND NOT EXISTS (SELECT 1 FROM invoices WHERE id = ?)`).bind(order.credits, order.credits, order.user_id, invoiceId),
+        db.prepare(`UPDATE orders SET status = 'fulfilled' WHERE checkout_session_id = ?`).bind(orderId),
+        db.prepare(`INSERT INTO invoices (id, user_id, amount, currency, status, checkout_session_id, created_at)
+          VALUES (?, ?, ?, 'USD', 'paid', ?, ?) ON CONFLICT(id) DO NOTHING`)
+          .bind(invoiceId, order.user_id, order.amount_cents / 100, orderId, new Date().toISOString()),
+      ]);
+      if (!await db.prepare('SELECT id FROM invoices WHERE id = ?').bind(invoiceId).first()) throw new Error('Payment has not been fulfilled');
+    },
   };
 }
 
@@ -329,7 +462,7 @@ export function createJsonPayPalLedger(read, write) {
     syncAccess: async userId => {
       const store = read();
       const subscriptions = store.paypalSubscriptions?.filter(row => row.userId === userId && row.paidThrough) || [];
-      if (!subscriptions.length || store.orders?.some(row => row.userId === userId && row.status === 'fulfilled')) return;
+      if (!subscriptions.length || store.orders?.some(row => row.userId === userId && row.status === 'fulfilled' && (row.billingCycle ?? row.billing_cycle) !== 'one-time')) return;
       const current = subscriptions.filter(row => row.paidThrough > new Date().toISOString());
       const user = store.users.find(user => user.id === userId);
       const plan = current.some(row => row.plan === 'enterprise') ? 'enterprise' : current.length ? 'pro' : 'free';
@@ -372,6 +505,48 @@ export function createJsonPayPalLedger(read, write) {
       current.paypalId = remote.id;
       current.paidThrough = current.paidThrough > paidThrough ? current.paidThrough : paidThrough;
       if ((current.statusTime || '') <= (remote.status_update_time || '')) Object.assign(current, { status: remote.status, statusTime: remote.status_update_time || '' });
+    }),
+    insertOrder: async order => change(store => {
+      store.orders ||= [];
+      store.orders.push(order);
+    }),
+    findOrder: async orderId => {
+      const store = read();
+      const row = (store.orders || []).find(o => (o.checkoutSessionId ?? o.checkout_session_id) === orderId);
+      if (!row) return null;
+      return {
+        checkoutSessionId: row.checkoutSessionId ?? row.checkout_session_id,
+        userId: row.userId ?? row.user_id,
+        status: row.status,
+        plan: row.plan,
+        billingCycle: row.billingCycle ?? row.billing_cycle,
+        currency: row.currency,
+        amountCents: row.amountCents ?? row.amount_cents,
+        credits: row.credits,
+        createdAt: row.createdAt ?? row.created_at,
+      };
+    },
+    fulfillOrder: async (orderId, captureId) => change(store => {
+      const invoiceId = `paypal:order:${captureId}`;
+      store.invoices ||= [];
+      if (store.invoices.some(inv => inv.id === invoiceId)) return;
+      store.orders ||= [];
+      const order = store.orders.find(o => (o.checkoutSessionId ?? o.checkout_session_id) === orderId);
+      if (!order || order.status === 'fulfilled') return;
+      const user = (store.users || []).find(u => u.id === (order.userId ?? order.user_id));
+      if (user?.status !== 'active') throw new Error('Account unavailable');
+      user.creditsBalance = (user.creditsBalance || 0) + order.credits;
+      user.creditsTotal = (user.creditsTotal || 0) + order.credits;
+      order.status = 'fulfilled';
+      store.invoices.push({
+        id: invoiceId,
+        userId: user.id,
+        amount: (order.amountCents ?? order.amount_cents) / 100,
+        currency: 'USD',
+        status: 'paid',
+        checkoutSessionId: orderId,
+        createdAt: new Date().toISOString(),
+      });
     }),
   };
 }

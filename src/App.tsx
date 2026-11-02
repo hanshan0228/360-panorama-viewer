@@ -22,6 +22,7 @@ import {
   Gamepad2,
   Camera,
   Film,
+  Pickaxe,
 } from 'lucide-react';
 import type { ActiveTab, StylePresetId, ManagedUser } from './types/panorama';
 import { GeneratorTab } from './components/GeneratorTab';
@@ -42,7 +43,7 @@ import {
   DEFAULT_BILLING_CONFIG,
 } from './utils/adminStorage';
 import samplePanoramaUrl from './assets/coastal-cover.png';
-import { fetchServerUser, fetchPublicModelsConfig, fetchPublicBillingConfig } from './utils/commercialApi';
+import { fetchServerUser, fetchPublicModelsConfig, fetchPublicBillingConfig, paypalRequest } from './utils/commercialApi';
 import { EmbedViewer } from './components/commercial/EmbedViewer';
 
 const AdminTab = lazy(() => import('./components/AdminTab').then(module => ({ default: module.AdminTab })));
@@ -76,7 +77,7 @@ function getInitialTabFromLocation(): ActiveTab {
   if (path.includes('hdri-viewer') || hash.includes('hdri-viewer') || path.includes('hdri-to-cubemap')) return 'landing-hdri-viewer';
   if (path.includes('skybox-generator') || hash.includes('skybox-generator')) return 'landing-skybox';
   if (path.includes('photo-to-360-converter') || hash.includes('photo-to-360-converter')) return 'landing-photo360';
-  if (path.includes('cubemap-generator') || hash.includes('cubemap-generator')) return 'landing-cubemap';
+  if (path.includes('cubemap-generator') || hash.includes('cubemap-generator') || path.includes('minecraft-panorama-maker') || hash.includes('minecraft-panorama-maker')) return 'landing-cubemap';
   if (path.includes('360-metadata-injector') || hash.includes('360-metadata-injector')) return 'landing-metadata';
   if (path.includes('360-photo-to-video') || hash.includes('360-photo-to-video') || path.includes('360-product-video-generator')) return 'landing-video';
   if (path.includes('cubemap-to-equirectangular') || hash.includes('cubemap-to-equirectangular')) return 'landing-cube2eq';
@@ -136,8 +137,10 @@ export function App() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authNotice, setAuthNotice] = useState<'login' | 'register' | ''>('');
   const [authModalNotice, setAuthModalNotice] = useState('');
+  const [paymentNotice, setPaymentNotice] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [checkoutSelection, setCheckoutSelection] = useState<{ plan: 'pro' | 'enterprise'; cycle: 'monthly' | 'yearly' }>({ plan: 'pro', cycle: 'monthly' });
   const [pendingCheckout, setPendingCheckout] = useState<typeof checkoutSelection | null>(null);
+  const [pendingPack, setPendingPack] = useState<string | null>(null);
 
   const updateCurrentUser = (user: ManagedUser) => {
     const users = getStoredManagedUsers();
@@ -165,12 +168,44 @@ export function App() {
     setIsCheckoutModalOpen(true);
   };
 
+  const handleChoosePack = (packId: string) => {
+    if (currentUser.id === 'usr_guest' || currentUser.id.startsWith('usr_guest_') || !localStorage.getItem('panorama_server_user_token')) {
+      setAuthMode('login');
+      setPendingPack(packId);
+      setPendingCheckout(null);
+      setIsCheckoutModalOpen(false);
+      setIsAuthModalOpen(true);
+      return;
+    }
+    handleBuyPackDirect(packId);
+  };
+
+  const handleBuyPackDirect = async (packId: string) => {
+    try {
+      const result = await paypalRequest<{ success: boolean; approvalUrl: string; orderId: string }>('create-order', { packId });
+      if (result.approvalUrl) {
+        window.location.assign(result.approvalUrl);
+      }
+    } catch (err) {
+      setPaymentNotice({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to start PayPal checkout',
+      });
+    }
+  };
+
   const handleAuthSuccess = (user: ManagedUser, action?: 'login' | 'register') => {
     updateCurrentUser(user);
     if (action) setAuthNotice(action);
     if (typeof window !== 'undefined' && typeof (window as any).gtag === 'function') {
       if (action === 'register') (window as any).gtag('event', 'sign_up', { method: 'email' });
       else if (action === 'login') (window as any).gtag('event', 'login', { method: 'email' });
+    }
+    if (typeof pendingPack !== 'undefined' && pendingPack && !user.id.startsWith('usr_guest')) {
+      const pack = pendingPack;
+      if (typeof setPendingPack === 'function') setPendingPack(null);
+      if (typeof handleBuyPackDirect === 'function') handleBuyPackDirect(pack);
+      return;
     }
     if (pendingCheckout && !user.id.startsWith('usr_guest')) {
       setCheckoutSelection(pendingCheckout);
@@ -184,6 +219,7 @@ export function App() {
     setAuthModalNotice('');
     setIsAuthModalOpen(false);
     setPendingCheckout(null);
+    if (typeof setPendingPack === 'function') setPendingPack(null);
   };
 
   useEffect(() => {
@@ -298,6 +334,50 @@ export function App() {
   }, [activeTab]);
 
   useEffect(() => {
+    if (typeof window === 'undefined' || !window.location?.search) return;
+    const params = new URLSearchParams(window.location.search);
+    const paypalOrder = params.get('paypal_order');
+    const token = params.get('token');
+    if (paypalOrder === 'return' && token) {
+      let active = true;
+      setPaymentNotice({ type: 'info', message: t('Confirming your PayPal payment...') });
+      paypalRequest<{ success: boolean; creditsAdded?: number; alreadyFulfilled?: boolean }>('capture-order', { orderId: token })
+        .then(result => {
+          if (!active) return;
+          if (result.success) {
+            const credits = result.creditsAdded ?? 25;
+            setPaymentNotice({
+              type: 'success',
+              message: t('Payment successful! {credits} credits have been added to your account.').replace('{credits}', () => String(credits)),
+            });
+            window.dispatchEvent(new Event('panorama-payment-updated'));
+            fetchServerUser().then(res => {
+              if (res.success && res.user) updateCurrentUser(res.user);
+            });
+          }
+        })
+        .catch(err => {
+          if (!active) return;
+          setPaymentNotice({
+            type: 'error',
+            message: err instanceof Error ? err.message : t('Failed to complete PayPal order.'),
+          });
+        })
+        .finally(() => {
+          const newUrl = window.location.pathname + (window.location.hash || '');
+          window.history.replaceState({}, '', newUrl);
+        });
+      return () => { active = false; };
+    } else if (paypalOrder === 'cancelled') {
+      setPaymentNotice({
+        type: 'error',
+        message: t('PayPal payment was cancelled. No charges were made.'),
+      });
+      const newUrl = window.location.pathname + (window.location.hash || '');
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [t]);
+  useEffect(() => {
     if (verificationToken) window.history.replaceState(null, '', window.location.pathname + window.location.search);
   }, [verificationToken]);
 
@@ -378,6 +458,11 @@ export function App() {
     const isImageMakerPath = currentPath.includes('360-image-maker');
 
     const routeSeoMap: Record<string, { title: string; desc: string; slug: string }> = {
+      '/minecraft-panorama-maker/': {
+        title: 'Minecraft Panorama Maker — Custom Title Screen Resource Pack',
+        desc: 'Convert any 360° panorama into a Minecraft title screen resource pack (panorama_0.png to 5.png). Free, client-side, instant ZIP export.',
+        slug: 'minecraft-panorama-maker/',
+      },
       '/hdri-to-cubemap/': {
         title: 'HDRI to Cubemap Converter — Convert .HDR to 6 PNG Faces',
         desc: 'Decode a Radiance .hdr panorama, adjust exposure, and export six tone-mapped PNG cube faces as a ZIP. Free, local processing. OpenEXR is not supported.',
@@ -862,6 +947,25 @@ export function App() {
                       </a>
 
                       <a
+                        href={withLanguage("/minecraft-panorama-maker/")}
+                        onClick={(event) => handleRouteLink(event, 'landing-cubemap', '/minecraft-panorama-maker/')}
+                        className="w-full px-2.5 py-1.5 rounded-xl hover:bg-cyan-950/80 hover:border hover:border-cyan-500/30 text-left flex items-center gap-2.5 text-xs text-white transition-all cursor-pointer group"
+                      >
+                        <div className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 group-hover:bg-emerald-500/30 group-hover:text-emerald-200 transition-colors">
+                          <Pickaxe className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-xs flex items-center gap-1.5 text-white group-hover:text-emerald-200 transition-colors">
+                            <span>{t("Minecraft Panorama Maker")}</span>
+                            <span className="text-[9px] px-1 py-0.2 bg-emerald-400/20 text-emerald-300 rounded font-mono font-bold">
+                              PACK
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-cyan-300/60">{t("Custom title screen resource pack")}</div>
+                        </div>
+                      </a>
+
+                      <a
                         href={withLanguage("/360-metadata-injector/")}
                         onClick={(event) => handleRouteLink(event, 'landing-metadata', '/360-metadata-injector/')}
                         className="w-full px-2.5 py-1.5 rounded-xl hover:bg-cyan-950/80 hover:border hover:border-cyan-500/30 text-left flex items-center gap-2.5 text-xs text-white transition-all cursor-pointer group"
@@ -1027,6 +1131,13 @@ export function App() {
         {t('Account created. Verify your email to receive starter credits.')}
       </> : t('You are signed in. Welcome back.')}</span><button type="button" aria-label={t("Dismiss account notice")} onClick={() => setAuthNotice('')} className="underline">{t("Dismiss")}</button></div>}
 
+      {paymentNotice && (
+        <div role="status" className={`mx-auto max-w-5xl w-full px-4 pt-4 text-sm flex justify-between gap-3 ${paymentNotice.type === 'error' ? 'text-red-200 bg-red-950/40 border border-red-500/30' : paymentNotice.type === 'info' ? 'text-cyan-200 bg-cyan-950/40 border border-cyan-500/30' : 'text-emerald-200 bg-emerald-950/40 border border-emerald-500/30'} p-3 rounded-2xl`}>
+          <span>{paymentNotice.message}</span>
+          <button type="button" aria-label={t("Dismiss account notice")} onClick={() => setPaymentNotice(null)} className="underline">{t("Dismiss")}</button>
+        </div>
+      )}
+
       {/* Main App Canvas / Tab Container */}
       <main id="studio-main" tabIndex={-1} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 relative z-10 animate-in fade-in duration-200">
         <Suspense fallback={<div role="status" className="py-20 text-center text-cyan-400 font-mono text-xs">{t("Loading view...")}</div>}>
@@ -1069,7 +1180,7 @@ export function App() {
             onLaunchStudio={() => navigateTo('generator', '/360-image-maker/')}
           />
         )}
-        {activeTab === 'pricing' && <PricingTab currentUser={currentUser} billingConfig={billingConfig} onChoosePlan={handleChoosePlan} onOpenStudio={() => navigateTo('generator')} />}
+        {activeTab === 'pricing' && <PricingTab currentUser={currentUser} billingConfig={billingConfig} onChoosePlan={handleChoosePlan} onOpenStudio={() => navigateTo('generator')} onChoosePack={handleChoosePack} />}
         {activeTab === 'admin' && <AdminTab />}
         {activeTab === 'showcase' && (
           <ShowcasePage
@@ -1288,6 +1399,16 @@ export function App() {
                   >
                     <span>{t("Photo to 360 Converter")}</span>
                     <span className="text-[9px] font-mono px-1 rounded bg-teal-400/20 text-teal-300">2D</span>
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={withLanguage("/minecraft-panorama-maker/")}
+                    onClick={(e) => { e.preventDefault(); navigateTo('landing-cubemap', '/minecraft-panorama-maker/'); }}
+                    className="hover:text-cyan-300 transition-colors cursor-pointer flex items-center justify-between"
+                  >
+                    <span>{t("Minecraft Panorama Maker")}</span>
+                    <span className="text-[9px] font-mono px-1 rounded bg-emerald-400/20 text-emerald-300">MC</span>
                   </a>
                 </li>
                 <li>
@@ -1522,8 +1643,8 @@ export function App() {
           window.dispatchEvent(new Event('panorama-user-refresh'));
         }}
         trialCredits={billingConfig.freeMonthlyCredits}
-        continueToCheckout={Boolean(pendingCheckout)}
-        checkoutIntent={pendingCheckout}
+        continueToCheckout={Boolean(pendingCheckout || pendingPack)}
+        checkoutIntent={pendingPack ? { packId: pendingPack } : pendingCheckout}
         onAuthSuccess={handleAuthSuccess}
         onOpenWorks={() => {
           if (!localStorage.getItem('panorama_server_user_token')) return;

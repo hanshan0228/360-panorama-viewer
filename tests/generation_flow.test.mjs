@@ -1063,7 +1063,7 @@ function buttonIn(tree, name) {
   return button;
 }
 
-function studioHarness(testContext) {
+function studioHarness(testContext, moduleOverrides = {}) {
   let harness;
   testContext.after(() => harness?.unmount());
   setGlobal(testContext, 'window', new EventTarget());
@@ -1082,12 +1082,13 @@ function studioHarness(testContext) {
     '../assets/coastal-cover.png': '/coastal-cover.png',
     '../utils/hdrExporter': {}, '../utils/geminiClient': {}, '../utils/xmpInjector': {},
     '../utils/seamHealer': {}, '../utils/panoramaProcessor': {}, '../utils/adminStorage': {},
+    ...moduleOverrides,
   });
   const props = {
     isActive: true, isWorksOpen: false, onWorksOpenChange() {}, getPanoramaOwner: () => null,
     currentUser: accountFixture('usr_guest_studio'),
-    billingConfig: { creditCostPer1K: 1, creditCostPer2K: 2, creditCostPer4K: 4 },
-    currentPanoramaUrl: 'initial-demo', onUserChange() {}, onPanoramaChange() {}, onNavigateTab() {},
+    billingConfig: { freeMonthlyCredits: 8, creditCostPer1K: 1, creditCostPer2K: 2, creditCostPer4K: 4 },
+    currentPanoramaUrl: '/coastal-cover.png', onUserChange() {}, onPanoramaChange() {}, onNavigateTab() {},
   };
   return { ...harness, props, focused, scrolled };
 }
@@ -1123,7 +1124,7 @@ test('image mode starts without the text demo scene and keeps user descriptions 
   const fixture = studioHarness(testContext);
   const input = tree => elementsIn(tree).find(element => element.type === 'textarea' && element.props.id === 'prompt-input');
   let tree = fixture.render(fixture.props);
-  assert.match(input(tree).props.value, /cyberpunk/);
+  assert.equal(input(tree).props.value, '');
   buttonIn(tree, 'Image to Pano').props.onClick();
   fixture.render(fixture.props);
   tree = fixture.render(fixture.props);
@@ -1186,7 +1187,7 @@ test('studio hero renders the interactive panorama over a static cover fallback 
   buttonIn(tree, 'Try the 360° demo').props.onClick();
   tree = fixture.render(fixture.props);
   const viewer = elementsIn(tree).find(element => element.type === 'sphere-preview');
-  assert.equal(viewer.props.textureUrl, 'initial-demo');
+  assert.equal(viewer.props.textureUrl, '/coastal-cover.png');
   assert.equal(viewer.props.initialAutoRotate, false);
   assert.equal(fixture.focused.at(-1), 'studio-preview');
 });
@@ -1203,7 +1204,7 @@ test('studio opens generated results without requiring a demo click and retains 
   assert.ok(buttonIn(tree, 'Generate (1 Credits)'));
   buttonIn(tree, 'Alpine Mountain Lake').props.onClick();
   tree = fixture.render(fixture.props);
-  assert.equal(elementsIn(tree).find(element => element.type === 'select').props.value, 'nature');
+  assert.equal(elementsIn(tree).find(element => element.type === 'select').props.value, 'anime');
   assert.ok(elementsIn(tree).find(element => element.type === 'textarea').props.value.includes('alpine'));
   tree = fixture.render({ ...fixture.props, currentPanoramaUrl: 'generated-result' });
   assert.equal(elementsIn(tree).find(element => element.type === 'sphere-preview').props.textureUrl, 'generated-result');
@@ -2062,7 +2063,7 @@ for (const operation of ['upscale', 'heal', 'export', 'context', 'context2K', 'c
       window: { dispatchEvent: event => { state.refresh = event.type; } },
       currentUser: user, localStorage: { getItem: () => 'owner-token' }, creditsCost: 2,
       resolution: operation === 'context' ? '1K' : operation === 'context4K' ? '4K' : '2K', seamCorrection: true,
-      prompt: 'Synthetic', selectedStyle: 'test', referenceImages: [], STYLE_PRESETS: [],
+      inputMode: 'text', isLoadingSample: false, prompt: 'Synthetic', selectedStyle: 'test', referenceImages: [], STYLE_PRESETS: [],
       getModelExecutionPipeline: () => ({ mode: 'single', endpoints: [{ id: 'test', name: 'Test' }] }),
       buildPanoramaPrompt: prompt => prompt,
       inspectImageResolution,
@@ -2223,7 +2224,7 @@ function generatorRegressionContext(overrides = {}) {
     generationRef: { current: { mounted: true, request: 0, thumbnails: new Set() } }, originalOwner: { current: null },
     saveWorkThumbnail: async () => '',
     creditsCost: 2, resolution: '2K', seamCorrection: false,
-    prompt: 'Synthetic', selectedStyle: 'test', referenceImages: [], STYLE_PRESETS: [],
+    inputMode: 'text', isLoadingSample: false, prompt: 'Synthetic', selectedStyle: 'test', referenceImages: [], STYLE_PRESETS: [],
     getModelExecutionPipeline: () => ({ mode: 'single', endpoints: [{ id: 'test', name: 'Test', model: 'test-model' }] }),
     buildPanoramaPrompt: loadTsModule('../src/utils/geminiClient.ts', { './adminStorage': adminStorage }).buildPanoramaPrompt,
     inspectImageResolution,
@@ -2315,7 +2316,7 @@ for (const [library, expected] of [[{ saved: true }, 'saved'], [{ saved: false, 
       inspectImageResolution: () => ({ status: 'met', width: 2048, height: 1024 }),
     });
     await fixture.generate();
-    assert.deepEqual(fixture.state.find(([key]) => key === 'setSaveStatus')?.[1], { url: 'enhanced', status: expected });
+    assert.deepEqual(fixture.state.find(([key]) => key === 'setSaveStatus')?.[1], { url: 'raw', status: expected });
   });
 }
 
@@ -2325,7 +2326,7 @@ test('generator preserves attached photos across failover and asks to extend the
   const builderCalls = [];
   const { buildPanoramaPrompt } = loadTsModule('../src/utils/geminiClient.ts', { './adminStorage': adminStorage });
   const fixture = generatorRegressionContext({
-    prompt: 'Keep the original room', referenceImages: refs,
+    inputMode: 'image', prompt: 'Keep the original room', referenceImages: refs,
     STYLE_PRESETS: [{ id: 'test', promptSuffix: 'watercolor illustration' }],
     buildPanoramaPrompt: (...args) => {
       builderCalls.push(args);
@@ -3241,4 +3242,483 @@ test('GeneratorTab stops model failover on PanoramaQualityError, refreshes profi
   assert.equal(refreshed, 1);
   assert.equal(fixture.state.some(([key]) => key === 'panorama'), false);
   assert.ok(fixture.state.some(([key, value]) => key === 'setApiError' && value?.includes('did not pass the AI quality check')));
+});
+
+
+test('text generation excludes retained references and their prompt cues, including invalid image payloads', async () => {
+  const references = [{ name: 'retained.gif', preview: 'data:image/gif;base64,NOT-SUPPORTED' }];
+  const calls = [];
+  const fixture = generatorRegressionContext({
+    inputMode: 'text', referenceImages: references,
+    generateWithGemini: async (prompt, config, photos) => {
+      calls.push({ prompt, photos });
+      return { imageUrl: 'raw', remainingCredits: 0 };
+    },
+  });
+  await fixture.generate();
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].photos, []);
+  assert.ok(!calls[0].prompt.includes('attached reference photos'));
+  assert.ok(!calls[0].prompt.includes('original source viewpoint'));
+  assert.equal(references.length, 1);
+});
+
+test('bundled coastal reference loads the actual asset via the image processor without modifying the prompt', async t => {
+  const encodedAsset = 'data:image/png;base64,' + fs.readFileSync(new URL('../src/assets/coastal-cover.png', import.meta.url)).toString('base64');
+  const loads = [];
+  const fixture = studioHarness(t, { '../utils/panoramaProcessor': { processPanoramaImage: async (...args) => {
+    loads.push(args);
+    return encodedAsset;
+  } } });
+  let tree = fixture.render({ ...fixture.props, externalInputMode: 'image' });
+  const originalPrompt = elementsIn(tree).find(element => element.type === 'textarea').props.value;
+  assert.equal(elementsIn(tree).filter(element => element.type === 'button' && elementText(element) === 'Use coastal sample').length, 1);
+  await buttonIn(tree, 'Use coastal sample').props.onClick();
+  tree = fixture.render({ ...fixture.props, externalInputMode: 'image' });
+  assert.deepEqual(loads, [['/coastal-cover.png', { preserveNative: true, sharpness: 0, contrastBoost: 1 }, false]]);
+  const image = elementsIn(tree).find(element => element.type === 'img' && element.props.alt === 'Bundled coastal sample');
+  assert.equal(image.props.src, encodedAsset);
+  assert.equal(elementsIn(tree).find(element => element.type === 'textarea').props.value, originalPrompt);
+  assert.match(elementText(tree), /reference example, not a result of your prompt/);
+});
+
+test('a failed bundled reference load leaves no fake reference and gives an actionable error', async t => {
+  const fixture = studioHarness(t, { '../utils/panoramaProcessor': { processPanoramaImage: async () => { throw new Error('decode failed'); } } });
+  const props = { ...fixture.props, externalInputMode: 'image' };
+  let tree = fixture.render(props);
+  await buttonIn(tree, 'Use coastal sample').props.onClick();
+  tree = fixture.render(props);
+  assert.equal(elementsIn(tree).some(element => element.type === 'img' && element.props.alt === 'Bundled coastal sample'), false);
+  assert.match(elementText(tree), /Could not load the sample image. Upload your own photo instead./);
+  assert.equal(buttonIn(tree, 'Use coastal sample').props.disabled, false);
+});
+
+test('reference chooser uses a native button to open the file input without promising drag support', t => {
+  const fixture = studioHarness(t);
+  let opened = 0;
+  const tree = fixture.render({ ...fixture.props, externalInputMode: 'image' }, rendered => {
+    const input = elementsIn(rendered).find(element => element.type === 'input' && element.props.type === 'file');
+    input.props.ref.current = { click: () => opened++ };
+  });
+  const chooser = buttonIn(tree, 'Choose photos (up to 3)');
+  assert.equal(chooser.props.type, 'button');
+  chooser.props.onClick();
+  assert.equal(opened, 1);
+  assert.ok(!elementText(tree).includes('Click or drag photos here'));
+});
+
+test('switching image to text and back keeps selected reference photos', async t => {
+  const fixture = studioHarness(t, { '../utils/panoramaProcessor': { processPanoramaImage: async () => 'data:image/png;base64,SAMPLE' } });
+  let tree = fixture.render(fixture.props);
+  buttonIn(tree, 'Image to Pano').props.onClick();
+  fixture.render(fixture.props); tree = fixture.render(fixture.props);
+  await buttonIn(tree, 'Use coastal sample').props.onClick();
+  tree = fixture.render(fixture.props);
+  buttonIn(tree, 'Text Prompt').props.onClick();
+  fixture.render(fixture.props); tree = fixture.render(fixture.props);
+  assert.equal(elementsIn(tree).some(element => element.props.id === 'reference-uploader'), false);
+  buttonIn(tree, 'Image to Pano').props.onClick();
+  fixture.render(fixture.props); tree = fixture.render(fixture.props);
+  assert.equal(elementsIn(tree).filter(element => element.type === 'img' && element.props.alt === 'Bundled coastal sample').length, 1);
+});
+
+test('pre-generation guest notice uses configured starter credits and disappears for verified free accounts', t => {
+  const fixture = studioHarness(t);
+  let tree = fixture.render({ ...fixture.props, billingConfig: { ...fixture.props.billingConfig, freeMonthlyCredits: 13 } });
+  const notice = elementsIn(tree).find(element => element.props.id === 'studio-trial-notice');
+  assert.match(elementText(notice), /13 starter credits once; no subscription required/);
+  assert.equal(buttonIn(tree, 'Generate (').props['aria-describedby'], 'studio-trial-notice');
+  tree = fixture.render({ ...fixture.props, currentUser: { ...accountFixture(), emailVerified: false } });
+  assert.match(elementText(tree), /Verify your email before generating. Trial credits are subject to eligibility./);
+  assert.ok(!elementText(tree).includes('Create an account and verify'));
+  tree = fixture.render({ ...fixture.props, currentUser: accountFixture() });
+  assert.equal(elementsIn(tree).some(element => element.props.id === 'studio-trial-notice'), false);
+  assert.equal(buttonIn(tree, 'Generate (').props['aria-describedby'], undefined);
+  assert.equal(buttonIn(tree, '4K').props['aria-pressed'], true);
+});
+
+for (const [account, token] of [
+  [accountFixture('usr_guest_preview'), 'guest-token'],
+  [{ ...accountFixture(), emailVerified: false }, 'real-token'],
+  [{ ...accountFixture(), status: 'suspended' }, 'real-token'],
+]) {
+  test(`generation still blocks ${account.id.startsWith('usr_guest') ? 'guest' : !account.emailVerified ? 'unverified free' : 'suspended'} accounts before requests`, async () => {
+    const fixture = generatorRegressionContext({ currentUser: account, getCurrentUser: () => account,
+      localStorage: { getItem: () => token },
+      generateWithGemini: () => assert.fail('Ineligible account must not call a model'),
+    });
+    await fixture.generate();
+    assert.ok(fixture.state.some(([name, message]) => name === 'setApiError' && message));
+    assert.equal(fixture.state.some(([name]) => name === 'setSaveStatus'), false);
+  });
+}
+
+for (const [library, expected] of [[{ saved: true }, 'is saved in My works'], [{ saved: false, error: 'full' }, 'is not saved in My works'], [undefined, 'save status is unknown']]) {
+  test(`original ${expected} disclosure persists after sharpening, seam blending and restoring`, async t => {
+    const user = accountFixture();
+    setGlobal(t, 'localStorage', { getItem: () => 'owner-token' });
+    setGlobal(t, 'Image', class { width = 16; height = 8; set src(value) { queueMicrotask(() => this.onload()); } });
+    const fixture = studioHarness(t, {
+      '../utils/adminStorage': { getCurrentUser: () => user,
+        getModelExecutionPipeline: () => ({ mode: 'single', endpoints: [{ id: 'test', name: 'Test' }] }) },
+      '../utils/geminiClient': { buildPanoramaPrompt: prompt => prompt, generateWithGemini: async () => ({
+        imageUrl: 'model-original', library, remainingCredits: 0, creditsDeducted: 4,
+        imageResolution: { status: 'met', width: 4000, height: 2000 },
+      }) },
+      '../utils/panoramaProcessor': { processPanoramaImage: async (url, options) => options.scaleFactor ? 'sharpened' : 'prepared' },
+      '../utils/seamHealer': { healPanoramaSeam: () => ({ toDataURL: () => 'seam-blended' }) },
+    });
+    setGlobal(t, 'document', { createElement: () => ({ getContext: () => ({ drawImage() {} }) }) });
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    fixture.props.currentUser = user;
+    fixture.props.externalPrompt = 'A quiet mountain landscape';
+    fixture.props.onPanoramaChange = url => { fixture.props.currentPanoramaUrl = url; };
+    let tree = fixture.render(fixture.props);
+    await buttonIn(tree, 'Generate (').props.onClick();
+    tree = fixture.render(fixture.props);
+    const checkNotice = () => {
+      const preview = elementsIn(tree).find(element => element.props.id === 'studio-preview');
+      const notice = elementsIn(preview).find(element => element.props.className?.includes('studio-save-notice'));
+      assert.ok(notice, 'Persistence notice must live beside result actions');
+      assert.ok(elementText(notice).includes(expected));
+      assert.ok(buttonIn(notice, 'Download model original'));
+      assert.ok(buttonIn(notice, 'Download current version'));
+      assert.ok(!elementText(preview).includes('Demo panorama — not generated'));
+    };
+    assert.equal(fixture.props.currentPanoramaUrl, 'prepared'); checkNotice();
+    if (library?.saved) assert.match(elementText(tree), /Cropping and edits stay in this browser/);
+    await buttonIn(tree, 'Light sharpening').props.onClick();
+    tree = fixture.render(fixture.props);
+    assert.equal(fixture.props.currentPanoramaUrl, 'sharpened'); checkNotice();
+    buttonIn(tree, 'Blend seam (optional)').props.onClick();
+    await flushPromises(); tree = fixture.render(fixture.props);
+    assert.equal(fixture.props.currentPanoramaUrl, 'seam-blended'); checkNotice();
+    buttonIn(tree, 'View Original').props.onClick();
+    tree = fixture.render(fixture.props);
+    assert.equal(fixture.props.currentPanoramaUrl, 'model-original'); checkNotice();
+  });
+}
+
+test('exports retain primary PNG and sharing, with advanced formats in native details and embed using sharing', t => {
+  const fixture = studioHarness(t);
+  const destinations = [];
+  fixture.props.onNavigateTab = tab => destinations.push(tab);
+  let tree = fixture.render(fixture.props);
+  const actions = elementsIn(tree).find(element => element.props.className?.includes('studio-export-actions'));
+  assert.deepEqual(elementsIn(actions).filter(element => element.type === 'button').map(elementText), ['PNGDownload PNG2:1 Equirectangular', 'Share panorama']);
+  const options = elementsIn(tree).find(element => element.type === 'details' && element.props.className.includes('studio-export-options'));
+  assert.equal(options.props.open, undefined);
+  assert.equal(elementText(options.props.children[0]), 'More export options');
+  for (const title of ['Download VR JPG', 'Export .HDR', 'Export Video', 'Embed on Web', 'Cubemap Slices', '3D Globe']) assert.ok(buttonIn(options, title));
+  const advanced = elementsIn(tree).find(element => element.type === 'details' && elementText(element).includes('Advanced: prompt keywords and seam blending'));
+  assert.match(elementText(advanced), /Prompt keywords/);
+  assert.ok(buttonIn(advanced, 'Blending: Auto'));
+  buttonIn(tree, 'Browse public panoramas').props.onClick();
+  buttonIn(options, 'Cubemap Slices').props.onClick();
+  buttonIn(options, '3D Globe').props.onClick();
+  assert.deepEqual(destinations, ['showcase', 'cubemap', 'globe']);
+  buttonIn(options, 'Embed on Web').props.onClick();
+  tree = fixture.render(fixture.props);
+  const share = elementsIn(tree).find(element => element.props.imageUrl && element.props.accountId);
+  assert.equal(share.props.isOpen, true);
+  assert.equal(share.props.imageUrl, '/coastal-cover.png');
+  assert.equal(share.props.prompt, 'Demo panorama — not generated from your prompt');
+});
+
+
+test('an initial user-supplied panorama is previewed without a demo label and demo opens the bundled coastal asset', t => {
+  const fixture = studioHarness(t);
+  fixture.props.currentPanoramaUrl = 'https://user.example/panorama.jpg';
+  fixture.props.onPanoramaChange = url => { fixture.props.currentPanoramaUrl = url; };
+  let tree = fixture.render(fixture.props);
+  assert.equal(elementsIn(tree).find(element => element.type === 'sphere-preview').props.textureUrl, 'https://user.example/panorama.jpg');
+  assert.equal(elementsIn(tree).some(element => element.props.className?.includes('studio-demo-notice')), false);
+  let share = elementsIn(tree).find(element => element.props.imageUrl && element.props.accountId);
+  assert.notEqual(share.props.prompt, 'Demo panorama — not generated from your prompt');
+  buttonIn(tree, 'Try the 360° demo').props.onClick();
+  tree = fixture.render(fixture.props);
+  assert.equal(fixture.props.currentPanoramaUrl, '/coastal-cover.png');
+  assert.equal(elementsIn(tree).find(element => element.type === 'sphere-preview').props.textureUrl, '/coastal-cover.png');
+  assert.ok(elementsIn(tree).some(element => element.props.className?.includes('studio-demo-notice')));
+  share = elementsIn(tree).find(element => element.props.imageUrl && element.props.accountId);
+  assert.equal(share.props.prompt, 'Demo panorama — not generated from your prompt');
+});
+
+
+test('an external panorama replacement clears saved-work metadata and cancels pending edits without overwriting the upload', async t => {
+  setGlobal(t, 'localStorage', { getItem: () => 'owner-token' });
+  let finish;
+  let pendingSignal;
+  const fixture = studioHarness(t, {
+    '../utils/panoramaProcessor': { processPanoramaImage: (url, options, seam, signal) => {
+      assert.equal(url, 'saved-original-A');
+      pendingSignal = signal;
+      return new Promise(resolve => { finish = resolve; });
+    } },
+  });
+  fixture.props.onPanoramaChange = url => { fixture.props.currentPanoramaUrl = url; };
+  let tree = fixture.render(fixture.props);
+  const works = elementsIn(tree).find(element => element.props.onOpen && element.props.accountId);
+  await works.props.onOpen('saved-original-A', false, new AbortController().signal, 'Saved A caption');
+  tree = fixture.render(fixture.props);
+  assert.match(elementText(tree), /The model original is saved in My works/);
+  assert.ok(buttonIn(tree, 'Download model original'));
+  const pendingEdit = buttonIn(tree, 'Light sharpening').props.onClick();
+  fixture.props.currentPanoramaUrl = 'viewer-upload-B';
+  fixture.render(fixture.props); tree = fixture.render(fixture.props);
+  assert.equal(pendingSignal.aborted, true);
+  assert.equal(elementsIn(tree).some(element => element.props.className?.includes('studio-save-notice')), false);
+  assert.equal(elementsIn(tree).some(element => element.type === 'button' && /Download model original|View Original/.test(elementText(element))), false);
+  assert.equal(buttonIn(tree, 'Light sharpening').props.disabled, false);
+  assert.equal(elementsIn(tree).find(element => element.type === 'sphere-preview').props.textureUrl, 'viewer-upload-B');
+  finish('late-edited-A');
+  await pendingEdit;
+  tree = fixture.render(fixture.props);
+  assert.equal(fixture.props.currentPanoramaUrl, 'viewer-upload-B');
+  assert.equal(elementsIn(tree).some(element => element.props.className?.includes('studio-save-notice')), false);
+  const share = elementsIn(tree).find(element => element.props.imageUrl && element.props.accountId);
+  assert.notEqual(share.props.prompt, 'Saved A caption');
+});
+
+test('image generation waits for a pending coastal reference and then includes the completed attachment', async t => {
+  const user = accountFixture();
+  setGlobal(t, 'localStorage', { getItem: () => 'owner-token' });
+  let finishSample;
+  const calls = [];
+  const fixture = studioHarness(t, {
+    '../utils/adminStorage': { getCurrentUser: () => user,
+      getModelExecutionPipeline: () => ({ mode: 'single', endpoints: [{ id: 'test', name: 'Test' }] }) },
+    '../utils/geminiClient': { buildPanoramaPrompt: (prompt, style, hasPhotos) => { assert.equal(hasPhotos, true); return prompt; },
+      generateWithGemini: async (prompt, config, photos) => {
+        calls.push(photos);
+        return { imageUrl: 'model-original', remainingCredits: 0, imageResolution: { status: 'met' } };
+      } },
+    '../utils/panoramaProcessor': { processPanoramaImage: url => url === '/coastal-cover.png'
+      ? new Promise(resolve => { finishSample = resolve; }) : Promise.resolve('prepared') },
+  });
+  fixture.props.currentUser = user;
+  fixture.props.externalInputMode = 'image';
+  let tree = fixture.render(fixture.props);
+  const pendingSample = buttonIn(tree, 'Use coastal sample').props.onClick();
+  tree = fixture.render(fixture.props);
+  assert.equal(buttonIn(tree, 'Use coastal sample').props['aria-busy'], true);
+  assert.equal(buttonIn(tree, 'Generate (').props.disabled, true);
+  await buttonIn(tree, 'Generate (').props.onClick();
+  assert.deepEqual(calls, []);
+  finishSample('data:image/png;base64,COASTAL');
+  await pendingSample;
+  tree = fixture.render(fixture.props);
+  assert.equal(buttonIn(tree, 'Use coastal sample').props['aria-busy'], false);
+  assert.equal(buttonIn(tree, 'Generate (').props.disabled, false);
+  assert.ok(elementsIn(tree).some(element => element.type === 'img' && element.props.alt === 'Bundled coastal sample'));
+  await buttonIn(tree, 'Generate (').props.onClick();
+  assert.deepEqual(calls, [['data:image/png;base64,COASTAL']]);
+});
+
+test('sharpening the initial bundled placeholder reveals a preview that remains labeled as a demo', async t => {
+  const fixture = studioHarness(t, { '../utils/panoramaProcessor': { processPanoramaImage: async () => 'sharpened-coastal' } });
+  fixture.props.onPanoramaChange = url => { fixture.props.currentPanoramaUrl = url; };
+  let tree = fixture.render(fixture.props);
+  assert.equal(elementsIn(tree).some(element => element.type === 'sphere-preview'), false);
+  assert.equal(elementsIn(tree).some(element => element.props.className?.includes('studio-demo-notice')), false);
+  await buttonIn(tree, 'Light sharpening').props.onClick();
+  tree = fixture.render(fixture.props);
+  assert.equal(elementsIn(tree).find(element => element.type === 'sphere-preview').props.textureUrl, 'sharpened-coastal');
+  const notice = elementsIn(tree).find(element => element.props.className?.includes('studio-demo-notice'));
+  assert.match(elementText(notice), /Demo panorama — not generated from your prompt/);
+  assert.ok(buttonIn(notice, 'Browse public panoramas'));
+  assert.match(elementText(tree), /Light sharpening applied at the existing resolution/);
+  buttonIn(tree, 'Try the 360° demo').props.onClick();
+  tree = fixture.render(fixture.props);
+  assert.equal(fixture.props.currentPanoramaUrl, '/coastal-cover.png');
+  assert.ok(!elementText(tree).includes('Light sharpening applied at the existing resolution'));
+});
+
+
+test('opening the bundled demo clears the previous generation error', async t => {
+  const fixture = studioHarness(t, { '../utils/panoramaProcessor': { processPanoramaImage: async () => { throw new Error('decode failed'); } } });
+  fixture.props.externalInputMode = 'image';
+  let tree = fixture.render(fixture.props);
+  await buttonIn(tree, 'Use coastal sample').props.onClick();
+  tree = fixture.render(fixture.props);
+  assert.match(elementText(tree), /Could not load the sample image/);
+  buttonIn(tree, 'Try the 360° demo').props.onClick();
+  tree = fixture.render(fixture.props);
+  assert.ok(!elementText(tree).includes('Could not load the sample image'));
+});
+
+
+for (const mode of ['text', 'image']) {
+  test(`${mode} studio defaults to an empty prompt, None first, and 4K without adding a scene`, t => {
+    const fixture = studioHarness(t);
+    const tree = fixture.render({ ...fixture.props, externalInputMode: mode });
+    assert.equal(elementsIn(tree).find(element => element.type === 'textarea').props.value, '');
+    const style = elementsIn(tree).find(element => element.props.id === 'environment-style');
+    assert.equal(style.props.value, 'custom');
+    const first = elementsIn(style).find(element => element.type === 'option');
+    assert.equal(first.props.value, 'custom');
+    assert.equal(elementText(first), 'None (follow my description)');
+    assert.match(elementText(tree), /No preset scene or visual style is added./);
+    assert.equal(buttonIn(tree, '4K').props['aria-pressed'], true);
+  });
+}
+
+test('mode changes preserve manual text and both preset and None selections', t => {
+  const fixture = studioHarness(t);
+  let tree = fixture.render(fixture.props);
+  const style = () => elementsIn(tree).find(element => element.props.id === 'environment-style');
+  elementsIn(tree).find(element => element.type === 'textarea').props.onChange({ target: { value: 'A stone courtyard in winter' } });
+  for (const selected of ['cyberpunk', 'custom']) {
+    style().props.onChange({ target: { value: selected } });
+    tree = fixture.render(fixture.props);
+    for (const modeButton of ['Image to Pano', 'Text Prompt']) {
+      buttonIn(tree, modeButton).props.onClick();
+      tree = fixture.render(fixture.props);
+      assert.equal(style().props.value, selected);
+      assert.equal(elementsIn(tree).find(element => element.type === 'textarea').props.value, 'A stone courtyard in winter');
+    }
+  }
+});
+
+for (const selected of ['custom', 'nature']) {
+  test(`external ${selected} style and prompt apply once and survive mode changes and local edits`, t => {
+    const fixture = studioHarness(t);
+    const props = { ...fixture.props, externalPrompt: 'Template room', externalStyle: selected, externalInputMode: 'text' };
+    let tree = fixture.render(props);
+    assert.equal(elementsIn(tree).find(element => element.props.id === 'environment-style').props.value, selected);
+    assert.equal(elementsIn(tree).find(element => element.type === 'textarea').props.value, 'Template room');
+    for (const mode of ['image', 'text']) {
+      props.externalInputMode = mode;
+      fixture.render(props); tree = fixture.render(props);
+      assert.equal(elementsIn(tree).find(element => element.props.id === 'environment-style').props.value, selected);
+      assert.equal(elementsIn(tree).find(element => element.type === 'textarea').props.value, 'Template room');
+    }
+    elementsIn(tree).find(element => element.props.id === 'environment-style').props.onChange({ target: { value: 'interior' } });
+    elementsIn(tree).find(element => element.type === 'textarea').props.onChange({ target: { value: 'My revised room' } });
+    tree = fixture.render(props);
+    assert.equal(elementsIn(tree).find(element => element.props.id === 'environment-style').props.value, 'interior');
+    assert.equal(elementsIn(tree).find(element => element.type === 'textarea').props.value, 'My revised room');
+    props.externalStyle = selected === 'custom' ? 'nature' : 'custom';
+    props.externalPrompt = '';
+    fixture.render(props); tree = fixture.render(props);
+    assert.equal(elementsIn(tree).find(element => element.props.id === 'environment-style').props.value, props.externalStyle);
+    assert.equal(elementsIn(tree).find(element => element.type === 'textarea').props.value, '');
+  });
+}
+
+for (const [mode, description, references] of [
+  ['text', '', []], ['text', '  \n\t', []], ['image', '   ', []],
+  ['text', '   ', [{ preview: 'data:image/png;base64,HIDDEN' }]],
+]) {
+  test(`blank ${mode} request (${references.length} retained references) focuses inline validation before auth, pipeline or request changes`, async () => {
+    let focused = 0;
+    const fixture = generatorRegressionContext({ inputMode: mode, prompt: description,
+      referenceImages: references, selectedStyle: 'custom', STYLE_PRESETS: [{ id: 'custom', promptSuffix: '' }],
+      document: { getElementById: id => { assert.equal(id, 'prompt-input'); return { focus: () => focused++ }; } },
+      localStorage: { getItem: () => assert.fail('Validation must precede session reads') },
+      getModelExecutionPipeline: () => assert.fail('Blank input must not inspect a pipeline'),
+      generateWithGemini: () => assert.fail('Blank input must not generate'),
+      window: { dispatchEvent: () => assert.fail('Blank input must not open auth') },
+    });
+    await fixture.generate();
+    assert.equal(focused, 1);
+    assert.equal(fixture.context.generationRef.current.request, 0);
+    assert.deepEqual(fixture.state, [['setApiError', 'Describe a scene, add a reference photo, or choose a preset before generating.']]);
+  });
+}
+
+test('fresh guest form displays inline blank validation and focuses its description before opening auth', async t => {
+  const fixture = studioHarness(t);
+  let openedAuth = 0;
+  window.addEventListener('panorama-open-auth', () => openedAuth++);
+  let tree = fixture.render(fixture.props);
+  await buttonIn(tree, 'Generate (').props.onClick();
+  tree = fixture.render(fixture.props);
+  assert.equal(openedAuth, 0);
+  assert.deepEqual(fixture.focused, ['prompt-input']);
+  assert.match(elementText(elementsIn(tree).find(element => element.props.role === 'alert')), /Describe a scene, add a reference photo, or choose a preset before generating./);
+});
+
+for (const intent of ['description', 'reference', 'preset']) {
+  test(`${intent}-only intent reaches the request builder with the correct style and 360 geometry`, async t => {
+    const user = accountFixture();
+    setGlobal(t, 'localStorage', { getItem: () => 'owner-token' });
+    const { buildPanoramaPrompt } = loadTsModule('../src/utils/geminiClient.ts', { './adminStorage': adminStorage });
+    const calls = [];
+    const fixture = studioHarness(t, {
+      '../utils/adminStorage': { getCurrentUser: () => user,
+        getModelExecutionPipeline: () => ({ mode: 'single', endpoints: [{ id: 'test', name: 'Test' }] }) },
+      '../utils/geminiClient': { buildPanoramaPrompt, generateWithGemini: async (prompt, config, photos) => {
+        calls.push({ prompt, photos });
+        return { imageUrl: 'original', remainingCredits: 0, imageResolution: { status: 'met' } };
+      } },
+      '../utils/panoramaProcessor': { processPanoramaImage: async url => url === '/coastal-cover.png' ? 'data:image/png;base64,COASTAL' : 'prepared' },
+    });
+    fixture.props.currentUser = user;
+    fixture.props.externalInputMode = intent === 'reference' ? 'image' : 'text';
+    if (intent === 'preset') fixture.props.externalStyle = 'nature';
+    if (intent === 'description') fixture.props.externalPrompt = 'A sandstone desert under clouds';
+    let tree = fixture.render(fixture.props);
+    if (intent === 'reference') {
+      await buttonIn(tree, 'Use coastal sample').props.onClick();
+      tree = fixture.render(fixture.props);
+    }
+    await buttonIn(tree, 'Generate (').props.onClick();
+    assert.equal(calls.length, 1);
+    if (intent === 'reference') {
+      assert.deepEqual(calls[0].photos, ['data:image/png;base64,COASTAL']);
+      assert.match(calls[0].prompt, /attached reference photos/);
+      assert.match(calls[0].prompt, /2:1 ratio/);
+      assert.doesNotMatch(calls[0].prompt, /Visual style:/);
+    } else {
+      assert.deepEqual(calls[0].photos, []);
+      assert.match(calls[0].prompt, /full 360 degree equirectangular projection/);
+      assert.match(calls[0].prompt, /matching left and right edges/);
+      if (intent === 'preset') assert.match(calls[0].prompt, /tropical island sunset/);
+      else {
+        assert.ok(calls[0].prompt.startsWith('A sandstone desert under clouds,'));
+        assert.doesNotMatch(calls[0].prompt, /cyberpunk|tropical island|penthouse|watercolor|photorealistic/);
+      }
+    }
+  });
+}
+
+
+test('Alpine, Rome and Florence prompt chips preserve their scenes without conflicting preset suffixes', async t => {
+  const user = accountFixture();
+  setGlobal(t, 'localStorage', { getItem: () => 'owner-token' });
+  const { buildPanoramaPrompt } = loadTsModule('../src/utils/geminiClient.ts', { './adminStorage': adminStorage });
+  const calls = [];
+  const fixture = studioHarness(t, {
+    '../utils/adminStorage': { getCurrentUser: () => user,
+      getModelExecutionPipeline: () => ({ mode: 'single', endpoints: [{ id: 'test', name: 'Test' }] }) },
+    '../utils/geminiClient': { buildPanoramaPrompt, generateWithGemini: async prompt => {
+      calls.push(prompt);
+      return { imageUrl: 'original', remainingCredits: 0, imageResolution: { status: 'met' } };
+    } },
+    '../utils/panoramaProcessor': { processPanoramaImage: async () => 'prepared' },
+  });
+  fixture.props.currentUser = user;
+  fixture.props.onPanoramaChange = url => { fixture.props.currentPanoramaUrl = url; };
+  let tree = fixture.render(fixture.props);
+  for (const [label, scene] of [
+    ['Alpine Mountain Lake', /snow-capped alpine mountains.*turquoise lake/],
+    ['Ancient Rome, 80 AD', /ancient Rome forum and colosseum/],
+    ['Renaissance Florence, 1503', /Renaissance Florence cathedral dome.*Arno river/],
+  ]) {
+    buttonIn(tree, label).props.onClick();
+    tree = fixture.render(fixture.props);
+    assert.equal(elementsIn(tree).find(element => element.props.id === 'environment-style').props.value, 'custom');
+    await buttonIn(tree, 'Generate (').props.onClick();
+    tree = fixture.render(fixture.props);
+    assert.match(calls.at(-1), scene);
+    assert.match(calls.at(-1), /full 360 degree equirectangular projection/);
+    assert.doesNotMatch(calls.at(-1), /tropical island sunset|palm trees|floating celestial stones|glowing magical runes|luxury modern penthouse|floor-to-ceiling glass windows/);
+  }
+  assert.equal(calls.length, 3);
+  for (const label of ['Cyberpunk Tokyo, 2087', 'Sci-Fi Space Station', 'Minimalist Luxury Villa']) {
+    buttonIn(tree, label).props.onClick();
+    tree = fixture.render(fixture.props);
+    assert.equal(elementsIn(tree).find(element => element.props.id === 'environment-style').props.value, 'custom');
+  }
 });

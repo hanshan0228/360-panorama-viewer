@@ -219,6 +219,29 @@
 }
 .studio-viewer-more[open] > summary { margin-bottom: .5rem; }
 .studio-viewer-more > div { padding-block: .25rem; }
+.studio-export-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.studio-export-actions > button { min-height: 44px; }
+.studio-export-options > summary {
+  min-height: 44px;
+  padding: .75rem 1rem;
+  border: 1px solid var(--studio-edge);
+  border-radius: .75rem;
+  color: #c4dad5;
+  cursor: pointer;
+}
+.studio-export-options[open] > summary { margin-bottom: .75rem; }
+.studio-trial-notice, .studio-save-notice, .studio-demo-notice {
+  border: 1px solid var(--studio-edge);
+  border-radius: .75rem;
+  padding: .875rem 1rem;
+  background: rgba(158, 230, 211, .045);
+  color: #c4dad5;
+  font-size: .875rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.studio-demo-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; font-size: .8125rem; }
+.studio-demo-notice > button { margin-top: 0; }
 .studio-viewer-upload { min-height: 44px; justify-content: center; }
 .studio-shell summary:focus-visible { outline: 2px solid var(--studio-accent); outline-offset: 4px; }
 .studio-shell footer { border-color: var(--studio-edge); }

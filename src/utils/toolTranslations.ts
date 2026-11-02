@@ -347,7 +347,15 @@ export const toolMessages: TranslationMessages = {
     "Index 2 (py)": "索引 2（py）",
     "Index 3 (ny)": "索引 3（ny）",
     "Index 4 (pz)": "索引 4（pz）",
-    "Index 5 (nz)": "索引 5（nz）"
+    "Index 5 (nz)": "索引 5（nz）",
+    "Download 6 Faces (ZIP)": "下载六面 (ZIP)",
+    "Pack into a ready-to-use Minecraft resource pack with panorama_0 to 5": "打包为包含 panorama_0 至 5 的即用型 Minecraft 材质包",
+    "Minecraft Pack Ready!": "Minecraft 材质包已准备就绪！",
+    "Minecraft Pack (ZIP)": "Minecraft 材质包 (ZIP)",
+    "Minecraft Title Screen Guide": "Minecraft 标题界面替换指南",
+    "1. Click 'Minecraft Pack (ZIP)' to get a formatted resource pack.": "1. 点击“Minecraft 材质包 (ZIP)”获取格式化的材质包。",
+    "2. Put the ZIP into `.minecraft/resourcepacks/`.": "2. 将 ZIP 文件放入 `.minecraft/resourcepacks/`。",
+    "3. In Minecraft: Options -> Resource Packs -> enable pack.": "3. 在 Minecraft 中：选项 -> 资源包 -> 启用材质包。"
   },
   "es": {
     "Opening and viewing a local photo happens in your browser without uploading it. If you choose to create a share link, a sharing copy is uploaded to the service.": "Abrir y ver una foto local ocurre en el navegador sin subirla. Si creas un enlace para compartir, se sube una copia al servicio.",
@@ -694,7 +702,15 @@ export const toolMessages: TranslationMessages = {
     "Index 2 (py)": "Índice 2 (py)",
     "Index 3 (ny)": "Índice 3 (ny)",
     "Index 4 (pz)": "Índice 4 (pz)",
-    "Index 5 (nz)": "Índice 5 (nz)"
+    "Index 5 (nz)": "Índice 5 (nz)",
+    "Download 6 Faces (ZIP)": "Descargar 6 caras (ZIP)",
+    "Pack into a ready-to-use Minecraft resource pack with panorama_0 to 5": "Empaqueta en un paquete de recursos de Minecraft listo para usar con panorama_0 a 5",
+    "Minecraft Pack Ready!": "¡Paquete de Minecraft listo!",
+    "Minecraft Pack (ZIP)": "Paquete de Minecraft (ZIP)",
+    "Minecraft Title Screen Guide": "Guía de pantalla de inicio de Minecraft",
+    "1. Click 'Minecraft Pack (ZIP)' to get a formatted resource pack.": "1. Haz clic en 'Paquete de Minecraft (ZIP)' para obtener un paquete de recursos formateado.",
+    "2. Put the ZIP into `.minecraft/resourcepacks/`.": "2. Coloca el archivo ZIP en `.minecraft/resourcepacks/`.",
+    "3. In Minecraft: Options -> Resource Packs -> enable pack.": "3. En Minecraft: Opciones -> Paquetes de recursos -> habilitar paquete."
   },
   "de": {
     "Opening and viewing a local photo happens in your browser without uploading it. If you choose to create a share link, a sharing copy is uploaded to the service.": "Lokale Fotos werden im Browser geöffnet und angesehen, ohne sie hochzuladen. Wenn du einen Freigabelink erstellst, wird eine Kopie zum Dienst hochgeladen.",
@@ -1041,7 +1057,15 @@ export const toolMessages: TranslationMessages = {
     "Index 2 (py)": "Index 2 (py)",
     "Index 3 (ny)": "Index 3 (ny)",
     "Index 4 (pz)": "Index 4 (pz)",
-    "Index 5 (nz)": "Index 5 (nz)"
+    "Index 5 (nz)": "Index 5 (nz)",
+    "Download 6 Faces (ZIP)": "6 Seiten herunterladen (ZIP)",
+    "Pack into a ready-to-use Minecraft resource pack with panorama_0 to 5": "In ein fertiges Minecraft-Ressourcenpaket mit panorama_0 bis 5 packen",
+    "Minecraft Pack Ready!": "Minecraft-Paket bereit!",
+    "Minecraft Pack (ZIP)": "Minecraft-Paket (ZIP)",
+    "Minecraft Title Screen Guide": "Anleitung für den Minecraft-Titelbildschirm",
+    "1. Click 'Minecraft Pack (ZIP)' to get a formatted resource pack.": "1. Klicken Sie auf 'Minecraft-Paket (ZIP)', um ein formatiertes Ressourcenpaket zu erhalten.",
+    "2. Put the ZIP into `.minecraft/resourcepacks/`.": "2. Legen Sie die ZIP-Datei in `.minecraft/resourcepacks/` ab.",
+    "3. In Minecraft: Options -> Resource Packs -> enable pack.": "3. In Minecraft: Optionen -> Ressourcenpakete -> Paket aktivieren."
   },
   "ja": {
     "Opening and viewing a local photo happens in your browser without uploading it. If you choose to create a share link, a sharing copy is uploaded to the service.": "ローカル写真の表示はブラウザー内で行われ、アップロードされません。共有リンクを作成すると、共有用のコピーがサービスにアップロードされます。",
@@ -1388,6 +1412,14 @@ export const toolMessages: TranslationMessages = {
     "Index 2 (py)": "インデックス 2（py）",
     "Index 3 (ny)": "インデックス 3（ny）",
     "Index 4 (pz)": "インデックス 4（pz）",
-    "Index 5 (nz)": "インデックス 5（nz）"
+    "Index 5 (nz)": "インデックス 5（nz）",
+    "Download 6 Faces (ZIP)": "6面をダウンロード (ZIP)",
+    "Pack into a ready-to-use Minecraft resource pack with panorama_0 to 5": "panorama_0〜5 を含むすぐに使える Minecraft リソースパックにパッケージ化",
+    "Minecraft Pack Ready!": "Minecraft パックの準備完了！",
+    "Minecraft Pack (ZIP)": "Minecraft パック (ZIP)",
+    "Minecraft Title Screen Guide": "Minecraft タイトル画面設定ガイド",
+    "1. Click 'Minecraft Pack (ZIP)' to get a formatted resource pack.": "1. 「Minecraft パック (ZIP)」をクリックして、フォーマット済みリソースパックを取得します。",
+    "2. Put the ZIP into `.minecraft/resourcepacks/`.": "2. ZIP ファイルを `.minecraft/resourcepacks/` に配置します。",
+    "3. In Minecraft: Options -> Resource Packs -> enable pack.": "3. Minecraft 内：設定 -> リソースパック -> パックを有効化。"
   }
 };
