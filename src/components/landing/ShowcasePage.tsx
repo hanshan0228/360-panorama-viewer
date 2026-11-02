@@ -226,6 +226,9 @@ export function ShowcasePage({ onOpenInStudio, onOpenStudio, onOpenViewer }: Sho
         onSelectPanorama={(url, prompt, style) => {
           onOpenInStudio(url, prompt, style);
         }}
+        onTryPrompt={(prompt, style) => {
+          onOpenInStudio('', prompt, style);
+        }}
       />
 
       {/* SEO copy */}

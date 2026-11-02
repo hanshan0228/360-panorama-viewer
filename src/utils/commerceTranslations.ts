@@ -3,6 +3,7 @@ import type { TranslationMessages } from './i18n';
 export const commerceMessages: TranslationMessages = {
   "en": {},
   "zh": {
+    "Try this prompt": "使用此提示词",
     "Panorama preview": "全景预览",
     "Could not display this preview. Please try again.": "无法显示预览，请重试。",
     "Loading a preview uses one daily original read.": "加载预览会消耗一次每日原图读取额度。",
@@ -298,6 +299,7 @@ export const commerceMessages: TranslationMessages = {
     "All generations undergo automated quality review. If an image fails review after two attempts or an upstream provider fails, all reserved credits are immediately refunded in full. You never pay for broken generations.": "所有生成均经过自动化质量校验。如果图像在两次尝试后仍未通过审核或上游模型提供商出错，所有预留点数将立即全额原路退还。您绝不需要为损坏的生成付费。",
   },
   "es": {
+    "Try this prompt": "Probar este prompt",
     "Panorama preview": "Vista previa del panorama",
     "Could not display this preview. Please try again.": "No se pudo mostrar la vista previa. Inténtalo de nuevo.",
     "Loading a preview uses one daily original read.": "Cargar una vista previa consume una lectura diaria del original.",
@@ -593,6 +595,7 @@ export const commerceMessages: TranslationMessages = {
     "All generations undergo automated quality review. If an image fails review after two attempts or an upstream provider fails, all reserved credits are immediately refunded in full. You never pay for broken generations.": "Todas las generaciones pasan por una revisión de calidad automatizada. Si una imagen no supera la revisión tras dos intentos o si falla el proveedor ascendente, todos los créditos reservados se reembolsan de inmediato en su totalidad. Nunca pagas por generaciones defectuosas.",
   },
   "de": {
+    "Try this prompt": "Diesen Prompt ausprobieren",
     "Panorama preview": "Panoramavorschau",
     "Could not display this preview. Please try again.": "Die Vorschau konnte nicht angezeigt werden. Bitte erneut versuchen.",
     "Loading a preview uses one daily original read.": "Das Laden einer Vorschau verbraucht einen täglichen Originalabruf.",
@@ -888,6 +891,7 @@ export const commerceMessages: TranslationMessages = {
     "All generations undergo automated quality review. If an image fails review after two attempts or an upstream provider fails, all reserved credits are immediately refunded in full. You never pay for broken generations.": "Alle Generierungen durchlaufen eine automatische Qualitätsprüfung. Wenn ein Bild nach zwei Versuchen die Prüfung nicht besteht oder ein Upstream-Anbieter fehlschlägt, werden alle reservierten Credits sofort vollständig erstattet. Sie zahlen niemals für fehlerhafte Ergebnisse.",
   },
   "ja": {
+    "Try this prompt": "このプロンプトを試す",
     "Panorama preview": "パノラマのプレビュー",
     "Could not display this preview. Please try again.": "プレビューを表示できませんでした。もう一度お試しください。",
     "Loading a preview uses one daily original read.": "プレビューの読み込みには、1日あたりの原画像の読み込み回数を1回使用します。",

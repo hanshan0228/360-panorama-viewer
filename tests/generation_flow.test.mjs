@@ -1081,7 +1081,7 @@ function studioHarness(testContext, moduleOverrides = {}) {
     './HeroPanorama': { HeroPanorama: 'hero-panorama' },
     '../assets/coastal-cover.png': '/coastal-cover.png',
     '../utils/hdrExporter': {}, '../utils/geminiClient': {}, '../utils/xmpInjector': {},
-    '../utils/seamHealer': {}, '../utils/panoramaProcessor': {}, '../utils/adminStorage': {},
+   '../utils/seamHealer': {}, '../utils/panoramaProcessor': {}, '../utils/adminStorage': {}, '../utils/poleRepair': {}, '../utils/seamInpaint': {},
     ...moduleOverrides,
   });
   const props = {

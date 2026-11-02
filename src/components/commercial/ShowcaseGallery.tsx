@@ -1,7 +1,7 @@
 import { useTranslation } from '../../utils/i18n';
 import { commerceMessages } from '../../utils/commerceTranslations';
 import { useState } from 'react';
-import { Eye, Compass, Check, Copy } from 'lucide-react';
+import { Eye, Compass, Check, Copy, Sparkles } from 'lucide-react';
 import type { StylePresetId } from '../../types/panorama';
 import { generateProceduralPanorama } from '../../utils/proceduralPanoramas';
 
@@ -67,9 +67,10 @@ const SHOWCASE_ITEMS: ShowcaseItemData[] = [
 
 interface ShowcaseGalleryProps {
   onSelectPanorama: (url: string, prompt: string, style: StylePresetId) => void;
+  onTryPrompt?: (prompt: string, style: StylePresetId) => void;
 }
 
-export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
+export function ShowcaseGallery({ onSelectPanorama, onTryPrompt }: ShowcaseGalleryProps) {
   const t = useTranslation(commerceMessages);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -86,6 +87,19 @@ export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleTryPrompt = (item: ShowcaseItemData) => {
+    if (onTryPrompt) {
+      onTryPrompt(item.prompt, item.style);
+    } else {
+      const canvas = generateProceduralPanorama(item.style, item.prompt, 2048, 1024);
+      onSelectPanorama(canvas.toDataURL('image/png'), item.prompt, item.style);
+    }
+    const input = document.getElementById('prompt-input');
+    if (input) {
+      input.focus();
+      input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
 
   const handleLoadItem = (item: ShowcaseItemData) => {
     const canvas = generateProceduralPanorama(item.style, item.prompt, 2048, 1024);
@@ -157,40 +171,42 @@ export function ShowcaseGallery({ onSelectPanorama }: ShowcaseGalleryProps) {
 
             {/* Content Body */}
             <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-              <div>
-                <p className="text-xs text-cyan-100/80 line-clamp-2 leading-relaxed bg-[#020a17]/60 p-2.5 rounded-xl border border-cyan-500/15 font-mono text-[11px]">
+              <div className="flex items-start justify-between gap-2 bg-[#020a17]/60 p-2.5 rounded-xl border border-cyan-500/15">
+                <p className="text-xs text-cyan-100/80 line-clamp-2 leading-relaxed font-mono text-[11px] flex-1">
                   &ldquo;{item.prompt}&rdquo;
                 </p>
-
+                <button
+                  type="button"
+                  onClick={() => handleCopyPrompt(item.id, item.prompt)}
+                  className="p-1.5 hover:bg-cyan-500/20 text-cyan-300 hover:text-white rounded-lg transition-colors cursor-pointer shrink-0"
+                  title={t("Copy Prompt")}
+                >
+                  {copiedId === item.id ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
               </div>
 
               {/* Action Buttons */}
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-cyan-500/15">
                 <button
                   type="button"
-                  onClick={() => handleLoadItem(item)}
-                  className="px-3 py-2 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-cyan-500/25 cursor-pointer transition-transform hover:scale-[1.02]"
+                  onClick={() => handleTryPrompt(item)}
+                  className="px-3 py-2 bg-gradient-to-r from-teal-400 to-cyan-500 hover:from-teal-300 hover:to-cyan-400 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-cyan-500/25 cursor-pointer transition-transform hover:scale-[1.02]"
                 >
-                  <Eye className="w-3.5 h-3.5 fill-current" />
-                  <span>{t("Open demo")}</span>
+                  <Sparkles className="w-3.5 h-3.5 fill-current" />
+                  <span>{t("Try this prompt")}</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => handleCopyPrompt(item.id, item.prompt)}
+                  onClick={() => handleLoadItem(item)}
                   className="px-3 py-2 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/30 text-cyan-200 hover:text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
-                  {copiedId === item.id ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-emerald-300">{t("Copied!")}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5 text-cyan-300" />
-                      <span>{t("Copy Prompt")}</span>
-                    </>
-                  )}
+                  <Eye className="w-3.5 h-3.5 fill-current" />
+                  <span>{t("Open demo")}</span>
                 </button>
               </div>
             </div>

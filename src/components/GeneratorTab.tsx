@@ -24,6 +24,9 @@ import {
   RotateCcw,
   Film,
   Code2,
+  Compass,
+  Sliders,
+  RotateCw,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { ActiveTab, StylePreset, StylePresetId, ResolutionTier, ManagedUser, SystemBillingConfig } from '../types/panorama';
@@ -46,6 +49,8 @@ import { PhotoToVideoModal } from './commercial/PhotoToVideoModal';
 import { exportVrReadyJpegBlob } from '../utils/xmpInjector';
 import { healPanoramaSeam } from '../utils/seamHealer';
 import { processPanoramaImage } from '../utils/panoramaProcessor';
+import { repairPanoramaPoles } from '../utils/poleRepair';
+import { rollPanoramaCanvas } from '../utils/seamInpaint';
 import { inspectImageResolution, type ImageResolution } from '../utils/imageModelRequest.mjs';
 import { saveWorkThumbnail } from '../utils/workThumbnail';
 import {
@@ -177,6 +182,23 @@ const QUICK_TRY_CHIPS = [
   { label: 'Ancient Rome, 80 AD', prompt: 'ancient Rome forum and colosseum at golden hour, marble pillars, toga citizens, sun-drenched stone plaza, 8k equirectangular 360' },
   { label: 'Renaissance Florence, 1503', prompt: 'Renaissance Florence cathedral dome, terracotta rooftops, Arno river reflection, warm Mediterranean twilight, 8k 360' },
   { label: 'Minimalist Luxury Villa', prompt: 'ultra-luxury modern minimalist villa interior, floor-to-ceiling glass windows overlooking private ocean infinity pool, warm architectural lighting, 8k 360' },
+  { label: 'Ancient Shinto Shrine', prompt: 'tranquil Japanese ancient Shinto temple garden in autumn, crimson maple leaves, stone lanterns, misty sacred forest pond, 8k 360' },
+  { label: 'Deep Space Ringed Planet', prompt: 'deep space nebula, purple and teal cosmic dust, glowing galaxies, massive ringed planet, volumetric stellar skybox, 8k equirectangular 360' },
+  { label: 'Medieval Fantasy Tavern', prompt: 'warm cozy medieval fantasy tavern interior, glowing fireplace, rustic wooden beams, candlelight, cobblestone floor, high fantasy game skybox, 8k 360' },
+];
+
+interface CameraViewpoint {
+  id: string;
+  name: string;
+  promptSnippet: string;
+  desc: string;
+}
+
+const CAMERA_VIEWPOINTS: CameraViewpoint[] = [
+  { id: 'auto', name: 'Auto (Natural)', promptSnippet: '', desc: 'Natural perspective based on scene description' },
+  { id: 'eye-level', name: 'Eye-level (1.6m)', promptSnippet: 'eye-level human perspective at 1.6m height, level eye-level horizon', desc: 'Standing human perspective with realistic spatial height' },
+  { id: 'aerial', name: 'Aerial (50m)', promptSnippet: 'drone aerial 360 overview, panoramic bird-eye horizon, expansive landscape below', desc: 'Drone or high-altitude aerial view looking outward' },
+  { id: 'seated', name: 'Seated (1.1m)', promptSnippet: 'seated human eye-level viewpoint at 1.1m, realistic interior room proportion', desc: 'Seated perspective for indoor rooms, cafes, and studios' },
 ];
 
 export function GeneratorTab({
@@ -221,6 +243,10 @@ export function GeneratorTab({
   const [resolution, setResolution] = useState<ResolutionTier>('4K');
   const [seamCorrection, setSeamCorrection] = useState<boolean | 'auto'>('auto');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedViewpoint, setSelectedViewpoint] = useState<string>('auto');
+  const [negativePrompt, setNegativePrompt] = useState('');
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [isRolled180, setIsRolled180] = useState(false);
   const [generationStage, setGenerationStage] = useState('');
   const [generationElapsed, setGenerationElapsed] = useState(0);
   const [generationTiming, setGenerationTiming] = useState<string | null>(null);
@@ -243,6 +269,31 @@ export function GeneratorTab({
   const [referenceImages, setReferenceImages] = useState<Array<{ id: string; name: string; preview: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoadingSample, setIsLoadingSample] = useState(false);
+
+  // Restore unauthenticated draft once user signs in / verifies
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') return;
+    const sessionToken = localStorage.getItem('panorama_server_user_token');
+    if (!currentUser.id.startsWith('usr_guest') && sessionToken && (currentUser.plan !== 'free' || currentUser.emailVerified)) {
+      try {
+        const rawDraft = sessionStorage.getItem('panorama_pending_draft');
+        if (rawDraft) {
+          sessionStorage.removeItem('panorama_pending_draft');
+          const draft = JSON.parse(rawDraft);
+          if (draft && typeof draft === 'object') {
+            if (typeof draft.prompt === 'string' && draft.prompt.trim()) setPrompt(draft.prompt);
+            if (typeof draft.selectedStyle === 'string') setSelectedStyle(draft.selectedStyle);
+            if (typeof draft.selectedViewpoint === 'string') setSelectedViewpoint(draft.selectedViewpoint);
+            if (typeof draft.negativePrompt === 'string') setNegativePrompt(draft.negativePrompt);
+            if (['1K', '2K', '4K'].includes(draft.resolution)) setResolution(draft.resolution);
+            if (draft.inputMode === 'text' || draft.inputMode === 'image') setInputMode(draft.inputMode);
+            if (Array.isArray(draft.referenceImages) && draft.referenceImages.length > 0) setReferenceImages(draft.referenceImages);
+            setFeedbackNotice(t("Your generation draft has been restored."));
+          }
+        }
+      } catch {}
+    }
+  }, [currentUser]);
 
   const [apiError, setApiError] = useState<string | null>(null);
   const [isUpscalingClarity, setIsUpscalingClarity] = useState(false);
@@ -416,6 +467,22 @@ export function GeneratorTab({
     setReferenceImages((prev) => prev.filter((r) => r.id !== id));
   };
 
+  const handleRemixScene = () => {
+    if (!currentPanoramaUrl || isGenerating || currentPanoramaUrl === coastalCover) return;
+    setInputMode('image');
+    setReferenceImages([{
+      id: `remix-${Date.now()}`,
+      name: 'current-panorama.png',
+      preview: currentPanoramaUrl,
+    }]);
+    setFeedbackNotice(t("Current panorama set as reference photo. Describe lighting, weather, or style changes below."));
+    const promptInput = document.getElementById('prompt-input');
+    if (promptInput) {
+      promptInput.focus();
+      promptInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
   const handleGenerate = async () => {
     if (inputMode === 'image' && isLoadingSample) return;
     const styleObj = STYLE_PRESETS.find(s => s.id === selectedStyle);
@@ -440,6 +507,19 @@ export function GeneratorTab({
     if (user.id.startsWith('usr_guest') || !sessionToken || (user.plan === 'free' && !user.emailVerified)) {
       setApiError(t('Register and verify your email before using free AI generation.'));
       const isUnauth = user.id.startsWith('usr_guest') || !sessionToken;
+      try {
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('panorama_pending_draft', JSON.stringify({
+            prompt,
+            selectedStyle,
+            selectedViewpoint,
+            negativePrompt,
+            resolution,
+            inputMode,
+            referenceImages,
+          }));
+        }
+      } catch {}
       window.dispatchEvent(new CustomEvent('panorama-open-auth', {
         detail: {
           mode: isUnauth ? 'register' : 'login',
@@ -475,12 +555,32 @@ export function GeneratorTab({
     setGenerationTiming(null);
     const startedAt = performance.now();
     const elapsedTimer = setInterval(() => {
-      if (isCurrentGeneration()) setGenerationElapsed(Math.floor((performance.now() - startedAt) / 1000));
+      if (isCurrentGeneration()) {
+        const secs = Math.floor((performance.now() - startedAt) / 1000);
+        setGenerationElapsed(secs);
+        if (secs >= 24) {
+          setGenerationStage(t("Finalizing equirectangular texture map and automated quality checks..."));
+        } else if (secs >= 14) {
+          setGenerationStage(t("Calculating spherical horizon, perspective depth, and scene coherence..."));
+        } else if (secs >= 5) {
+          setGenerationStage(t("AI diffusion model generating lighting and volumetric environment..."));
+        }
+      }
     }, 1000);
 
     try {
       const refPreviews = inputMode === 'image' ? referenceImages.map(r => r.preview) : [];
-      const fullPrompt = buildPanoramaPrompt(prompt, styleObj?.promptSuffix || '', refPreviews.length > 0);
+      let effectiveUserPrompt = prompt;
+      if (typeof selectedViewpoint !== 'undefined' && typeof CAMERA_VIEWPOINTS !== 'undefined') {
+        const viewpointObj = CAMERA_VIEWPOINTS.find(v => v.id === selectedViewpoint);
+        if (viewpointObj?.promptSnippet && prompt.trim()) {
+          effectiveUserPrompt = `${prompt.trim()}, ${viewpointObj.promptSnippet}`;
+        }
+      }
+      const effNegative = typeof negativePrompt !== 'undefined' && typeof negativePrompt === 'string' ? negativePrompt : '';
+      const fullPrompt = effNegative
+        ? buildPanoramaPrompt(effectiveUserPrompt, styleObj?.promptSuffix || '', refPreviews.length > 0, effNegative)
+        : buildPanoramaPrompt(effectiveUserPrompt, styleObj?.promptSuffix || '', refPreviews.length > 0);
 
       // Attempt AI image generation across execution pipeline (Single, Failover, or Round-Robin).
       // An undersized result only moves on to the next model when this attempt was confirmed fully
@@ -792,6 +892,7 @@ export function GeneratorTab({
       'unreal engine 5 lumen lighting, 360 vr spherical skybox, ultra detailed architectural textures, golden hour volumetric atmosphere',
       'equirectangular projection 2:1 ratio, vibrant color grading, sharp specular highlights, high dynamic range skybox environment',
       'seamless 360 pano wrapping, hyper-detailed volumetric clouds, raytraced atmospheric haze, ultra-sharp horizon line',
+      'seamless 360 wrap with centered primary subjects, level horizon, uniform peripheral boundaries, balanced zenith and nadir',
     ];
     const picked = enhancements[Math.floor(Math.random() * enhancements.length)];
     if (!prompt.toLowerCase().includes('equirectangular')) {
@@ -822,6 +923,65 @@ export function GeneratorTab({
         onPanoramaChange(healed.toDataURL('image/png'), sourceOwner);
         setFeedbackNotice(t("Seam blending applied. It can create ghosting when edges differ; use View Original to undo."));
         confetti({ particleCount: 35, spread: 55, origin: { y: 0.7 } });
+        setTimeout(() => setFeedbackNotice(null), 3500);
+      }
+    };
+    img.src = currentPanoramaUrl;
+  };
+
+  const handleRepairPoles = () => {
+    const sourceOwner = getPanoramaOwner();
+    if (!originalRawUrl) {
+      originalOwner.current = sourceOwner;
+      setOriginalRawUrl(currentPanoramaUrl);
+    }
+    const request = generationRef.current.request;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (!generationRef.current.mounted || generationRef.current.request !== request || (sourceOwner && localStorage.getItem('panorama_server_user_token') !== sourceOwner)) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        const repaired = repairPanoramaPoles(canvas, {
+          repairNadir: true,
+          repairZenith: true,
+          nadirRadiusRatio: 0.10,
+          zenithRadiusRatio: 0.06,
+        });
+        onPanoramaChange(repaired.toDataURL('image/png'), sourceOwner);
+        setFeedbackNotice(t("Zenith and nadir pole smoothing applied. Use View Original to undo."));
+        confetti({ particleCount: 35, spread: 55, origin: { y: 0.7 } });
+        setTimeout(() => setFeedbackNotice(null), 3500);
+      }
+    };
+    img.src = currentPanoramaUrl;
+  };
+
+  const handleRoll180 = () => {
+    const sourceOwner = getPanoramaOwner();
+    if (!originalRawUrl) {
+      originalOwner.current = sourceOwner;
+      setOriginalRawUrl(currentPanoramaUrl);
+    }
+    const request = generationRef.current.request;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (!generationRef.current.mounted || generationRef.current.request !== request || (sourceOwner && localStorage.getItem('panorama_server_user_token') !== sourceOwner)) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        const rolled = rollPanoramaCanvas(canvas);
+        setIsRolled180(prev => !prev);
+        onPanoramaChange(rolled.toDataURL('image/png'), sourceOwner);
+        setFeedbackNotice(t("Panorama rolled 180° horizontally. Seam is now centered."));
         setTimeout(() => setFeedbackNotice(null), 3500);
       }
     };
@@ -1105,6 +1265,100 @@ export function GeneratorTab({
             <p className="text-xs text-slate-400">{t(STYLE_PRESETS.find(style => style.id === selectedStyle)?.description ?? '')}</p>
           </div>
 
+          {/* Camera Viewpoint & Horizon Selector */}
+          <div className="space-y-2 relative z-10">
+            <label className="text-xs font-bold text-cyan-100 flex items-center gap-1.5">
+              <Compass className="w-3.5 h-3.5 text-cyan-400" />
+              <span>{t("Camera viewpoint (optional)")}</span>
+            </label>
+            <div role="group" aria-label={t("Camera viewpoint")} className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              {CAMERA_VIEWPOINTS.map((vp) => (
+                <button
+                  key={vp.id}
+                  type="button"
+                  aria-pressed={selectedViewpoint === vp.id}
+                  onClick={() => setSelectedViewpoint(vp.id)}
+                  className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer text-center ${
+                    selectedViewpoint === vp.id
+                      ? 'bg-cyan-500/25 border-cyan-400 text-white shadow-sm shadow-cyan-400/20'
+                      : 'bg-cyan-950/30 border-cyan-500/20 text-cyan-200/70 hover:text-white hover:border-cyan-400/40'
+                  }`}
+                  title={t(vp.desc)}
+                >
+                  {t(vp.name)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Advanced options accordion (Negative Prompt, etc.) */}
+          <div className="space-y-2 relative z-10">
+            <button
+              type="button"
+              onClick={() => setIsAdvancedOpen(prev => !prev)}
+              className="text-xs font-bold text-cyan-200/80 hover:text-cyan-100 flex items-center gap-1.5 transition-colors cursor-pointer py-1"
+            >
+              <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+              <span>{t("Advanced generation options (optional)")}</span>
+              <span className="text-[10px] text-cyan-400/60 font-mono">
+                {isAdvancedOpen ? '▲' : '▼'}
+              </span>
+            </button>
+
+            {isAdvancedOpen && (
+              <div className="p-3 rounded-2xl bg-[#030e20]/80 border border-cyan-500/20 space-y-2.5 animate-in fade-in">
+                <div className="space-y-1.5">
+                  <label htmlFor="negative-prompt" className="text-[11px] font-semibold text-cyan-100 flex items-center justify-between">
+                    <span>{t("Negative prompt (elements to avoid)")}</span>
+                    {negativePrompt && (
+                      <button
+                        type="button"
+                        onClick={() => setNegativePrompt('')}
+                        className="text-[10px] text-cyan-400/60 hover:text-cyan-300 transition-colors cursor-pointer"
+                      >
+                        {t("Clear")}
+                      </button>
+                    )}
+                  </label>
+                  <input
+                    id="negative-prompt"
+                    type="text"
+                    value={negativePrompt}
+                    onChange={(e) => setNegativePrompt(e.target.value)}
+                    placeholder={t("e.g. split view, collage, seam line, distorted text, fisheye")}
+                    className="w-full bg-[#020a17]/90 border border-cyan-500/25 rounded-xl px-3 py-2 text-xs text-white placeholder-cyan-400/35 focus:outline-none focus:border-cyan-400 transition-colors font-mono"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="text-[10px] text-cyan-300/60 font-semibold">{t("Quick negative tags:")}</span>
+                  {[
+                    { label: t("No collage/split"), tag: 'split view, collage, multiple frames' },
+                    { label: t("No seam lines"), tag: 'seam line, visible boundary, split seam' },
+                    { label: t("No text/watermark"), tag: 'distorted text, watermark, signature' },
+                    { label: t("No fisheye/borders"), tag: 'fisheye lens, black border, round vignette' },
+                  ].map((tagItem) => (
+                    <button
+                      key={tagItem.label}
+                      type="button"
+                      onClick={() => {
+                        setNegativePrompt(prev => {
+                          const trimmed = prev.trim();
+                          if (!trimmed) return tagItem.tag;
+                          if (trimmed.includes(tagItem.tag)) return trimmed;
+                          return `${trimmed}, ${tagItem.tag}`;
+                        });
+                      }}
+                      className="text-[10px] px-2 py-0.5 rounded-lg bg-cyan-950/60 border border-cyan-500/20 text-cyan-200/80 hover:text-white hover:border-cyan-400/40 transition-colors cursor-pointer"
+                    >
+                      + {tagItem.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Resolution & Seam Correction Matrix */}
           <div className="space-y-3 pt-1 relative z-10">
             <div className="space-y-1.5">
@@ -1189,7 +1443,7 @@ export function GeneratorTab({
                     className="mt-2 px-3 py-1.5 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-cyan-500/25"
                   >
                     <Zap className="w-3.5 h-3.5 fill-current" />
-                    <span>{t("View plans")}</span>
+                   <span>{t("Add credits (from $4.99)")}</span>
                   </button>
                 )}
               </div>
@@ -1248,7 +1502,36 @@ export function GeneratorTab({
               )}
             </button>
             {isGenerating && (
-              <p role="status" className="mt-2 text-xs text-cyan-200">{generationStage}</p>
+              <div className="mt-3 p-3.5 rounded-2xl bg-[#030e20]/95 border border-cyan-500/30 space-y-2.5 animate-in fade-in">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-mono text-cyan-300 font-bold flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                    </span>
+                    <span>{t("AI Generation in progress")}</span>
+                  </span>
+                  <span className="font-mono text-cyan-300/80 text-[10px] bg-cyan-950/60 px-2 py-0.5 rounded-full border border-cyan-500/20">
+                    {generationElapsed}s {t("elapsed")}
+                  </span>
+                </div>
+                <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-cyan-500/20 p-0.5">
+                  <div
+                    className="h-full bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-500 transition-all duration-700 ease-out rounded-full shadow-[0_0_12px_rgba(34,211,238,0.5)]"
+                    style={{
+                      width: `${Math.min(95, Math.max(15, generationElapsed < 5 ? 25 : generationElapsed < 14 ? 55 : generationElapsed < 24 ? 78 : 92))}%`
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-cyan-400/60 font-mono px-0.5">
+                  <span>1. {t("Topology")}</span>
+                  <span>2. {t("Diffusion")}</span>
+                  <span>3. {t("Healing")}</span>
+                </div>
+                <p role="status" className="text-xs text-cyan-100 font-medium leading-relaxed pt-0.5">
+                  {generationStage}
+                </p>
+              </div>
             )}
             {generationTiming && (
               <p role="status" className="mt-2 text-xs text-slate-300">{generationTiming}</p>
@@ -1321,6 +1604,30 @@ export function GeneratorTab({
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
                   <span>{t("Blend seam (optional)")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRepairPoles}
+                  disabled={isGenerating || isUpscalingClarity}
+                  className="flex items-center gap-1.5 text-[11px] text-indigo-300 hover:text-white bg-indigo-500/15 hover:bg-indigo-500/25 px-2.5 py-1 rounded-full border border-indigo-500/30 transition-all cursor-pointer font-semibold active:scale-95 shadow-sm"
+                  title={t("Smooth zenith and nadir pole distortion")}
+                >
+                  <Compass className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>{t("Smooth poles")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRoll180}
+                  disabled={isGenerating || isUpscalingClarity}
+                  className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border transition-all cursor-pointer font-semibold active:scale-95 shadow-sm ${
+                    isRolled180
+                      ? 'bg-amber-500/25 border-amber-400 text-amber-200'
+                      : 'text-amber-300 hover:text-white bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/30'
+                  }`}
+                  title={t("Roll panorama 180° horizontally to inspect seam alignment down the center")}
+                >
+                  <RotateCw className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{t("Inspect seam (180° roll)")}</span>
                 </button>
               </div>
             </div>
@@ -1400,6 +1707,29 @@ export function GeneratorTab({
             </div>
           )}
           <div className="studio-export-actions grid grid-cols-2 gap-3">
+            {currentPanoramaUrl && currentPanoramaUrl !== coastalCover && (
+              <button
+                type="button"
+                disabled={isGenerating}
+                onClick={handleRemixScene}
+                className="glass-card p-3 rounded-2xl text-left cursor-pointer group hover:border-cyan-400/50 transition-all col-span-2 bg-gradient-to-r from-cyan-950/40 via-blue-950/30 to-slate-900 border border-cyan-500/30 disabled:opacity-40"
+              >
+                <div className="flex items-center justify-between mb-1 text-cyan-300 group-hover:text-white">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-cyan-400/20 rounded-lg group-hover:scale-110 transition-transform text-cyan-300">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-bold text-white">{t("Remix scene")}</span>
+                  </div>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 font-bold border border-cyan-500/30">
+                    {t("Lock geometry")}
+                  </span>
+                </div>
+                <div className="text-[10px] text-cyan-200/70">
+                  {t("Use this panorama as a reference to change weather, lighting, or style while keeping the scene layout.")}
+                </div>
+              </button>
+            )}
             <button
               type="button"
               onClick={handleDownloadPng}
@@ -1548,6 +1878,16 @@ export function GeneratorTab({
           setPrompt(newPrompt);
           setSelectedStyle(style);
           setIsPreviewActive(true);
+        }}
+        onTryPrompt={(newPrompt, style) => {
+          setPrompt(newPrompt);
+          setSelectedStyle(style);
+          setFeedbackNotice(t("Showcase prompt applied! Customize or click Generate to create your version."));
+          const promptInput = document.getElementById('prompt-input');
+          if (promptInput) {
+            promptInput.focus();
+            promptInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
         }}
       />
 

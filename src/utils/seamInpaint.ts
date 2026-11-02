@@ -28,6 +28,25 @@ export function rollPanoramaPixels(image: PanoramaPixels, shift = Math.floor(ima
   return { width, height, data: result };
 }
 
+/**
+ * Rolls an HTMLCanvasElement horizontally by shift pixels (default width / 2 = 180°).
+ * This places the 0°/360° boundary right in the center for visual inspection or editing.
+ */
+export function rollPanoramaCanvas(canvas: HTMLCanvasElement, shift = Math.floor(canvas.width / 2)): HTMLCanvasElement {
+  const width = canvas.width;
+  const height = canvas.height;
+  if (typeof document === 'undefined') return canvas;
+  const output = document.createElement('canvas');
+  output.width = width;
+  output.height = height;
+  const ctx = output.getContext('2d');
+  if (!ctx) return canvas;
+  const offset = ((shift % width) + width) % width;
+  ctx.drawImage(canvas, offset, 0, width - offset, height, 0, 0, width - offset, height);
+  ctx.drawImage(canvas, 0, 0, offset, height, width - offset, 0, offset, height);
+  return output;
+}
+
 /** OpenAI edit masks use alpha=0 for the editable band and alpha=255 elsewhere. */
 export function createSeamInpaintMask(width: number, height: number,
   bandWidth = Math.max(1, Math.round(width * 0.15625))): PanoramaPixels {
