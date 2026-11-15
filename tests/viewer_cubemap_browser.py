@@ -618,6 +618,42 @@ class BrowserRegression(unittest.TestCase):
         expect(fixture.get_by_role('button', name='Download model original', exact=True)).to_be_visible()
         expect(fixture.get_by_text('AI quality check passed · Passed after one retry', exact=True)).to_be_visible()
 
+    def test_generator_shows_async_review_and_refreshes_credits(self) -> None:
+        fixture = self.mount('GeneratorTab')
+        self.page.evaluate("""async () => {
+          const storage = await import('/src/utils/adminStorage.ts');
+          const user = {id:'usr_async_fixture', name:'Async test', plan:'pro', status:'active', creditsBalance:10};
+          storage.saveStoredManagedUsers([user]); storage.setCurrentUserId(user.id);
+          storage.saveStoredModelEndpoints([{id:'ep-async', name:'Async', model:'gpt-image-2.5', baseUrl:'http://localhost:8317', apiKey:'', isEnabled:true}]);
+          storage.saveStoredRoutingConfig({mode:'single', primaryEndpointId:'ep-async'});
+          localStorage.setItem('panorama_server_user_token','async-fixture-token');
+          window.userRefreshCount = 0;
+          window.addEventListener('panorama-user-refresh', () => { window.userRefreshCount++; });
+          window.fixtureProps = {...fixtureProps, currentUser:user, onPanoramaChange:url => {
+            window.generatedPanorama = url; fixtureRender({currentPanoramaUrl:url});
+          }};
+          fixtureRender({});
+        }""")
+        photo = self.page.evaluate('fixtureProps.textureUrl')
+        review_id = 'a' * 32
+        self.context.route('**/api/generate', lambda route: route.fulfill(json={
+            'success': True, 'imageUrl': photo, 'remainingCredits': 9, 'creditsDeducted': 1,
+            'qualityReview': {'id': review_id, 'status': 'pending'}
+        }))
+        calls = []
+        def review(route):
+            calls.append(route.request.headers.get('authorization'))
+            route.fulfill(json={'qualityReview': {'id': review_id, 'status': 'pending' if len(calls) == 1 else 'passed', 'issues': [], 'creditsRefunded': 0}})
+        self.context.route('**/api/quality-reviews/*', review)
+        fixture.locator('#prompt-input').fill('An open landscape')
+        fixture.get_by_role('button', name='1K', exact=True).click()
+        fixture.get_by_role('button', name='Generate (', exact=False).click()
+        expect(fixture.get_by_text('AI quality check in progress', exact=True)).to_be_visible(timeout=10000)
+        expect(fixture.get_by_text('AI quality check passed', exact=True)).to_be_visible(timeout=12000)
+        self.assertGreaterEqual(len(calls), 2)
+        self.assertTrue(all(value == 'Bearer async-fixture-token' for value in calls))
+        self.assertGreaterEqual(self.page.evaluate('window.userRefreshCount'), 2)
+
     def test_generator_quality_rejection_stops_failover_and_retains_preview(self) -> None:
         fixture = self.mount('GeneratorTab')
         self.page.evaluate("""async () => {

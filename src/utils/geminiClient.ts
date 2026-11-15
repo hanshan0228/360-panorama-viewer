@@ -13,7 +13,7 @@ export interface GeminiConfig {
 }
 
 export interface PanoramaQuality {
-  status: 'passed' | 'failed' | 'unavailable';
+  status: 'passed' | 'failed' | 'unavailable' | 'skipped';
   issues: string[];
   explanation?: string;
   reviewModel: string;
@@ -23,6 +23,7 @@ export interface PanoramaQuality {
 export interface GeminiGenerationResult {
   imageUrl: string;
   quality?: PanoramaQuality;
+  qualityReview?: { id: string; status: 'pending' };
   remainingCredits?: number;
   creditsDeducted?: number;
   creditsRefunded?: number;
@@ -302,24 +303,26 @@ export async function generateWithGemini(
 
     if (proxyRes!) {
       const proxyData = await proxyRes.json().catch(() => ({}));
-      if (proxyData.code === 'GENERATION_QUALITY_REJECTED' || proxyData.code === 'GENERATION_REVIEW_UNAVAILABLE'
-        || proxyData.quality?.status === 'failed' || proxyData.quality?.status === 'unavailable') {
-        const unavailable = proxyData.code === 'GENERATION_REVIEW_UNAVAILABLE' || proxyData.quality?.status === 'unavailable';
-        const error = new Error(unavailable
-          ? 'The AI quality check could not be completed. Your credits were returned. Please try again later.'
-          : 'The panorama did not pass the AI quality check after one retry. Your credits were returned.');
+      const qualityUnavailable = proxyData.code === 'GENERATION_REVIEW_UNAVAILABLE' || proxyData.quality?.status === 'unavailable';
+      if (proxyData.code === 'GENERATION_QUALITY_REJECTED' || proxyData.quality?.status === 'failed') {
+        const error = new Error('The panorama did not pass the AI quality check after one retry. Your credits were returned.');
         error.name = 'PanoramaQualityError';
         throw error;
       }
       if (proxyRes.ok) {
         if (proxyData.success && proxyData.imageUrl) {
           return {
-            quality: proxyData.quality,
+            quality: proxyData.quality, qualityReview: proxyData.qualityReview,
             library: proxyData.library, generationTiming: proxyData.generationTiming, modelUsed: proxyData.modelUsed, imageUrl: proxyData.imageUrl, remainingCredits: proxyData.remainingCredits,
             creditsDeducted: proxyData.creditsDeducted, creditsRefunded: proxyData.creditsRefunded,
             imageResolution: proxyData.imageResolution ?? inspectImageResolution(proxyData.imageUrl, config.resolution || '4K'),
           };
         }
+      } else if (qualityUnavailable) {
+        // Legacy server response: the review was unavailable and no image was returned.
+        const error = new Error('The AI quality check could not be completed. Your credits were returned. Please try again later.');
+        error.name = 'PanoramaQualityError';
+        throw error;
       } else {
         // Server returned an explicit error (400 Insufficient credits, 403 Suspended, etc.): NEVER silently bypass!
         throw new Error(proxyData.error || `Image generation proxy error [HTTP ${proxyRes.status}]`);

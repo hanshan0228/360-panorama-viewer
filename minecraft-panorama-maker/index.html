@@ -11,7 +11,7 @@
     <meta name="description" content="Convert any 360° panorama into a Minecraft title screen resource pack (panorama_0.png to 5.png). Free, client-side, instant ZIP export." />
     <meta
       name="keywords"
-      content="minecraft panorama maker, minecraft title screen panorama, custom minecraft background, panorama_0 to 5 png, minecraft resource pack panorama generator, minecraft main menu background"
+      content="minecraft panorama maker, minecraft title screen panorama, custom minecraft background, panorama_0 to 5 png, minecraft resource pack panorama generator, minecraft main menu background, how to make a minecraft panorama, minecraft custom panorama pack, minecraft title background maker, minecraft 1.21 panorama"
     />
     <meta name="author" content="360 Panorama Viewer" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
@@ -73,6 +73,66 @@
                 "item": "https://360panoramaviewer.com/minecraft-panorama-maker/"
               }
             ]
+          },
+          {
+            "@type": "HowTo",
+            "name": "How to Replace Your Minecraft Main Menu Background",
+            "description": "Step-by-step instructions for converting a 360 panorama into a custom Minecraft title screen background resource pack.",
+            "step": [
+              {
+                "@type": "HowToStep",
+                "position": 1,
+                "name": "Upload or paste your panorama",
+                "text": "Upload or paste any 360° equirectangular panorama into the tool."
+              },
+              {
+                "@type": "HowToStep",
+                "position": 2,
+                "name": "Download the Minecraft Resource Pack",
+                "text": "Click Minecraft Pack (ZIP) to download a ready-to-use resource pack containing panorama_0.png through panorama_5.png."
+              },
+              {
+                "@type": "HowToStep",
+                "position": 3,
+                "name": "Place in resourcepacks directory",
+                "text": "Move the downloaded ZIP file into your .minecraft/resourcepacks/ folder."
+              },
+              {
+                "@type": "HowToStep",
+                "position": 4,
+                "name": "Activate in Minecraft",
+                "text": "In Minecraft, open Options -> Resource Packs and move the custom panorama pack to the active list."
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What files are required for a Minecraft title screen panorama?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Minecraft uses six cube face images: panorama_0.png (South/posz), panorama_1.png (West/negx), panorama_2.png (North/negz), panorama_3.png (East/posx), panorama_4.png (Up/posy), and panorama_5.png (Down/negy). Our tool slices your 2:1 panorama and packages them with pack.mcmeta automatically."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Which Minecraft editions and versions are supported?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The exported resource pack supports Minecraft Java Edition from 1.13 through the latest 1.20 and 1.21+ releases. For older versions (1.12.2 and earlier), the six files can be placed directly into the legacy title background directory."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Are my panorama images uploaded to a server?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. All cubemap slicing and ZIP archive creation run 100% locally in your browser using client-side WebGL. Your photos are never sent to external servers."
+                }
+              }
+            ]
           }
         ]
       }
@@ -105,6 +165,15 @@
             <li><code>panorama_4.png</code> &mdash; Up (posy)</li>
             <li><code>panorama_5.png</code> &mdash; Down (negy)</li>
           </ul>
+        </section>
+        <section>
+          <h2>Frequently Asked Questions</h2>
+          <h3>What files are required for a Minecraft title screen panorama?</h3>
+          <p>Minecraft uses six cube face images: <code>panorama_0.png</code> (South), <code>panorama_1.png</code> (West), <code>panorama_2.png</code> (North), <code>panorama_3.png</code> (East), <code>panorama_4.png</code> (Up), and <code>panorama_5.png</code> (Down). Our tool automatically slices and packages them with <code>pack.mcmeta</code>.</p>
+          <h3>Which Minecraft editions and versions are supported?</h3>
+          <p>The exported resource pack works with Minecraft Java Edition 1.13 through 1.21+. The six PNGs can also be extracted for Bedrock Edition or older legacy versions.</p>
+          <h3>Are my panorama images uploaded to a server?</h3>
+          <p>No. Slicing and ZIP generation run entirely on your device with local WebGL rendering. Zero upload or signup needed.</p>
         </section>
         <section>
           <h2>Related 360° Panorama Tools</h2>

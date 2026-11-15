@@ -35,7 +35,11 @@ test('review permits a 56-second response beyond the old 30-second limit', async
   assert.equal(requestSignal.aborted, false);
   t.mock.timers.tick(25999);
   assert.equal((await result).status, 'passed');
-  assert.deepEqual(JSON.parse(logs.mock.calls[0].arguments[1]), {
+  const entry = JSON.parse(logs.mock.calls[0].arguments[1]);
+  const { headerMs, requestBytes, ...fields } = entry;
+  assert.equal(headerMs, 56000);
+  assert.ok(requestBytes > 0);
+  assert.deepEqual(fields, {
     status: 'passed', reason: null, durationMs: 56000, reviewModel: DEFAULT_PANORAMA_REVIEW_MODEL, httpStatus: 200,
   });
 });
@@ -68,7 +72,10 @@ for (const phase of ['headers', 'body']) {
       assert.deepEqual(await result, { status: 'unavailable', issues: [], reviewModel: DEFAULT_PANORAMA_REVIEW_MODEL });
       assert.equal(requestSignal.aborted, true);
       assert.equal(logs.mock.calls.length, 1);
-      assert.deepEqual(JSON.parse(logs.mock.calls[0].arguments[1]), {
+      const { headerMs, requestBytes, ...fields } = JSON.parse(logs.mock.calls[0].arguments[1]);
+      assert.equal(headerMs, deadline);
+      assert.ok(requestBytes > 0);
+      assert.deepEqual(fields, {
         status: 'unavailable', reason: parentCancels ? 'parent_abort' : 'timeout', durationMs: deadline,
         reviewModel: DEFAULT_PANORAMA_REVIEW_MODEL, ...(phase === 'body' ? { httpStatus: 200 } : {}),
       });
@@ -105,7 +112,9 @@ test('review logs fixed classifications once per call without provider, input or
     assert.ok(entry.durationMs >= 0);
     assert.equal(entry.httpStatus, httpStatus);
     assert.equal(entry.reviewModel, overrides?.model ? 'invalid' : DEFAULT_PANORAMA_REVIEW_MODEL);
-    assert.deepEqual(Object.keys(entry).sort(), ['status', 'reason', 'durationMs', 'reviewModel', ...(httpStatus ? ['httpStatus'] : [])].sort());
+    const fetched = reason !== 'invalid_input';
+    assert.deepEqual(Object.keys(entry).sort(), ['status', 'reason', 'durationMs', 'reviewModel',
+      ...(fetched ? ['headerMs', 'requestBytes'] : []), ...(httpStatus ? ['httpStatus'] : [])].sort());
   }
   assert.equal(logs.mock.calls.length, cases.length);
   assert.doesNotMatch(JSON.stringify(logs.mock.calls.map(call => call.arguments)), /PRIVATE_SENTINEL|https:|data:image/);

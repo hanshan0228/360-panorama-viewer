@@ -30,6 +30,7 @@ import { ViewerTab } from './components/ViewerTab';
 import { MetadataInjectorModal } from './components/commercial/MetadataInjectorModal';
 import { CheckoutModal } from './components/commercial/CheckoutModal';
 import { UserAuthModal } from './components/commercial/UserAuthModal';
+import { track, trackPurchaseOnce } from './utils/analytics';
 import {
   getCurrentUser,
   DEFAULT_GUEST_USER,
@@ -341,11 +342,18 @@ export function App() {
     if (paypalOrder === 'return' && token) {
       let active = true;
       setPaymentNotice({ type: 'info', message: t('Confirming your PayPal payment...') });
-      paypalRequest<{ success: boolean; creditsAdded?: number; alreadyFulfilled?: boolean }>('capture-order', { orderId: token })
+      paypalRequest<{ success: boolean; creditsAdded?: number; amountCents?: number; plan?: string; orderId?: string; alreadyFulfilled?: boolean }>('capture-order', { orderId: token })
         .then(result => {
           if (!active) return;
           if (result.success) {
             const credits = result.creditsAdded ?? 25;
+            trackPurchaseOnce(token, {
+              transaction_id: result.orderId ?? token,
+              value: (result.amountCents ?? 0) / 100,
+              currency: 'USD',
+              item_id: result.plan ?? 'one-time-pack',
+              credits,
+            });
             setPaymentNotice({
               type: 'success',
               message: t('Payment successful! {credits} credits have been added to your account.').replace('{credits}', () => String(credits)),
@@ -1156,6 +1164,8 @@ export function App() {
             }}
             getPanoramaOwner={() => panoramaOwner.current}
             onNavigateTab={navigateTo}
+            onChoosePlan={handleChoosePlan}
+            onChoosePack={handleChoosePack}
             externalInputMode={generatorInputMode}
             onInputModeChange={setGeneratorInputMode}
             externalPrompt={studioPresetPrompt}
@@ -1637,10 +1647,14 @@ export function App() {
         verificationToken={verificationToken}
         onVerificationComplete={() => {
           setVerificationToken('');
-          if (typeof window !== 'undefined' && typeof (window as any).gtag === 'function') {
-            (window as any).gtag('event', 'email_verification_complete');
-          }
+          track('email_verification_complete');
           window.dispatchEvent(new Event('panorama-user-refresh'));
+          try {
+            sessionStorage.setItem('panorama_first_generation', '1');
+          } catch {}
+          setIsAuthModalOpen(false);
+          navigateTo('generator', '/360-image-maker/');
+          window.dispatchEvent(new Event('panorama-first-generation'));
         }}
         trialCredits={billingConfig.freeMonthlyCredits}
         continueToCheckout={Boolean(pendingCheckout || pendingPack)}

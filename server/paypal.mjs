@@ -306,7 +306,7 @@ export async function handlePayPalRequest({ request, env, ledger, authenticate, 
       if (!local) return reply({ error: 'Order not found' }, 404);
       if (local.userId !== user.id) return reply({ error: 'Order ownership mismatch' }, 403);
       if (local.status === 'fulfilled') {
-        return reply({ success: true, alreadyFulfilled: true, creditsAdded: local.credits, orderId: local.checkoutSessionId });
+        return reply({ success: true, alreadyFulfilled: true, creditsAdded: local.credits, amountCents: local.amountCents, plan: local.plan, orderId: local.checkoutSessionId });
       }
       if (local.status !== 'pending') {
         return reply({ error: 'Order cannot be captured' }, 400);
@@ -326,7 +326,7 @@ export async function handlePayPalRequest({ request, env, ledger, authenticate, 
         return reply({ error: 'Payment amount or currency does not match' }, 400);
       }
       await ledger.fulfillOrder(local.checkoutSessionId, captureId);
-      return reply({ success: true, creditsAdded: local.credits, orderId: local.checkoutSessionId });
+      return reply({ success: true, creditsAdded: local.credits, amountCents: local.amountCents, plan: local.plan, orderId: local.checkoutSessionId });
     }
     if (pathname !== '/api/paypal/create-subscription' || request.method !== 'POST') return reply({ error: 'Route not found' }, 404);
     if (user.status !== 'active') {

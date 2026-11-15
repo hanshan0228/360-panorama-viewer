@@ -2,6 +2,7 @@ import { useTranslation } from '../utils/i18n';
 import { generatorMessages } from '../utils/generatorTranslations';
 import { MyWorks } from './commercial/MyWorks';
 import { SharePanoramaModal } from './commercial/SharePanorama';
+import { UpgradePrompt } from './commercial/UpgradePrompt';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Sparkles,
@@ -118,6 +119,8 @@ interface GeneratorTabProps {
   onPanoramaChange: (url: string, owner?: string | null) => void;
   getPanoramaOwner: () => string | null;
   onNavigateTab?: (tab: ActiveTab) => void;
+  onChoosePlan?: (plan: 'pro' | 'enterprise', cycle: 'monthly' | 'yearly') => void;
+  onChoosePack?: (packId: string) => void;
   externalInputMode?: 'text' | 'image';
   onInputModeChange?: (mode: 'text' | 'image') => void;
   externalPrompt?: string;
@@ -215,6 +218,8 @@ export function GeneratorTab({
   onPanoramaChange: onParentPanoramaChange,
   getPanoramaOwner,
   onNavigateTab = () => {},
+  onChoosePlan,
+  onChoosePack,
   externalInputMode,
   onInputModeChange,
   externalPrompt,
@@ -241,7 +246,9 @@ export function GeneratorTab({
     if (externalInputMode !== previousPresets.inputMode && externalInputMode) setInputMode(externalInputMode);
   }
 
-  const [resolution, setResolution] = useState<ResolutionTier>('4K');
+  // ponytail: 2K by default so the 8 trial credits buy four attempts instead of
+  // two. 4K stays one click away for buyers who need delivery resolution.
+  const [resolution, setResolution] = useState<ResolutionTier>('2K');
   const [seamCorrection, setSeamCorrection] = useState<boolean | 'auto'>('auto');
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedViewpoint, setSelectedViewpoint] = useState<string>('auto');
@@ -270,6 +277,8 @@ export function GeneratorTab({
   const [referenceImages, setReferenceImages] = useState<Array<{ id: string; name: string; preview: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoadingSample, setIsLoadingSample] = useState(false);
+  const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
+  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
 
   // Restore unauthenticated draft once user signs in / verifies
   useEffect(() => {
@@ -301,8 +310,80 @@ export function GeneratorTab({
   const [originalRawUrl, setOriginalRawUrl] = useState<string | null>(null);
   const originalOwner = useRef<string | null>(null);
   const [resultQuality, setResultQuality] = useState<{ url: string; quality?: PanoramaQuality } | null>(null);
+  const [qualityReview, setQualityReview] = useState<{ id: string; owner: string; url?: string; status: 'pending' | 'passed' | 'failed' | 'unavailable'; creditsRefunded?: number } | null>(null);
+  const activeQualityReview = qualityReview?.owner === currentUser.id ? qualityReview : null;
+  const activeQualityReviewId = activeQualityReview?.id;
+  const activeQualityReviewStatus = activeQualityReview?.status;
+  const activeQualityReviewOwner = activeQualityReview?.owner;
   const [enhanced4kUrl, setEnhanced4kUrl] = useState<string | null>(null);
-  const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
+
+  // A newly verified account should land on a working prompt with the generate
+  // button in view, instead of being left on a "credits added" message.
+  const startFirstGeneration = useCallback(() => {
+    try { sessionStorage.removeItem('panorama_first_generation'); } catch {}
+    setPrompt(prev => (prev.trim() ? prev : QUICK_TRY_CHIPS[1].prompt));
+    setFeedbackNotice(t('Your trial credits are ready. Generate your first panorama.'));
+    requestAnimationFrame(() => {
+      const button = document.getElementById('studio-generate-button');
+      button?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      button?.focus({ preventScroll: true });
+    });
+  }, [t]);
+
+  useEffect(() => {
+    const handler = () => startFirstGeneration();
+    window.addEventListener('panorama-first-generation', handler);
+    let frame = 0;
+    try {
+      if (sessionStorage.getItem('panorama_first_generation')) frame = requestAnimationFrame(handler);
+    } catch {}
+    return () => {
+      window.removeEventListener('panorama-first-generation', handler);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [startFirstGeneration]);
+
+  useEffect(() => {
+    const owner = currentUser.id;
+    if (!owner || owner.startsWith('usr_guest')) return;
+    try {
+      const id = localStorage.getItem(`panorama-quality-review:${owner}`);
+      setQualityReview(id && /^[a-f0-9-]{32,36}$/i.test(id) ? { id, owner, status: 'pending' } : null);
+    } catch { setQualityReview(null); }
+  }, [currentUser.id]);
+
+  useEffect(() => {
+    if (!activeQualityReviewId || activeQualityReviewStatus !== 'pending' || !activeQualityReviewOwner) return;
+    const reviewId = activeQualityReviewId;
+    const reviewOwner = activeQualityReviewOwner;
+    const token = localStorage.getItem('panorama_server_user_token');
+    if (!token) return;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/quality-reviews/${encodeURIComponent(reviewId)}`, {
+          headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
+        });
+        if (!response.ok) throw new Error('Review status unavailable');
+        const data = await response.json();
+        if (controller.signal.aborted || localStorage.getItem('panorama_server_user_token') !== token) return;
+        const review = data.qualityReview;
+        if (review?.id === reviewId && ['passed', 'failed', 'unavailable'].includes(review.status)) {
+          try {
+            const key = `panorama-quality-review:${reviewOwner}`;
+            if (localStorage.getItem(key) === reviewId) localStorage.removeItem(key);
+          } catch { /* Status still remains visible in this tab. */ }
+          setQualityReview(current => current?.id === reviewId ? { ...current, status: review.status, creditsRefunded: review.creditsRefunded } : current);
+          window.dispatchEvent(new Event('panorama-user-refresh'));
+          return;
+        }
+      } catch { /* A temporary status failure must not change the server's billing result. */ }
+      if (!controller.signal.aborted) timer = setTimeout(poll, 5000);
+    };
+    void poll();
+    return () => { controller.abort(); if (timer) clearTimeout(timer); };
+  }, [activeQualityReviewId, activeQualityReviewStatus, activeQualityReviewOwner]);
 
   const expectedPanoramaUrl = useRef(currentPanoramaUrl);
   const onPanoramaChange = useCallback((url: string, owner?: string | null) => {
@@ -534,9 +615,7 @@ export function GeneratorTab({
 
     // 2. Check credit balance before firing requests
     if (!sessionToken && user.creditsBalance < creditsCost) {
-      setApiError(
-        t('Insufficient credits.') + ' ' + t("A {resolution} panorama costs {cost} credits; your account has {balance}. View plans to add credits.").replace("{resolution}", () => String(resolution)).replace("{cost}", () => String(creditsCost)).replace("{balance}", () => String(user.creditsBalance))
-      );
+      setIsUpgradeOpen(true);
       return;
     }
 
@@ -594,7 +673,7 @@ export function GeneratorTab({
       let serverRefunded = 0;
       let serverDeductedTotal = 0;
       let resultResolution: ImageResolution | undefined;
-      let bestAttempt: { url: string; resolution: ImageResolution; endpointName: string; index: number; cost?: number; library?: { saved: boolean; error?: string }; quality?: PanoramaQuality } | null = null;
+      let bestAttempt: { url: string; resolution: ImageResolution; endpointName: string; index: number; cost?: number; library?: { saved: boolean; error?: string }; quality?: PanoramaQuality; qualityReview?: { id: string; status: 'pending' } } | null = null;
       const failedAttempts: Array<{ endpoint: string; error: string }> = [];
       const attemptDetails: string[] = [];
 
@@ -636,6 +715,7 @@ export function GeneratorTab({
               cost: genResult.creditsDeducted,
               library: genResult.library,
               quality: genResult.quality,
+              qualityReview: genResult.qualityReview,
             };
           }
           if (typeof genResult.remainingCredits === 'number') {
@@ -723,6 +803,12 @@ export function GeneratorTab({
       setWorkPrompt(null);
       setSaveStatus({ url: rawGenUrl, status: bestAttempt?.library ? bestAttempt.library.saved ? 'saved' : 'unsaved' : 'unknown' });
       setResultQuality({ url: finalDataUrl, quality: bestAttempt?.quality });
+      if (bestAttempt?.qualityReview?.status === 'pending' && sessionToken) {
+        const id = bestAttempt.qualityReview.id;
+        // ponytail: track the latest pending result per account in this browser; the server retains all review jobs.
+        try { localStorage.setItem(`panorama-quality-review:${user.id}`, id); } catch { /* Review continues on the server. */ }
+        setQualityReview({ id, owner: user.id, url: finalDataUrl, status: 'pending' });
+      }
       setEnhanced4kUrl(null);
 
       setGenerationStage(t("Updating panorama preview"));
@@ -754,13 +840,13 @@ export function GeneratorTab({
           ? serverDeductedTotal
           : serverCost ?? (!sessionToken && resultResolution?.status === 'below-request' ? 0 : creditsCost);
         const isFreeExhausted = updatedUser.plan === 'free' && remainingCredits < deductedCost;
-        const toastNotice = isFreeExhausted
-          ? t("You have {balance} credits left, which is not enough for another generation at this resolution. View plans to add credits.").replace("{balance}", () => String(remainingCredits))
-          : hadFailover
+        const toastNotice = hadFailover
           ? t("Generated with fallback model {model}. Used {cost} credits.").replace("{model}", () => String(usedEndpointName)).replace("{cost}", () => String(deductedCost))
           : t("Panorama generated with {model}. Used {cost} credits; {balance} remaining.").replace("{model}", () => String(usedEndpointName)).replace("{cost}", () => String(deductedCost)).replace("{balance}", () => String(remainingCredits));
-        if (isCurrentGeneration()) setFeedbackNotice(toastNotice);
-        if (!isFreeExhausted) {
+        if (isCurrentGeneration() && isFreeExhausted) {
+          setIsUpgradeOpen(true);
+        } else if (isCurrentGeneration()) {
+          setFeedbackNotice(toastNotice);
           setTimeout(() => { if (isCurrentGeneration()) setFeedbackNotice(null); }, 5000);
         }
       }
@@ -789,18 +875,26 @@ export function GeneratorTab({
       }
 
       if (!isCurrentGeneration()) return;
-      if (fallbackNotice) setApiError(t('A usable image was retained.') + fallbackNotice);
-      confetti({
-        particleCount: 50,
-        spread: 70,
-        origin: { y: 0.8 },
-      });
+      const successNotices: string[] = [];
+      if (fallbackNotice) successNotices.push(t('A usable image was retained.') + fallbackNotice);
+      if (bestAttempt?.quality?.status === 'unavailable') {
+        successNotices.push(t('The AI quality check could not be completed. The image was kept and your credits were returned.'));
+      }
+      if (successNotices.length) setApiError(successNotices.join(' '));
+      if (bestAttempt?.quality?.status !== 'unavailable') {
+        confetti({
+          particleCount: 50,
+          spread: 70,
+          origin: { y: 0.8 },
+        });
+      }
     } catch (err: unknown) {
       if (!isCurrentGeneration()) return;
       setIsGenerating(false);
       setGenerationTiming(t("Request failed after {seconds} s").replace("{seconds}", () => String(((performance.now() - startedAt) / 1000).toFixed(1))));
       const errMsg = err instanceof Error ? err.message : t("Unknown image generation error");
-      if (isCurrentGeneration()) setApiError(t(errMsg));
+      if (/insufficient credit/i.test(errMsg)) setIsUpgradeOpen(true);
+      else if (isCurrentGeneration()) setApiError(t(errMsg));
     } finally {
       clearInterval(elapsedTimer);
     }
@@ -1483,6 +1577,7 @@ export function GeneratorTab({
             )}
             <button
               type="button"
+              id="studio-generate-button"
               disabled={isGenerating || isUpscalingClarity || (inputMode === 'image' && isLoadingSample)}
               onClick={handleGenerate}
               aria-describedby={currentUser.id.startsWith('usr_guest') || (currentUser.plan === 'free' && !currentUser.emailVerified) ? 'studio-trial-notice' : undefined}
@@ -1532,6 +1627,9 @@ export function GeneratorTab({
                 <p role="status" className="text-xs text-cyan-100 font-medium leading-relaxed pt-0.5">
                   {generationStage}
                 </p>
+                {activeQualityReview?.url === currentPanoramaUrl && (activeQualityReview.creditsRefunded ?? 0) > 0 && (
+                  <p className="mt-1 text-cyan-200/70">{t('Credits returned')}</p>
+                )}
               </div>
             )}
             {generationTiming && (
@@ -1636,7 +1734,15 @@ export function GeneratorTab({
             {resultQuality && resultQuality.url === currentPanoramaUrl && (
               <div role="status" className="px-5 py-3 border-b border-cyan-500/20 text-xs text-cyan-200">
                 <p className="font-semibold">
-                  {resultQuality.quality?.status === 'passed'
+                  {activeQualityReview?.url === currentPanoramaUrl && activeQualityReview.status === 'pending'
+                    ? t('AI quality check in progress')
+                    : activeQualityReview?.url === currentPanoramaUrl && activeQualityReview.status === 'failed'
+                    ? t('AI quality check found an issue')
+                    : activeQualityReview?.url === currentPanoramaUrl && activeQualityReview.status === 'unavailable'
+                    ? t('AI quality check could not be completed')
+                    : activeQualityReview?.url === currentPanoramaUrl && activeQualityReview.status === 'passed'
+                    ? t('AI quality check passed')
+                    : resultQuality.quality?.status === 'passed'
                     ? t('AI quality check passed')
                     : t('AI quality check was not performed for this image.')}
                   {resultQuality.quality?.status === 'passed' && resultQuality.quality.attempts > 1
@@ -1647,6 +1753,11 @@ export function GeneratorTab({
                 )}
               </div>
             )}
+
+            {activeQualityReview && !activeQualityReview.url && <div role="status" className="px-5 py-3 text-xs text-cyan-200">
+              {t(activeQualityReview.status === 'pending' ? 'AI quality check in progress' : activeQualityReview.status === 'passed' ? 'AI quality check passed' : activeQualityReview.status === 'failed' ? 'AI quality check found an issue' : 'AI quality check could not be completed')}
+              {(activeQualityReview.creditsRefunded ?? 0) > 0 ? ` · ${t('Credits returned')}` : ''}
+            </div>}
 
             {isBundledPreview && (isPreviewActive || currentPanoramaUrl !== coastalCover) && <div className="studio-demo-notice px-5 py-3 text-xs text-cyan-200">
               <p>{t('Demo panorama — not generated from your prompt')}</p>
@@ -1921,6 +2032,16 @@ export function GeneratorTab({
         if (share) setIsShareOpen(true);
       }} />
       <SharePanoramaModal isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} imageUrl={currentPanoramaUrl} prompt={isBundledPreview ? t('Demo panorama — not generated from your prompt') : workPrompt?.url === currentPanoramaUrl ? workPrompt.prompt : prompt} accountId={currentUser.id} />
+
+      <UpgradePrompt
+        isOpen={isUpgradeOpen}
+        onClose={() => setIsUpgradeOpen(false)}
+        resultUrl={currentPanoramaUrl && currentPanoramaUrl !== coastalCover ? currentPanoramaUrl : null}
+        costPer2K={billingConfig.creditCostPer2K}
+        onBuyPack={() => onChoosePack?.('pack-25')}
+        onSubscribe={() => onChoosePlan?.('pro', 'monthly')}
+        onSeePlans={() => { setIsUpgradeOpen(false); onNavigateTab('pricing'); }}
+      />
 
       {/* Mobile Sticky Generation Bar */}
       <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#030e20]/95 backdrop-blur-xl border-t border-cyan-500/30 p-2.5 px-4 shadow-[0_-8px_30px_rgba(0,0,0,0.8)] flex items-center justify-between gap-3">

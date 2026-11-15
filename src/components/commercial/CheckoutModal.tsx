@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X, ShieldCheck, Lock } from 'lucide-react';
 import type { ManagedUser } from '../../types/panorama';
 import { paypalRequest, type PayPalConfig, type PayPalSubscription } from '../../utils/commercialApi';
+import { track, trackPurchaseOnce } from '../../utils/analytics';
 import { RenewalTerms } from './RenewalTerms';
 
 interface CheckoutModalProps {
@@ -103,15 +104,15 @@ export function CheckoutModal({ isOpen, onClose, initialPlan = 'pro', initialCyc
       if (destination.protocol !== 'https:' || !['www.paypal.com', 'www.sandbox.paypal.com'].includes(destination.hostname)) throw new Error('Invalid PayPal approval URL');
       const currentSubscription = subscription && !['CANCELLED', 'EXPIRED'].includes(subscription.status) ? subscription : null;
       const amountCents = currentSubscription?.amountCents ?? config?.plans?.[selectedPlan]?.[billingCycle]?.amountCents;
-      if (typeof (window as any).gtag === 'function' && typeof amountCents === 'number') {
-        try {
-          (window as any).gtag('event', 'begin_checkout', {
-            plan: currentSubscription?.plan ?? selectedPlan,
-            cycle: currentSubscription?.billingCycle ?? billingCycle,
-            value: amountCents / 100,
-            currency: 'USD',
-          });
-        } catch { /* Analytics must not interrupt checkout. */ }
+      if (typeof amountCents === 'number') {
+        const items = {
+          plan: currentSubscription?.plan ?? selectedPlan,
+          cycle: currentSubscription?.billingCycle ?? billingCycle,
+          value: amountCents / 100,
+          currency: 'USD',
+        };
+        track('begin_checkout', items);
+        track('add_payment_info', items);
       }
       window.location.assign(destination.href);
     } catch (error) { if (session.active && session === sessionRef.current) setError(error instanceof Error ? error.message : 'PayPal checkout failed'); }
@@ -148,6 +149,20 @@ export function CheckoutModal({ isOpen, onClose, initialPlan = 'pro', initialCyc
     } catch (error) { if (session.active && session === sessionRef.current) setError(error instanceof Error ? error.message : 'Cancellation failed'); }
     finally { if (session.active && session === sessionRef.current) setIsProcessing(false); }
   };
+
+  // PayPal confirms payment asynchronously. Credits exist only once the
+  // subscription is ACTIVE with a paid-through date, so that is the receipt.
+  useEffect(() => {
+    if (!subscription || subscription.status !== 'ACTIVE' || !subscription.paidThrough) return;
+    if (new URLSearchParams(window.location.search).get('paypal') !== 'return') return;
+    trackPurchaseOnce(`sub-${subscription.id}-${subscription.paidThrough}`, {
+      transaction_id: subscription.id,
+      value: subscription.amountCents / 100,
+      currency: 'USD',
+      plan: subscription.plan,
+      cycle: subscription.billingCycle,
+    });
+  }, [subscription]);
 
   if (!isOpen) return null;
   const offer = config?.plans?.[selectedPlan]?.[billingCycle];

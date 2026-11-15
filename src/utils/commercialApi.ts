@@ -145,7 +145,7 @@ export async function authServerUser(
   email: string,
   name?: string,
   password?: string,
-  options: { mode?: 'login' | 'register'; signal?: AbortSignal; turnstileToken?: string; birthDate?: string } = {}
+  options: { mode?: 'login' | 'register'; signal?: AbortSignal; turnstileToken?: string; birthDate?: string; marketingOptIn?: boolean } = {}
 ): Promise<{ success: boolean; user?: any; token?: string; error?: string; verificationSent?: boolean }> {
   try {
     const res = await fetch('/api/user/auth', {
@@ -154,7 +154,7 @@ export async function authServerUser(
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, name, password, mode: options.mode, turnstileToken: options.turnstileToken, birthDate: options.birthDate }),
+      body: JSON.stringify({ email, name, password, mode: options.mode, turnstileToken: options.turnstileToken, birthDate: options.birthDate, marketingOptIn: options.marketingOptIn }),
     });
 
     const data = await res.json();

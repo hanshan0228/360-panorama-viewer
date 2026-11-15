@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Check, Sparkles, Shield, User, Zap } from 'lucide-react';
 import type { ManagedUser, SystemBillingConfig } from '../types/panorama';
 import { paypalRequest, type PayPalConfig } from '../utils/commercialApi';
+import { track } from '../utils/analytics';
 import { RenewalTerms } from './commercial/RenewalTerms';
 
 interface PricingTabProps {
@@ -57,17 +58,15 @@ export function PricingTab({ currentUser, billingConfig, onChoosePlan, onOpenStu
     try {
       const result = await paypalRequest<{ success: boolean; approvalUrl: string; orderId: string }>('create-order', { packId });
       if (result.approvalUrl) {
-        if (typeof (window as any).gtag === 'function') {
-          const pack = config?.oneTimePacks?.[packId];
-          try {
-            (window as any).gtag('event', 'begin_checkout', {
-              item_id: packId,
-              item_name: pack?.name || packId,
-              value: (pack?.amountCents || 499) / 100,
-              currency: 'USD',
-            });
-          } catch {}
-        }
+        const pack = config?.oneTimePacks?.[packId];
+        const items = {
+          item_id: packId,
+          item_name: pack?.name || packId,
+          value: (pack?.amountCents || 499) / 100,
+          currency: 'USD',
+        };
+        track('begin_checkout', items);
+        track('add_payment_info', items);
         window.location.assign(result.approvalUrl);
       } else {
         throw new Error('PayPal did not return an approval URL');

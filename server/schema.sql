@@ -115,3 +115,40 @@ CREATE INDEX IF NOT EXISTS risk_counters_expiry ON risk_counters(expires_at);
 CREATE TABLE IF NOT EXISTS generation_leases (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, expires_at INTEGER NOT NULL);
 
 CREATE INDEX IF NOT EXISTS generation_leases_expiry ON generation_leases(expires_at);
+
+-- Durable asynchronous panorama quality reviews. Image payloads remain in PANORAMA_SHARES KV.
+CREATE TABLE IF NOT EXISTS panorama_quality_reviews (
+  id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL,
+  endpoint_id TEXT NOT NULL,
+  prompt TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'generating',
+  cost INTEGER NOT NULL,
+  issues TEXT NOT NULL DEFAULT '[]',
+  explanation TEXT NOT NULL DEFAULT '',
+  review_model TEXT NOT NULL DEFAULT '',
+  review_attempts INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at INTEGER NOT NULL,
+  lease_until INTEGER,
+  payload_ready INTEGER NOT NULL DEFAULT 0,
+  candidate_mime TEXT NOT NULL DEFAULT '',
+  candidate_parts INTEGER NOT NULL DEFAULT 0,
+  reference_parts TEXT NOT NULL DEFAULT '[]',
+  refunded INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  completed_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS panorama_quality_reviews_due
+  ON panorama_quality_reviews(status, next_attempt_at);
+
+CREATE INDEX IF NOT EXISTS panorama_quality_reviews_owner
+  ON panorama_quality_reviews(owner_id, created_at);
+
+-- Marketing consent is created only with registration; existing users are not opted in.
+CREATE TABLE IF NOT EXISTS marketing_consent (
+  user_id TEXT PRIMARY KEY, email TEXT NOT NULL, opted_in INTEGER NOT NULL DEFAULT 0,
+  consented_at INTEGER NOT NULL, activity_at INTEGER NOT NULL, unsubscribe_id TEXT NOT NULL UNIQUE,
+  unsubscribed_at INTEGER, reminder_claimed_at INTEGER
+);

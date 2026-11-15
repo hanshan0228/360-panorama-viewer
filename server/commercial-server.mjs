@@ -9,6 +9,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { handlePayPalRequest, createJsonPayPalLedger, paypalConfigured, formatAdminBilling } from './paypal.mjs';
 import { buildImageModelRequest, inspectImageResolution, IMAGE_GENERATION_TIMEOUT_MS } from '../src/utils/imageModelRequest.mjs';
+import { modelCoolingDown, markModelFailure, clearModelFailure, createMemoryModelHealthStore } from './modelHealth.mjs';
 
 const STORE_FILE = fileURLToPath(new URL('./data/store.json', import.meta.url));
 
@@ -151,6 +152,7 @@ export function createCommercialServer(options = {}) {
   const userSessions = new Map();
   const failures = new Map();
   const rateBuckets = new Map();
+  const modelHealth = createMemoryModelHealthStore();
   const verificationLedger = createJsonVerificationLedger(() => readStore(file), store => persist(store, file));
   const publicUser = async user => ({ ...stripUserSecrets(user), emailVerified: Boolean((await verificationLedger.state(user.id))?.verified_at) });
   return http.createServer(async (req, res) => {
@@ -412,6 +414,14 @@ export function createCommercialServer(options = {}) {
         }
 
         const model = targetEp.model || 'gemini-3.1-flash-image';
+        const cooling = await modelCoolingDown(modelHealth, targetEp);
+        if (cooling) {
+          return sendJson(res, 503, {
+            success: false,
+            code: 'MODEL_COOLING_DOWN',
+            error: `${targetEp.name || model} recently timed out. It is skipped for a few minutes to avoid another long wait. No credits were charged.`,
+          });
+        }
         let upstreamRequest;
         try {
           upstreamRequest = buildImageModelRequest({ ...targetEp, model }, { prompt, referenceImages, resolution });
@@ -435,12 +445,15 @@ export function createCommercialServer(options = {}) {
         let responseStatus = 200;
         let responseData;
         const ctrl = new AbortController();
+        const workflowStarted = Date.now();
         const timer = setTimeout(() => ctrl.abort(), GENERATION_WORKFLOW_TIMEOUT_MS);
 
+        let currentImageReceived = false;
         try {
           const generationTiming = { upstreamWaitMs: 0, upstreamBodyMs: 0 };
           for (let attempts = 1; attempts <= 2; attempts++) {
             ctrl.signal.throwIfAborted();
+            currentImageReceived = false;
             const { url: targetUrl, headers, payload, mode } = upstreamRequest;
             const isGoogleOfficial = mode.startsWith('google-');
             const isImagen = mode === 'google-imagen';
@@ -456,6 +469,9 @@ export function createCommercialServer(options = {}) {
 
             if (!upstreamRes.ok) {
               const errText = await upstreamRes.text();
+              if ([408, 504, 524].includes(upstreamRes.status)) {
+                await markModelFailure(modelHealth, targetEp, `http_${upstreamRes.status}`);
+              }
               responseStatus = 502;
               throw new Error(`Model endpoint returned HTTP ${upstreamRes.status}: ${errText.slice(0, 240)}`);
             }
@@ -503,6 +519,69 @@ export function createCommercialServer(options = {}) {
               responseStatus = 502;
               throw new Error('The model responded without a valid image.');
             }
+            currentImageReceived = true;
+
+            const imageResolution = inspectImageResolution(imageUrl, resolution);
+            console.info('[generation-quality]', JSON.stringify({ endpointId: targetEp.id, model, resolution, imageResolution }));
+            await clearModelFailure(modelHealth, targetEp);
+
+            if (imageResolution.status === 'below-request') {
+              const latestStore = readStore(file);
+              const latestUser = latestStore.users.find(entry => entry.id === user.id);
+              if (!latestUser) throw new Error('User no longer exists');
+              latestUser.creditsBalance += cost;
+              latestUser.apiCallsCount = (latestUser.apiCallsCount || 0) + attempts;
+              persist(latestStore, file);
+              completed = true;
+              responseData = {
+                success: true,
+                imageUrl,
+                modelUsed: model,
+                generationTiming,
+                remainingCredits: latestUser.creditsBalance,
+                creditsDeducted: 0,
+                creditsRefunded: cost,
+                imageResolution,
+                quality: {
+                  status: 'skipped',
+                  issues: [],
+                  explanation: 'Quality review skipped because the image is below the requested resolution; credits were refunded.',
+                  reviewModel: 'skipped',
+                  attempts,
+                },
+              };
+              break;
+            }
+
+            // The vision review needs 20-45 s; starting it with less budget left only
+            // burns the request timeout and returns a late "review unavailable".
+            if (attempts === 1 && GENERATION_WORKFLOW_TIMEOUT_MS - (Date.now() - workflowStarted) < 45_000) {
+              const latestStore = readStore(file);
+              const latestUser = latestStore.users.find(entry => entry.id === user.id);
+              if (!latestUser) throw new Error('User no longer exists');
+              latestUser.creditsBalance += cost;
+              latestUser.apiCallsCount = (latestUser.apiCallsCount || 0) + attempts;
+              persist(latestStore, file);
+              completed = true;
+              responseData = {
+                success: true,
+                imageUrl,
+                modelUsed: model,
+                generationTiming,
+                remainingCredits: latestUser.creditsBalance,
+                creditsDeducted: 0,
+                creditsRefunded: cost,
+                imageResolution,
+                quality: {
+                  status: 'unavailable',
+                  issues: [],
+                  explanation: 'Quality review skipped to return the image before the request timeout; credits were refunded.',
+                  reviewModel: 'skipped',
+                  attempts,
+                },
+              };
+              break;
+            }
 
             const quality = { ...await reviewPanorama({
               endpoint: {
@@ -524,9 +603,7 @@ export function createCommercialServer(options = {}) {
               continue;
             }
 
-            const imageResolution = inspectImageResolution(imageUrl, resolution);
-            console.info('[generation-quality]', JSON.stringify({ endpointId: targetEp.id, model, resolution, imageResolution }));
-            const creditsRefunded = quality.status !== 'passed' || imageResolution.status === 'below-request' ? cost : 0;
+            const creditsRefunded = quality.status !== 'passed' ? cost : 0;
             const latestStore = readStore(file);
             const latestUser = latestStore.users.find(entry => entry.id === user.id);
             if (!latestUser) throw new Error('User no longer exists');
@@ -535,14 +612,12 @@ export function createCommercialServer(options = {}) {
             persist(latestStore, file);
             completed = true;
 
-            if (quality.status !== 'passed') {
-              const unavailable = quality.status === 'unavailable';
-              responseStatus = unavailable ? 503 : 422;
+            if (quality.status === 'failed') {
+              responseStatus = 422;
               responseData = {
                 success: false,
-                code: unavailable ? 'GENERATION_REVIEW_UNAVAILABLE' : 'GENERATION_QUALITY_REJECTED',
-                error: unavailable ? 'Panorama quality review is unavailable. Your credits were returned. Please try again later.'
-                  : 'The generated panorama did not pass quality review after two attempts. Your credits were returned. Please revise your prompt or reference images.',
+                code: 'GENERATION_QUALITY_REJECTED',
+                error: 'The generated panorama did not pass quality review after two attempts. Your credits were returned. Please revise your prompt or reference images.',
                 quality, creditsDeducted: 0, creditsRefunded: cost, remainingCredits: latestUser.creditsBalance,
               };
               break;
@@ -563,6 +638,9 @@ export function createCommercialServer(options = {}) {
           }
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
+          if (!currentImageReceived && err instanceof Error && (ctrl.signal.aborted || err.name === 'TimeoutError' || err.name === 'AbortError')) {
+            await markModelFailure(modelHealth, targetEp, ctrl.signal.aborted ? 'workflow_timeout' : 'timeout');
+          }
           if (responseStatus === 200) responseStatus = 504;
           responseData = { success: false, error: responseStatus === 502 ? message : `Image model request failed: ${message}` };
         } finally {

@@ -1,0 +1,10 @@
+name = "panorama-marketing-reminders"
+main = "index.mjs"
+compatibility_date = "2026-10-06"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "panorama-db"
+database_id = "07c4c533-a2ba-4e4f-b144-481f90e5d249"
+
+# Deliberately no cron or enabling variable. See marketing-worker/README.md.

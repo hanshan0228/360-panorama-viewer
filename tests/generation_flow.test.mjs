@@ -77,7 +77,7 @@ function sqliteD1(database) {
   };
 }
 
-async function withBackend(testContext, backend, fetchUpstream = imageResponse, reviewUpstream) {
+async function withBackend(testContext, backend, fetchUpstream = imageResponse, reviewUpstream, extraEnv = {}) {
   const emailServices = emailServicesFixture(fetchUpstream, reviewUpstream);
   let call;
   let setUser;
@@ -101,7 +101,7 @@ async function withBackend(testContext, backend, fetchUpstream = imageResponse, 
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
-      const response = await onRequest({ request, env: { ...emailTestEnv, DB: db, PANORAMA_SHARES, ADMIN_PASSWORD: adminPassword } });
+      const response = await onRequest({ request, env: { ...emailTestEnv, DB: db, PANORAMA_SHARES, ADMIN_PASSWORD: adminPassword, ...extraEnv } });
       return { status: response.status, data: await response.json() };
     };
     setUser = (userId, credits, status = 'active') => {
@@ -114,7 +114,7 @@ async function withBackend(testContext, backend, fetchUpstream = imageResponse, 
     leases = () => readStore(file).riskLeases || [];
     writeStore({ schemaVersion: 2, adminPasswordHash: hashPassword(adminPassword),
       users: [], subscriptions: [], invoices: [] }, file);
-    const server = createCommercialServer({ storeFile: file, env: { ...emailTestEnv }, fetch: emailServices.fetch });
+    const server = createCommercialServer({ storeFile: file, env: { ...emailTestEnv, ...extraEnv }, fetch: emailServices.fetch });
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     testContext.after(async () => {
       await new Promise(resolve => server.close(resolve));
@@ -191,6 +191,8 @@ for (const backend of ['Node', 'D1']) {
     assert.equal(result.data.creditsDeducted, 0);
     assert.equal(result.data.creditsRefunded, 4);
     assert.equal(result.data.remainingCredits, 11);
+    assert.equal(result.data.quality.status, 'skipped');
+    assert.equal(result.data.quality.reviewModel, 'skipped');
     assert.equal((await fixture.profile()).creditsBalance, 11);
     assert.equal(calls, 1);
   });
@@ -211,6 +213,56 @@ for (const backend of ['Node', 'D1']) {
     const unknown = await fixture.generate({ endpointId: 'gpt-modern', resolution: '4K' });
     assert.equal(unknown.data.imageResolution.status, 'unverified');
     assert.equal(unknown.data.imageResolution.width, null);
+  });
+
+  test('D1: async quality review returns the image immediately and exposes a pending owner status', async testContext => {
+    if (backend !== 'D1') return;
+    let imageCalls = 0;
+    let reviewCalls = 0;
+    const fixture = await withBackend(
+      testContext,
+      backend,
+      () => {
+        imageCalls++;
+        return imageResponse();
+      },
+      () => {
+        reviewCalls++;
+        return Response.json({ choices: [{ message: { content: '{"passed":true,"issues":[],"explanation":"passed"}' } }] });
+      },
+      { ASYNC_QUALITY_REVIEWS: 'true' }
+    );
+    const result = await fixture.generate({ endpointId: 'gpt-modern', resolution: '4K' });
+    assert.equal(result.status, 200);
+    assert.equal(result.data.success, true);
+    assert.equal(result.data.creditsDeducted, 4);
+    assert.equal(result.data.creditsRefunded, 0);
+    assert.equal(result.data.qualityReview.status, 'pending');
+    assert.match(result.data.qualityReview.id, /^[a-f0-9]{32}$/);
+    assert.equal(imageCalls, 1);
+    assert.equal(reviewCalls, 0);
+    assert.equal((await fixture.profile()).creditsBalance, 0);
+    const status = await fixture.call(`quality-reviews/${result.data.qualityReview.id}`, undefined, fixture.token);
+    assert.equal(status.status, 200);
+    assert.equal(status.data.qualityReview.status, 'pending');
+  });
+
+  test(`${backend}: a 524 model is cooled down briefly instead of forcing another long wait`, async testContext => {
+    let calls = 0;
+    const fixture = await withBackend(testContext, backend, () => {
+      calls++;
+      return new Response('upstream timeout', { status: 524 });
+    });
+    const first = await fixture.generate({ endpointId: 'gpt-modern', resolution: '4K' });
+    assert.equal(first.status, 502);
+    assert.match(first.data.error, /HTTP 524/);
+    assert.equal(calls, 1);
+    assert.equal((await fixture.profile()).creditsBalance, 4);
+    const second = await fixture.generate({ endpointId: 'gpt-modern', resolution: '4K' });
+    assert.equal(second.status, 503);
+    assert.equal(second.data.code, 'MODEL_COOLING_DOWN');
+    assert.equal(calls, 1);
+    assert.equal((await fixture.profile()).creditsBalance, 4);
   });
 
   for (const resolution of ['1K', '2K', '4K']) {
@@ -479,6 +531,32 @@ test(`${backend}: pure generation deadline covers response body parsing and rele
 });
 }
 
+test('D1: Cloudflare Pages caps the whole workflow below the 100-second edge timeout', async testContext => {
+  let started;
+  let calls = 0;
+  const waiting = new Promise(resolve => { started = resolve; });
+  const fixture = await withBackend(testContext, 'D1', (_url, options) => {
+    calls++;
+    started();
+    return new Promise((_resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+    });
+  }, undefined, { CF_PAGES: '1' });
+  generationClock(testContext);
+  const request = fixture.generate({ resolution: '4K' });
+  await waiting;
+  testContext.mock.timers.tick(94_999);
+  testContext.mock.timers.tick(1);
+  const result = await request;
+  assert.equal(result.status, 504);
+  assert.equal((await fixture.profile()).creditsBalance, 4);
+  assert.deepEqual(fixture.leases(), []);
+  const cooled = await fixture.generate({ resolution: '4K' });
+  assert.equal(cooled.status, 503);
+  assert.equal(cooled.data.code, 'MODEL_COOLING_DOWN');
+  assert.equal(calls, 1);
+});
+
 function loadTsModule(relativePath, overrides = {}) {
   const source = fs.readFileSync(new URL(relativePath, import.meta.url), 'utf8');
   const output = ts.transpileModule(source, { compilerOptions: {
@@ -493,6 +571,8 @@ function loadTsModule(relativePath, overrides = {}) {
       : specifier.endsWith('/abortSignal') ? { combineAbortSignals }
       : specifier.endsWith('/workThumbnail') ? loadTsModule(new URL(specifier + '.ts', new URL(relativePath, import.meta.url)))
       : specifier.endsWith('/RenewalTerms') ? loadTsModule(new URL(specifier + '.tsx', new URL(relativePath, import.meta.url)))
+      : specifier.endsWith('/UpgradePrompt') ? { UpgradePrompt: () => null }
+      : specifier.endsWith('/analytics') ? { track: () => {}, trackPurchaseOnce: () => {} }
       : specifier === './VerificationChallenge' ? { VerificationChallenge: 'verification-challenge' } : nativeRequire(specifier)
   ), module.exports, module);
   return module.exports;
@@ -2235,7 +2315,7 @@ function generatorRegressionContext(overrides = {}) {
     onUserChange: () => assert.fail('Server generations must refresh instead of spreading old users'),
     window: { dispatchEvent() {} },
     setTimeout() {}, confetti() {},
-    ...Object.fromEntries(['setIsGenerating', 'setApiError', 'setGenerationStage', 'setGenerationElapsed', 'setGenerationTiming', 'setOriginalRawUrl', 'setWorkPrompt', 'setSaveStatus', 'setResultQuality', 'setEnhanced4kUrl', 'setFeedbackNotice', 'setIsCheckoutOpen']
+    ...Object.fromEntries(['setIsGenerating', 'setApiError', 'setGenerationStage', 'setGenerationElapsed', 'setGenerationTiming', 'setOriginalRawUrl', 'setWorkPrompt', 'setSaveStatus', 'setResultQuality', 'setEnhanced4kUrl', 'setFeedbackNotice', 'setIsCheckoutOpen', 'setIsUpgradeOpen']
       .map(name => [name, value => state.push([name, value])])),
     ...overrides,
   };
@@ -3020,8 +3100,10 @@ for (const backend of ['Node', 'D1']) {
       assert.equal(reviewSignal.aborted, false);
       t.mock.timers.tick(1);
       const result = await request;
-      assert.equal(result.status, 503);
-      assert.equal(result.data.code, 'GENERATION_REVIEW_UNAVAILABLE');
+      assert.equal(result.status, 200);
+      assert.equal(result.data.success, true);
+      assert.ok(result.data.imageUrl);
+      assert.equal(result.data.quality.status, 'unavailable');
       assert.equal(result.data.quality.attempts, 1);
       assert.equal(result.data.creditsDeducted, 0);
       assert.equal(result.data.creditsRefunded, 4);
@@ -3034,7 +3116,6 @@ for (const backend of ['Node', 'D1']) {
       assert.equal(reviewLogs.length, 1);
       assert.equal(JSON.parse(reviewLogs[0].arguments[1]).reason, 'timeout');
       assert.doesNotMatch(JSON.stringify([result, reviewLogs.map(call => call.arguments)]), /PRIVATE_PROVIDER_EXCEPTION/);
-      if (backend === 'D1') assert.deepEqual((await fixture.call('works', undefined, fixture.token)).data.works, []);
     });
   }
 
@@ -3075,8 +3156,10 @@ for (const backend of ['Node', 'D1']) {
     t.mock.timers.tick(1);
     assert.equal(Date.now() - started, GENERATION_WORKFLOW_TIMEOUT_MS);
     const result = await request;
-    assert.equal(result.status, 503);
-    assert.equal(result.data.code, 'GENERATION_REVIEW_UNAVAILABLE');
+    assert.equal(result.status, 200);
+    assert.equal(result.data.success, true);
+    assert.ok(result.data.imageUrl);
+    assert.equal(result.data.quality.status, 'unavailable');
     assert.equal(result.data.quality.attempts, 2);
     assert.equal(result.data.creditsDeducted, 0);
     assert.equal(result.data.creditsRefunded, 2);
@@ -3172,7 +3255,7 @@ for (const backend of ['Node', 'D1']) {
     }
   });
 
-  test(`${backend}: unavailable quality review stops after attempt 1 with 503 and refunds without retrying`, async testContext => {
+  test(`${backend}: unavailable quality review keeps the image free instead of discarding it`, async testContext => {
     let imageCalls = 0;
     const fixture = await withBackend(
       testContext,
@@ -3184,8 +3267,9 @@ for (const backend of ['Node', 'D1']) {
       () => Response.json({ error: 'Reviewer down' }, { status: 500 })
     );
     const result = await fixture.generate({ resolution: '2K' });
-    assert.equal(result.status, 503);
-    assert.equal(result.data.code, 'GENERATION_REVIEW_UNAVAILABLE');
+    assert.equal(result.status, 200);
+    assert.equal(result.data.success, true);
+    assert.ok(result.data.imageUrl);
     assert.equal(result.data.quality.status, 'unavailable');
     assert.equal(result.data.quality.attempts, 1);
     assert.equal(result.data.creditsDeducted, 0);
@@ -3196,25 +3280,66 @@ for (const backend of ['Node', 'D1']) {
   });
 }
 
-test('generateWithGemini throws PanoramaQualityError on 422 and 503 without falling back to direct endpoints', async testContext => {
+test('generateWithGemini throws PanoramaQualityError on 422 without falling back to direct endpoints', async testContext => {
   setGlobal(testContext, 'window', { location: { hostname: 'review.example' } });
   const { generateWithGemini } = loadTsModule('../src/utils/geminiClient.ts', { './adminStorage': {} });
-  for (const [status, code, match] of [
-    [422, 'GENERATION_QUALITY_REJECTED', /did not pass the AI quality check/],
-    [503, 'GENERATION_REVIEW_UNAVAILABLE', /AI quality check could not be completed/],
-  ]) {
-    let calls = 0;
-    testContext.mock.method(globalThis, 'fetch', async url => {
-      calls++;
-      assert.equal(url, '/api/generate');
-      return Response.json({ success: false, code, creditsDeducted: 0, creditsRefunded: 4, remainingCredits: 4 }, { status });
+  let calls = 0;
+  testContext.mock.method(globalThis, 'fetch', async url => {
+    calls++;
+    assert.equal(url, '/api/generate');
+    return Response.json({ success: false, code: 'GENERATION_QUALITY_REJECTED', creditsDeducted: 0, creditsRefunded: 4, remainingCredits: 4 }, { status: 422 });
+  });
+  await assert.rejects(
+    () => generateWithGemini('Prompt', { baseUrl: 'http://127.0.0.1:8317', apiKey: '', model: 'gemini-3.1-flash-image', sessionToken: 'tok' }),
+    err => err.name === 'PanoramaQualityError' && /did not pass the AI quality check/.test(err.message)
+  );
+  assert.equal(calls, 1);
+});
+
+test('generateWithGemini keeps an image when the quality review is unavailable', async testContext => {
+  setGlobal(testContext, 'window', { location: { hostname: 'review.example' } });
+  const { generateWithGemini } = loadTsModule('../src/utils/geminiClient.ts', { './adminStorage': {} });
+  let calls = 0;
+  testContext.mock.method(globalThis, 'fetch', async url => {
+    calls++;
+    assert.equal(url, '/api/generate');
+    return Response.json({
+      success: true,
+      imageUrl: 'data:image/png;base64,AA==',
+      quality: { status: 'unavailable', issues: [], reviewModel: 'gemini-3-flash', attempts: 1 },
+      creditsDeducted: 0,
+      creditsRefunded: 4,
+      remainingCredits: 4,
+      imageResolution: { requested: '4K', targetWidth: 3840, targetHeight: 1920, width: 1, height: 1, panoramaWidth: 2, panoramaHeight: 1, status: 'below-request' },
     });
-    await assert.rejects(
-      () => generateWithGemini('Prompt', { baseUrl: 'http://127.0.0.1:8317', apiKey: '', model: 'gemini-3.1-flash-image', sessionToken: 'tok' }),
-      err => err.name === 'PanoramaQualityError' && match.test(err.message)
-    );
-    assert.equal(calls, 1);
-  }
+  });
+  const result = await generateWithGemini('Prompt', { baseUrl: 'http://127.0.0.1:8317', apiKey: '', model: 'gemini-3.1-flash-image', sessionToken: 'tok' });
+  assert.equal(result.imageUrl, 'data:image/png;base64,AA==');
+  assert.equal(result.quality.status, 'unavailable');
+  assert.equal(result.creditsRefunded, 4);
+  assert.equal(calls, 1);
+});
+
+test('unavailable quality keeps the image, reports the refund and skips confetti', async () => {
+  const imageUrl = `data:image/png;base64,${pngMetadata(3840, 1920)}`;
+  let confettiCalls = 0;
+  const fixture = generatorRegressionContext({
+    generateWithGemini: async () => ({
+      imageUrl,
+      remainingCredits: 4,
+      creditsDeducted: 0,
+      creditsRefunded: 2,
+      quality: { status: 'unavailable', issues: [], reviewModel: 'gemini-3-flash', attempts: 1 },
+      imageResolution: { requested: '2K', targetWidth: 2048, targetHeight: 1024, width: 3840, height: 1920, panoramaWidth: 3840, panoramaHeight: 1920, status: 'met' },
+    }),
+    processPanoramaImage: async () => 'kept',
+    confetti: () => { confettiCalls++; },
+  });
+  await fixture.generate();
+  assert.ok(fixture.state.some(([key, value]) => key === 'panorama' && value === 'kept'));
+  assert.equal(confettiCalls, 0);
+  assert.ok(fixture.state.some(([key, value]) => key === 'setApiError' && value?.includes('image was kept')));
+  assert.ok(fixture.state.some(([key, value]) => key === 'setResultQuality' && value?.quality?.status === 'unavailable'));
 });
 
 test('GeneratorTab stops model failover on PanoramaQualityError, refreshes profile and preserves current preview', async () => {
@@ -3334,7 +3459,7 @@ test('pre-generation guest notice uses configured starter credits and disappears
   tree = fixture.render({ ...fixture.props, currentUser: accountFixture() });
   assert.equal(elementsIn(tree).some(element => element.props.id === 'studio-trial-notice'), false);
   assert.equal(buttonIn(tree, 'Generate (').props['aria-describedby'], undefined);
-  assert.equal(buttonIn(tree, '4K').props['aria-pressed'], true);
+  assert.equal(buttonIn(tree, '2K').props['aria-pressed'], true);
 });
 
 for (const [account, token] of [
@@ -3549,7 +3674,7 @@ test('opening the bundled demo clears the previous generation error', async t =>
 
 
 for (const mode of ['text', 'image']) {
-  test(`${mode} studio defaults to an empty prompt, None first, and 4K without adding a scene`, t => {
+  test(`${mode} studio defaults to an empty prompt, None first, and 2K without adding a scene`, t => {
     const fixture = studioHarness(t);
     const tree = fixture.render({ ...fixture.props, externalInputMode: mode });
     assert.equal(elementsIn(tree).find(element => element.type === 'textarea').props.value, '');
@@ -3559,7 +3684,8 @@ for (const mode of ['text', 'image']) {
     assert.equal(first.props.value, 'custom');
     assert.equal(elementText(first), 'None (follow my description)');
     assert.match(elementText(tree), /No preset scene or visual style is added./);
-    assert.equal(buttonIn(tree, '4K').props['aria-pressed'], true);
+    // 8 trial credits must buy four attempts (4 x 2K), not two (2 x 4K).
+    assert.equal(buttonIn(tree, '2K').props['aria-pressed'], true);
   });
 }
 

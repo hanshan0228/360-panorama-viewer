@@ -26,16 +26,19 @@ test('checkout records the offer only when an approval URL is ready', async () =
       window: { gtag: (...args) => events.push(args), location: { assign: url => redirects.push(url) } },
       URL, ...overrides,
     };
+    // Mirrors src/utils/analytics.ts: forward to gtag, never let analytics break checkout.
+    context.track = (event, params) => { try { context.window.gtag?.('event', event, params); } catch {} };
     await vm.runInNewContext(compile(`${handler}\nhandleSubscribe()`), context);
     return { events, redirects, requests };
   };
   const fresh = await run();
   assert.equal(fresh.requests.length, 1);
-  assert.equal(fresh.events.length, 1);
+  assert.equal(fresh.events.length, 2);
   assert.equal(fresh.events[0][1], 'begin_checkout');
   assert.equal(fresh.events[0][2].value, 432.1);
   assert.equal(fresh.events[0][2].plan, 'enterprise');
   assert.equal(fresh.events[0][2].cycle, 'yearly');
+  assert.equal(fresh.events[1][1], 'add_payment_info');
   assert.equal(fresh.redirects.length, 1);
   const pending = await run({ subscription: { status: 'APPROVAL_PENDING', plan: 'pro', billingCycle: 'monthly', amountCents: 875 } });
   assert.equal(pending.events[0][2].value, 8.75);

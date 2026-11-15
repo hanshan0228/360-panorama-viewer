@@ -41,7 +41,7 @@ const PAGES = [
       zh: {
         title: 'AI 360全景图生成器与全景制作工作室 — 免费全景查看器',
         description: 'AI 360度全景图生成器与在线全景制作工具：支持文本描述与参考图片一键生成无缝2:1等距柱状全景、VR天空盒与立方体贴图，并提供免上传本地WebGL全景查看器。',
-        keywords: 'AI全景图生成器, 360全景AI生成, 文本生成全景图, AI生成VR天空盒, 360全景制作, 图片转全景AI, 360全景查看器, 免费全景制作',
+        keywords: 'AI全景图生成器, 360全景查看器, 360全景AI生成, 文本生成全景图, AI生成VR天空盒, 360全景制作, 图片转全景AI, 免费全景制作, 大疆全景查看',
         h1: 'AI 360° 全景图生成器与制作工作室',
         sub: '使用 AI 从自然语言描述或参考照片生成无缝 2:1 等距柱状 360° 全景与 VR 天空盒；内置免上传本地 WebGL 全景查看器。',
         faq: [
@@ -52,7 +52,7 @@ const PAGES = [
       es: {
         title: 'Generador de Panoramas 360 con IA y Estudio VR — Visor Online',
         description: 'Generador de panoramas 360° con inteligencia artificial: crea panoramas esféricos 2:1, cubemaps y skyboxes VR a partir de texto o fotos con IA y visualízalos gratis.',
-        keywords: 'generador de panorama con ia, generador 360 panorama ia, skybox vr ia, texto a panorama ia, creador de panoramas 360, visor 360 gratis',
+        keywords: 'generador de panorama con ia, fotos 360, visor 360 gratis, generador 360 panorama ia, skybox vr ia, texto a panorama ia, creador de panoramas 360, ver fotos 360',
         h1: 'Generador de Panoramas 360° con IA y Estudio VR',
         sub: 'Crea panoramas 360° equirrectangulares 2:1, cubemaps y skyboxes de realidad virtual con IA a partir de texto o fotos; incluye visor WebGL local gratuito.',
         faq: [
@@ -63,7 +63,7 @@ const PAGES = [
       de: {
         title: 'KI 360° Panorama Generator & VR Skybox Studio — Kostenloser Viewer',
         description: 'KI 360° Panorama Generator und VR Studio: Erstelle nahtlose 2:1 Kugelpanoramen und Skyboxes mit KI aus Textprompts oder Fotos, inklusive lokalem WebGL-Viewer.',
-        keywords: 'ki panorama generator, 360 panorama generator ki, vr skybox ki, text zu panorama ki, 360 bild ersteller ki, 360 panorama viewer',
+        keywords: '360 panorama viewer, ki panorama generator, 360 panorama generator ki, 360 grad panorama, vr skybox ki, text zu panorama ki, 360 bild ersteller ki',
         h1: 'KI 360° Panorama Generator & VR Skybox Studio',
         sub: 'Erstelle nahtlose 2:1 Kugelpanoramen und VR-Skyboxes mit KI aus Text oder Referenzbildern; inklusive kostenlosem lokalem WebGL-Viewer ohne Upload.',
         faq: [
@@ -74,7 +74,7 @@ const PAGES = [
       ja: {
         title: 'AI 360度パノラマ生成器＆VRスカイボックススタジオ — 無料ビューアー',
         description: 'AI 360度パノラマ生成器：テキスト指示や写真から2:1正距円筒パノラマやVRスカイボックスをAIで瞬時に作成。完全無料のローカルWebGLビューアーも搭載。',
-        keywords: 'aiパノラマ生成器, 360度パノラマai作成, vrスカイボックス生成, テキストからパノラマai, 360写真作成, 360パノラマビューア',
+        keywords: '360度 写真 閲覧, 全天球 画像 ビューアー, aiパノラマ生成器, 360度パノラマai作成, vrスカイボックス生成, テキストからパノラマai, 360写真作成, 360パノラマビューア',
         h1: 'AI 360° パノラマ生成器＆VRスタジオ',
         sub: 'テキストの指示や参照写真からAIでシームレスな2:1正距円筒360度パノラマやVR空間を生成。ローカルWebGLビューアーも完備。',
         faq: [
@@ -91,56 +91,61 @@ const PAGES = [
       en: {
         title: 'Free 360 Panorama Viewer Online — No Upload Required',
         description: 'Inspect and roam equirectangular 360 panoramas in real-time WebGL with Ctrl+V clipboard support, Little Planet view, and zero server uploads.',
-        keywords: '360 panorama viewer, panorama viewer, panorama view, 360 viewer, view 360 photos, photo sphere viewer, sphere photo viewer, equirectangular viewer',
+        keywords: '360 panorama viewer, panorama viewer, panorama view, 360 viewer, view 360 photos, dji 360 viewer, insta360 online viewer, 360 photo viewer online free, photo sphere viewer, equirectangular viewer',
         h1: 'Free 360 Panorama Viewer Online',
         sub: 'Explore, rotate, and inspect 360° equirectangular panoramas directly in your browser. 100% private with local GPU rendering.',
         faq: [
           { q: 'Are my panorama photos uploaded to your server?', a: 'No. All rendering occurs locally on your device via WebGL. Your photos never leave your computer or phone.' },
-          { q: 'Can I paste an image directly from the clipboard?', a: 'Yes! Simply press Ctrl+V (or Cmd+V on macOS) to instantly load and view a copied 360 panorama.' }
+          { q: 'Can I paste an image directly from the clipboard?', a: 'Yes! Simply press Ctrl+V (or Cmd+V on macOS) to instantly load and view a copied 360 panorama.' },
+          { q: 'Which 360 cameras and drones are supported?', a: 'Any 2:1 equirectangular image works: DJI (Air, Mavic, and Mini sphere panoramas), Insta360 (X4, X3, ONE RS), Ricoh Theta (X, Z1), GoPro MAX, and mobile photo spheres.' }
         ]
       },
       zh: {
         title: '免费在线360全景图查看器 — 免上传/剪贴板Ctrl+V直接看',
         description: '完全免费的在线360度全景图查看器。纯前端WebGL实时平移缩放、小行星视角与剪贴板Ctrl+V直接打开，无需上传云端，隐私100%安全。',
-        keywords: '360全景查看器, 全景图查看, 360看图工具, 在线全景照片播放器, 全景球查看器, 360度全景照片查看, 免上传全景预览',
+        keywords: '360全景查看器, 全景图查看, 360看图工具, 在线全景照片播放器, 全景球查看器, 360度全景照片查看, 大疆全景图查看器, 大疆航拍全景, insta360在线查看, 免上传全景预览',
         h1: '免费在线 360° 全景图查看器',
         sub: '在浏览器中流畅漫游、旋转和检查360度等距柱状全景照片。本地GPU渲染，绝不上传文件。',
         faq: [
           { q: '全景照片会上传到服务器吗？', a: '完全不会。所有渲染过程通过浏览器WebGL直接在您的显卡上运行，照片不离开您的电脑或手机。' },
-          { q: '支持剪贴板直接粘贴图片吗？', a: '支持！复制2:1全景图片后，在页面任意位置按下 Ctrl+V（Mac为Cmd+V）即可瞬间展开全景视图。' }
+          { q: '支持剪贴板直接粘贴图片吗？', a: '支持！复制2:1全景图片后，在页面任意位置按下 Ctrl+V（Mac为Cmd+V）即可瞬间展开全景视图。' },
+          { q: '支持查看大疆无人机与全景相机的照片吗？', a: '完全支持。将大疆(DJI Mini/Air/Mavic)拼接导出的球形全景或Insta360导出的2:1等距柱状JPG直接拖入页面，即可在本地GPU流畅漫游查看。' }
         ]
       },
       es: {
         title: 'Visor de Panoramas 360 Online Gratis — Sin Subir Archivos',
         description: 'Explora fotos 360° equirrectangulares en tiempo real con WebGL, modo Little Planet y soporte Ctrl+V. 100% privado sin subir a servidores.',
-        keywords: 'visor panorama 360, visor 360 gratis, ver fotos 360, visor de esfera fotografica, visor panoramico online, ver panorama 360',
+        keywords: 'fotos 360, ver fotos 360, visor de fotos 360, visor 360 gratis, visor panorama 360, como ver fotos 360 en pc, visor panoramico online, ver panorama 360',
         h1: 'Visor de Panoramas 360° Online Gratis',
         sub: 'Gira y navega por fotos panorámicas esféricas 360 al instante en tu navegador. 100% privado y seguro.',
         faq: [
           { q: '¿Mis fotos se suben a algún servidor?', a: 'No. El visor procesa la imagen completamente en la memoria de tu navegador mediante WebGL. Tus fotos nunca salen de tu dispositivo.' },
-          { q: '¿Puedo pegar imágenes desde el portapapeles?', a: '¡Sí! Pulsa Ctrl+V (o Cmd+V en Mac) para cargar y ver cualquier panorama copiado inmediatamente.' }
+          { q: '¿Puedo pegar imágenes desde el portapapeles?', a: '¡Sí! Pulsa Ctrl+V (o Cmd+V en Mac) para cargar y ver cualquier panorama copiado inmediatamente.' },
+          { q: '¿Es compatible con fotos de drones DJI y cámaras 360?', a: 'Sí. Puedes arrastrar cualquier panorama 2:1 de drones DJI (Mini, Air, Mavic) o cámaras Insta360 y Ricoh Theta para explorarlo al instante sin subir archivos.' }
         ]
       },
       de: {
         title: 'Kostenloser 360° Panorama Viewer Online — Ohne Upload',
         description: '360 Grad Kugelpanoramen direkt im Browser ansehen. Echtzeit-WebGL-Rendering, Little Planet Modus und Strg+V Zwischenablage-Unterstützung.',
-        keywords: '360 panorama viewer, panorama betrachter, 360 grad fotos ansehen, kugelpanorama viewer, photo sphere betrachter, equirektangulaer viewer',
+        keywords: '360 panorama viewer, panorama viewer, 360 grad panorama, kugelpanorama viewer, 360 grad fotos ansehen, panorama betrachter, photo sphere betrachter, equirektangulaer viewer',
         h1: 'Kostenloser 360° Panorama Betrachter',
         sub: 'Navigiere und erkunde equirektanguläre 360° Panoramen ohne Installation und ohne Server-Upload.',
         faq: [
           { q: 'Werden meine Bilder auf einen Server geladen?', a: 'Nein. Das Rendering läuft vollständig clientseitig im WebGL-Speicher Ihres Browsers.' },
-          { q: 'Unterstützt der Viewer das Einfügen per Zwischenablage?', a: 'Ja! Drücken Sie einfach Strg+V (Cmd+V auf Mac), um ein kopiertes Panorama direkt anzuzeigen.' }
+          { q: 'Unterstützt der Viewer das Einfügen per Zwischenablage?', a: 'Ja! Drücken Sie einfach Strg+V (Cmd+V auf Mac), um ein kopiertes Panorama direkt anzuzeigen.' },
+          { q: 'Kann ich 360°-Fotos von DJI-Drohnen oder Kameras ansehen?', a: 'Ja. Jedes 2:1-Kugelpanorama von DJI-Drohnen (Mavic, Air, Mini) oder Kameras wie Insta360 und Ricoh Theta kann ohne Server-Upload sofort interaktiv betrachtet werden.' }
         ]
       },
       ja: {
         title: '無料オンライン360度パノラマビューアー — アップロード不要',
         description: '正距円筒図法360度パノラマ写真をブラウザで即座に閲覧。WebGLリアルタイム描画、リトルプラネット表示、Ctrl+V直接貼り付け対応。',
-        keywords: '360パノラマビューア, 360度写真閲覧, パノラマビューアオンライン, 全天球画像ビューア, フォトスフィア閲覧, 360ビューア無料',
+        keywords: '360度 写真 閲覧, 全天球 画像 ビューアー, 360パノラマビューア, 360度写真 見る, パノラマビューア オンライン, ブラウザで360度写真を見る, シータ 360 写真 パソコンで見る, 360ビューア無料',
         h1: '無料オンライン 360° パノラマビューアー',
         sub: 'アップロード不要。ブラウザ内で直接360度パノラマ写真を回転・拡大・探索できます。',
         faq: [
           { q: '写真データはサーバーに送信されますか？', a: 'いいえ。すべてのレンダリングはお使いの端末のGPU（WebGL）でローカル実行され、データは外部に送信されません。' },
-          { q: 'クリップボードからの直接貼り付けに対応していますか？', a: 'はい。コピーしたパノラマ画像を画面上で Ctrl+V（Macは Cmd+V）するだけで即座に全天球表示されます。' }
+          { q: 'クリップボードからの直接貼り付けに対応していますか？', a: 'はい。コピーしたパノラマ画像を画面上で Ctrl+V（Macは Cmd+V）するだけで即座に全天球表示されます。' },
+          { q: 'DJIドローンや全天球カメラの写真に対応していますか？', a: 'はい、完全対応しています。DJIドローン（Mini/Air/Mavic）のパノラマやInsta360、RICOH THETAの2:1画像をドラッグするだけで、アップロードなしで即座に閲覧できます。' }
         ]
       }
     }
@@ -366,11 +371,13 @@ function buildHtmlPage(page, langObj) {
         applicationCategory: 'MultimediaApplication',
         operatingSystem: 'Web Browser',
         url: canonicalUrl,
+        inLanguage: lang,
         ...(usesCredits ? {} : { offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' } }),
       },
       {
         '@type': 'FAQPage',
         '@id': `${canonicalUrl}#faq`,
+        inLanguage: lang,
         mainEntity: t.faq.map(item => ({
           '@type': 'Question', name: item.q,
           acceptedAnswer: { '@type': 'Answer', text: item.a },

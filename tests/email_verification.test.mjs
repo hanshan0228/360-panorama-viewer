@@ -276,3 +276,19 @@ test('D1: an existing guest bearer token with credits cannot generate', async t 
   assert.equal((await api.call('generate', { prompt: 'test' }, 'old-guest-token')).data.code, 'REGISTRATION_REQUIRED');
   assert.equal((await api.call('user/me', undefined, 'old-guest-token')).status, 401);
 });
+
+test('D1: signup consent is captured once, login never changes it, and registration rolls back on consent failure', async t => {
+  const api = await fixture(t, 'D1');
+  const body = { mode: 'register', birthDate: '1990-01-01', email: 'marketing@example.com', password: 'synthetic-email-password', turnstileToken: challengeToken(), marketingOptIn: true };
+  const account = await api.call('user/auth', body);
+  assert.equal(account.status, 200);
+  assert.equal(api.sqlite.prepare('SELECT opted_in FROM marketing_consent WHERE user_id = ?').get(account.data.user.id).opted_in, 1);
+  assert.equal((await api.call('user/auth', { mode: 'login', email: body.email, password: body.password, marketingOptIn: false })).status, 200);
+  assert.equal(api.sqlite.prepare('SELECT opted_in FROM marketing_consent WHERE user_id = ?').get(account.data.user.id).opted_in, 1);
+  const other = await api.register('default-consent@example.com');
+  assert.equal(api.sqlite.prepare('SELECT opted_in FROM marketing_consent WHERE user_id = ?').get(other.data.user.id).opted_in, 0);
+  api.sqlite.exec("CREATE TRIGGER reject_consent BEFORE INSERT ON marketing_consent BEGIN SELECT RAISE(ABORT, 'consent failed'); END");
+  const failed = await api.call('user/auth', { ...body, email: 'rollback@example.com', turnstileToken: challengeToken() });
+  assert.notEqual(failed.status, 200);
+  assert.equal(api.sqlite.prepare('SELECT count(*) AS n FROM users WHERE email = ?').get('rollback@example.com').n, 0);
+});

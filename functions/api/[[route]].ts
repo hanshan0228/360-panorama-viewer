@@ -3,22 +3,38 @@ import { WORK_STORAGE_LIMIT, SHARE_STORAGE_LIMIT, ensureByteAccounting } from '.
 import { riskSchema, consumeLimit, sourceKey, acquireGeneration, readJsonLimited, GENERATION_WORKFLOW_TIMEOUT_MS } from '../../server/risk.mjs';
 import { registrationAgeError, AGE_SCREEN_DENIED } from '../../src/utils/registrationAge.mjs';
 import { emailVerificationSchema, verificationConfig, checkVerificationChallenge, createD1VerificationLedger, handleEmailVerification, sendVerificationEmail } from '../../server/emailVerification.mjs';
+import { marketingSchema, consentStatement, handleUnsubscribe, sendReminderBatch } from '../../server/marketing.mjs';
 import { handleWorksRequest, saveGeneratedWork, workSchema } from '../../server/works.mjs';
 import { handleShareRequest, shareSchema } from '../../server/shares.mjs';
 // Cloudflare Pages Functions - Edge Commercial Backend with D1 Persistence
 import { handlePayPalRequest, createD1PayPalLedger, paypalConfigured, paypalSchema, formatAdminBilling } from '../../server/paypal.mjs';
 import { buildImageModelRequest, inspectImageResolution, IMAGE_GENERATION_TIMEOUT_MS } from '../../src/utils/imageModelRequest.mjs';
+import { modelCoolingDown, markModelFailure, clearModelFailure } from '../../server/modelHealth.mjs';
+import {
+  deleteQualityReviewPayload,
+  enqueueQualityReview,
+  getQualityReview,
+  qualityReviewReservationStatement,
+  qualityReviewSchema,
+  saveQualityReviewPayload,
+  settleQualityReview,
+} from '../../server/qualityReview.mjs';
 
 interface Env {
   DB?: D1Database;
+  CF_PAGES?: string;
+  CF_PAGES_BRANCH?: string;
+  CF_PAGES_URL?: string;
   GENERATION_ENABLED?: string;
   PANORAMA_REVIEW_MODEL?: string;
   PANORAMA_REVIEW_BASE_URL?: string;
   PANORAMA_REVIEW_API_KEY?: string;
+  ASYNC_QUALITY_REVIEWS?: string;
   FREE_TRIAL_ENABLED?: string;
   APP_ORIGIN?: string;
   RESEND_API_KEY?: string;
   VERIFICATION_FROM_EMAIL?: string;
+  MARKETING_UNSUBSCRIBE_SECRET?: string;
   TURNSTILE_SITE_KEY?: string;
   TURNSTILE_SECRET_KEY?: string;
   MAX_DAILY_GENERATION_CREDITS?: string;
@@ -197,8 +213,10 @@ async function initializeDb(db: D1Database): Promise<void> {
     ...paypalSchema.map((sql: string) => db.prepare(sql)),
     ...riskSchema.map((sql: string) => db.prepare(sql)),
     db.prepare(emailVerificationSchema),
+    db.prepare(marketingSchema),
     db.prepare(workSchema),
     db.prepare(shareSchema),
+    ...qualityReviewSchema.map((sql: string) => db.prepare(sql)),
     db.prepare(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
@@ -337,6 +355,13 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       return handleShareRequest({ request, db: env.DB, storage: env.PANORAMA_SHARES });
     }
 
+    if (pathname.startsWith('/api/quality-reviews/') && request.method === 'GET') {
+      if (!env.DB) return jsonResponse({ success: false, error: 'Database unavailable' }, 503);
+      const result = await getQualityReview({ db: env.DB, request });
+      if ('error' in result) return jsonResponse({ success: false, error: result.error }, result.status);
+      return jsonResponse({ success: true, ...result });
+    }
+
     if (pathname.startsWith('/api/paypal/')) {
       if (!env.DB) return jsonResponse({ error: 'Database unavailable' }, 503);
       const db = env.DB;
@@ -451,6 +476,10 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     if (pathname === '/api/user/guest' && request.method === 'POST') {
       return jsonResponse({ success: false, code: 'REGISTRATION_REQUIRED', error: 'Register and verify your email to receive starter credits.' }, 403);
     }
+    if (pathname === '/api/marketing/unsubscribe') {
+      if (!env.DB) return jsonResponse({ error: 'Database unavailable' }, 503);
+      return handleUnsubscribe({ request, db: env.DB, env });
+    }
     if (pathname === '/api/user/verify-email' || pathname === '/api/user/send-verification') {
       if (!env.DB) return jsonResponse({ error: 'Database unavailable' }, 503);
       const db = env.DB;
@@ -473,10 +502,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         mode?: 'login' | 'register';
         turnstileToken?: string;
         birthDate?: string;
+        marketingOptIn?: boolean;
       };
       const { email, name, password, mode } = body;
       if (password !== undefined && typeof password !== 'string') return jsonResponse({ success: false, error: 'Password must be a string' }, 400);
       if (mode !== undefined && mode !== 'login' && mode !== 'register') return jsonResponse({ success: false, error: 'Invalid authentication mode' }, 400);
+      if (body.marketingOptIn !== undefined && typeof body.marketingOptIn !== 'boolean') return jsonResponse({ success: false, error: 'Marketing consent must be a boolean' }, 400);
       if (mode === 'register') {
         const error = registrationAgeError(body.birthDate);
         if (error) return jsonResponse({ success: false, error }, error === AGE_SCREEN_DENIED ? 403 : 400);
@@ -572,6 +603,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
             .bind(userId, email.toLowerCase(), displayName, credits, credits, pwdHash, now),
           env.DB.prepare('INSERT INTO email_verifications (user_id,email,source,eligible) VALUES (?,?,?,1)')
             .bind(userId, email.toLowerCase(), source),
+          consentStatement(env.DB, { userId, email: email.toLowerCase(), optedIn: body.marketingOptIn === true, now: Date.now() }),
         ]);
         recordRateHit(`register:${authIp}`);
 
@@ -790,6 +822,22 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       if (pathname === '/api/admin/logout' && request.method === 'POST') {
         await env.DB.prepare('DELETE FROM admin_sessions WHERE token = ?').bind(token).run();
         return jsonResponse({ success: true });
+      }
+
+      if (pathname === '/api/admin/marketing/reminders' && request.method === 'POST') {
+        const result = await sendReminderBatch({ db: env.DB, env });
+        return jsonResponse({ success: true, ...result });
+      }
+
+      if (pathname === '/api/admin/marketing/stats' && request.method === 'GET') {
+        const totalOptedIn = await env.DB.prepare('SELECT COUNT(*) AS count FROM marketing_consent WHERE opted_in = 1').first();
+        const totalUnsubscribed = await env.DB.prepare('SELECT COUNT(*) AS count FROM marketing_consent WHERE unsubscribed_at IS NOT NULL').first();
+        const totalClaimed = await env.DB.prepare('SELECT COUNT(*) AS count FROM marketing_consent WHERE reminder_claimed_at IS NOT NULL').first();
+        return jsonResponse({
+          optedIn: (totalOptedIn as any)?.count || 0,
+          unsubscribed: (totalUnsubscribed as any)?.count || 0,
+          remindersSent: (totalClaimed as any)?.count || 0,
+        });
       }
 
       // Fetch Store (Users, Subscriptions, Invoices)
@@ -1121,6 +1169,14 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       }
 
       const model = targetEp.model || 'gemini-3.1-flash-image';
+      const cooling = await modelCoolingDown(env.PANORAMA_SHARES, targetEp);
+      if (cooling) {
+        return jsonResponse({
+          success: false,
+          code: 'MODEL_COOLING_DOWN',
+          error: `${targetEp.name || model} recently timed out. It is skipped for a few minutes to avoid another long wait. No credits were charged.`,
+        }, 503);
+      }
       let upstreamRequest;
       try {
         upstreamRequest = buildImageModelRequest({ ...targetEp, model }, { prompt, referenceImages, resolution });
@@ -1130,22 +1186,76 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
       const safety = await acquireGeneration(env.DB, user, await sourceKey(request), cost, env);
       if (!safety.id) return jsonResponse({ success: false, error: safety.error }, 429);
-      const reservation = await env.DB.prepare(`
+      try {
+        // Record an accepted generation attempt, including failures, to avoid premature reminders.
+        await env.DB.prepare('UPDATE marketing_consent SET activity_at = ? WHERE user_id = ?').bind(Date.now(), user.id).run();
+      } catch (error) {
+        try {
+          // If activity cannot be recorded, suppress marketing for this user and continue generation.
+          await env.DB.prepare('UPDATE marketing_consent SET opted_in = 0 WHERE user_id = ?').bind(user.id).run();
+        } catch {
+          // Neither write succeeded, so proceeding could send a false inactivity reminder.
+          await safety.release();
+          throw error;
+        }
+      }
+      const asyncQualityReviews = env.ASYNC_QUALITY_REVIEWS === 'true';
+      if (asyncQualityReviews && !env.PANORAMA_SHARES) {
+        await safety.release();
+        return jsonResponse({ success: false, error: 'Quality review storage is unavailable.' }, 503);
+      }
+      const qualityReviewId = asyncQualityReviews
+        ? crypto.randomUUID().replace(/-/g, '')
+        : null;
+      const debitStatement = env.DB.prepare(`
         UPDATE users SET credits_balance = credits_balance - ?
         WHERE id = ? AND status = 'active' AND credits_balance >= ?
-      `).bind(cost, user.id, cost).run();
+      `).bind(cost, user.id, cost);
+      let reservation;
+      if (qualityReviewId) {
+        const now = Date.now();
+        const writes = await env.DB.batch([
+          debitStatement,
+          qualityReviewReservationStatement(env.DB, {
+            id: qualityReviewId,
+            ownerId: user.id,
+            endpointId: targetEp.id,
+            prompt,
+            cost,
+            now,
+          }),
+        ]);
+        reservation = writes[0];
+        if (reservation.meta.changes && !writes[1]?.meta.changes) {
+          await env.DB.prepare('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?')
+            .bind(cost, user.id).run();
+          await safety.release();
+          return jsonResponse({ success: false, error: 'Could not create the quality review reservation.' }, 503);
+        }
+      } else {
+        reservation = await debitStatement.run();
+      }
       if (!reservation.meta.changes) {
         await safety.release();
         return jsonResponse({ success: false, error: 'Insufficient credits or account unavailable. Generation cannot continue.' }, 400);
       }
       let completed = false;
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), GENERATION_WORKFLOW_TIMEOUT_MS);
+      // Cloudflare returns 524 after about 100 seconds. Keep the edge workflow below that
+      // ceiling so the client receives a structured result and refund instead of a bare 524.
+      const onCloudflarePages = Boolean(env.CF_PAGES || env.CF_PAGES_BRANCH || env.CF_PAGES_URL);
+      const workflowBudgetMs = onCloudflarePages
+        ? Math.min(GENERATION_WORKFLOW_TIMEOUT_MS, 95_000)
+        : GENERATION_WORKFLOW_TIMEOUT_MS;
+      const workflowStarted = Date.now();
+      const timer = setTimeout(() => ctrl.abort(), workflowBudgetMs);
 
+      let currentImageReceived = false;
       try {
         const generationTiming = { upstreamWaitMs: 0, upstreamBodyMs: 0 };
         for (let attempts = 1; attempts <= 2; attempts++) {
           ctrl.signal.throwIfAborted();
+          currentImageReceived = false;
           const { url: targetUrl, headers, payload, mode } = upstreamRequest;
           const isGoogleOfficial = mode.startsWith('google-');
           const isImagen = mode === 'google-imagen';
@@ -1161,6 +1271,9 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
           if (!upstreamRes.ok) {
             const errText = await upstreamRes.text();
+            if ([408, 504, 524].includes(upstreamRes.status)) {
+              await markModelFailure(env.PANORAMA_SHARES, targetEp, `http_${upstreamRes.status}`);
+            }
             return jsonResponse({
               success: false,
               error: `Model endpoint returned HTTP ${upstreamRes.status}: ${errText.slice(0, 240)}`,
@@ -1209,6 +1322,155 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           if (!imageUrl) {
             return jsonResponse({ success: false, error: 'The model responded without a valid image.' }, 502);
           }
+          currentImageReceived = true;
+
+          const imageResolution = inspectImageResolution(imageUrl, resolution);
+          console.info('[generation-quality]', JSON.stringify({ endpointId: targetEp.id, model, resolution, imageResolution }));
+          await clearModelFailure(env.PANORAMA_SHARES, targetEp);
+
+          // A below-request image is retained and fully refunded. The paid vision review
+          // would only add latency to a result that is already free, so skip it.
+          if (imageResolution.status === 'below-request') {
+            if (qualityReviewId) {
+              await settleQualityReview(env.DB, qualityReviewId, {
+                status: 'unavailable',
+                explanation: 'Quality review skipped because the image is below the requested resolution.',
+                reviewModel: 'skipped',
+              });
+            } else {
+              await env.DB.prepare('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?')
+                .bind(cost, user.id).run();
+            }
+            completed = true;
+            await env.DB.prepare('UPDATE users SET api_calls_count = api_calls_count + ? WHERE id = ?')
+              .bind(attempts, user.id).run();
+            const updated = await env.DB.prepare('SELECT credits_balance FROM users WHERE id = ?')
+              .bind(user.id)
+              .first<{ credits_balance: number }>();
+            const library = await saveGeneratedWork({ db: env.DB, storage: env.PANORAMA_SHARES, user, imageUrl, prompt, model, resolution }).catch(() => ({ saved: false, error: 'Cloud history could not save this image. Download it before leaving the page.' }));
+            return jsonResponse({
+              success: true,
+              library,
+              imageUrl,
+              modelUsed: model,
+              generationTiming,
+              remainingCredits: updated?.credits_balance ?? Math.max(0, user.credits_balance),
+              creditsDeducted: 0,
+              creditsRefunded: cost,
+              imageResolution,
+              quality: {
+                status: 'skipped',
+                issues: [],
+                explanation: 'Quality review skipped because the image is below the requested resolution; credits were refunded.',
+                reviewModel: 'skipped',
+                attempts,
+              },
+            });
+          }
+
+          // The vision review needs 20-45 s. Starting it with less budget than that only
+          // burns the edge timeout and returns a late "review unavailable"; skip it early.
+          if (!asyncQualityReviews && attempts === 1 && workflowBudgetMs - (Date.now() - workflowStarted) < 45_000) {
+            await env.DB.prepare('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?')
+              .bind(cost, user.id).run();
+            completed = true;
+            await env.DB.prepare('UPDATE users SET api_calls_count = api_calls_count + ? WHERE id = ?')
+              .bind(attempts, user.id).run();
+            const updated = await env.DB.prepare('SELECT credits_balance FROM users WHERE id = ?')
+              .bind(user.id)
+              .first<{ credits_balance: number }>();
+            const library = await saveGeneratedWork({ db: env.DB, storage: env.PANORAMA_SHARES, user, imageUrl, prompt, model, resolution }).catch(() => ({ saved: false, error: 'Cloud history could not save this image. Download it before leaving the page.' }));
+            return jsonResponse({
+              success: true,
+              library,
+              imageUrl,
+              modelUsed: model,
+              generationTiming,
+              remainingCredits: updated?.credits_balance ?? Math.max(0, user.credits_balance),
+              creditsDeducted: 0,
+              creditsRefunded: cost,
+              imageResolution,
+              quality: {
+                status: 'unavailable',
+                issues: [],
+                explanation: 'Quality review skipped to return the image before the edge timeout; credits were refunded.',
+                reviewModel: 'skipped',
+                attempts,
+              },
+            });
+          }
+
+          if (qualityReviewId) {
+            const library = await saveGeneratedWork({
+              db: env.DB,
+              storage: env.PANORAMA_SHARES,
+              user,
+              imageUrl,
+              prompt,
+              model,
+              resolution,
+            }).catch(() => ({ saved: false, error: 'Cloud history could not save this image. Download it before leaving the page.' }));
+            let payload;
+            try {
+              payload = await saveQualityReviewPayload(env.PANORAMA_SHARES, {
+                id: qualityReviewId,
+                imageUrl,
+                referenceImages: referenceImages ?? [],
+              });
+              if (!await enqueueQualityReview(env.DB, { id: qualityReviewId, ...payload })) {
+                throw new Error('Review job could not be queued');
+              }
+            } catch {
+              if (payload?.keys) await deleteQualityReviewPayload(env.PANORAMA_SHARES, payload.keys);
+              await settleQualityReview(env.DB, qualityReviewId, {
+                status: 'unavailable',
+                explanation: 'The quality review could not be queued because its image payload was unavailable.',
+                reviewModel: 'skipped',
+              });
+              completed = true;
+              await env.DB.prepare('UPDATE users SET api_calls_count = api_calls_count + ? WHERE id = ?')
+                .bind(attempts, user.id).run();
+              const updated = await env.DB.prepare('SELECT credits_balance FROM users WHERE id = ?')
+                .bind(user.id)
+                .first<{ credits_balance: number }>();
+              return jsonResponse({
+                success: true,
+                library,
+                imageUrl,
+                modelUsed: model,
+                generationTiming,
+                remainingCredits: updated?.credits_balance ?? user.credits_balance,
+                creditsDeducted: 0,
+                creditsRefunded: cost,
+                imageResolution,
+                quality: {
+                  status: 'unavailable',
+                  issues: [],
+                  explanation: 'The image was kept and your credits were returned because the quality review could not be queued.',
+                  reviewModel: 'skipped',
+                  attempts,
+                },
+              });
+            }
+            completed = true;
+            await env.DB.prepare('UPDATE users SET api_calls_count = api_calls_count + ? WHERE id = ?')
+              .bind(attempts, user.id).run();
+            const updated = await env.DB.prepare('SELECT credits_balance FROM users WHERE id = ?')
+              .bind(user.id)
+              .first<{ credits_balance: number }>();
+            return jsonResponse({
+              success: true,
+              qualityReview: { id: qualityReviewId, status: 'pending' },
+              library,
+              imageUrl,
+              modelUsed: model,
+              generationTiming,
+              remainingCredits: updated?.credits_balance ?? Math.max(0, user.credits_balance - cost),
+              creditsDeducted: cost,
+              creditsRefunded: 0,
+              imageResolution,
+            });
+          }
 
           const quality = { ...await reviewPanorama({
             endpoint: {
@@ -1230,9 +1492,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
             continue;
           }
 
-          const imageResolution = inspectImageResolution(imageUrl, resolution);
-            console.info('[generation-quality]', JSON.stringify({ endpointId: targetEp.id, model, resolution, imageResolution }));
-          const creditsRefunded = quality.status !== 'passed' || imageResolution.status === 'below-request' ? cost : 0;
+          const creditsRefunded = quality.status !== 'passed' ? cost : 0;
           if (creditsRefunded) {
             await env.DB.prepare('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?')
               .bind(creditsRefunded, user.id).run();
@@ -1248,16 +1508,14 @@ export const onRequest: PagesFunction<Env> = async (context) => {
             .first<{ credits_balance: number }>();
 
           completed = true;
-          if (quality.status !== 'passed') {
-            const unavailable = quality.status === 'unavailable';
+          if (quality.status === 'failed') {
             return jsonResponse({
               success: false,
-              code: unavailable ? 'GENERATION_REVIEW_UNAVAILABLE' : 'GENERATION_QUALITY_REJECTED',
-              error: unavailable ? 'Panorama quality review is unavailable. Your credits were returned. Please try again later.'
-                : 'The generated panorama did not pass quality review after two attempts. Your credits were returned. Please revise your prompt or reference images.',
+              code: 'GENERATION_QUALITY_REJECTED',
+              error: 'The generated panorama did not pass quality review after two attempts. Your credits were returned. Please revise your prompt or reference images.',
               quality, creditsDeducted: 0, creditsRefunded: cost,
               remainingCredits: updated?.credits_balance ?? user.credits_balance,
-            }, unavailable ? 503 : 422);
+            }, 422);
           }
 
           const library = await saveGeneratedWork({ db: env.DB, storage: env.PANORAMA_SHARES, user, imageUrl, prompt, model, resolution }).catch(() => ({ saved: false, error: 'Cloud history could not save this image. Download it before leaving the page.' }));
@@ -1276,6 +1534,9 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         }
       } catch (err: unknown) {
         console.error('[Cloudflare Edge Commercial API] Image model request failed:', err);
+        if (!currentImageReceived && err instanceof Error && (ctrl.signal.aborted || err.name === 'TimeoutError' || err.name === 'AbortError')) {
+          await markModelFailure(env.PANORAMA_SHARES, targetEp, ctrl.signal.aborted ? 'workflow_timeout' : 'timeout');
+        }
         return jsonResponse({
           success: false,
           error: 'Image model request failed. Please try again.',
@@ -1284,8 +1545,16 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         clearTimeout(timer);
         await safety.release().catch(() => console.error('[generation-safety] lease cleanup deferred to expiry'));
         if (!completed) {
-          await env.DB.prepare('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?')
-            .bind(cost, user.id).run();
+          if (qualityReviewId) {
+            await settleQualityReview(env.DB, qualityReviewId, {
+              status: 'unavailable',
+              explanation: 'Generation ended before the asynchronous quality review could be queued.',
+              reviewModel: 'skipped',
+            }).catch(error => console.error('[generation-quality] async settlement failed', error));
+          } else {
+            await env.DB.prepare('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?')
+              .bind(cost, user.id).run();
+          }
         }
       }
     }

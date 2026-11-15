@@ -5,7 +5,7 @@ export type PanoramaQualityIssue = 'reference_mismatch' | 'collage' | 'duplicate
   | 'disconnected_geometry' | 'seam' | 'pole_distortion';
 
 export interface PanoramaQualityReview {
-  status: 'passed' | 'failed' | 'unavailable';
+  status: 'passed' | 'failed' | 'unavailable' | 'skipped';
   issues: PanoramaQualityIssue[];
   explanation?: string;
   reviewModel: string;

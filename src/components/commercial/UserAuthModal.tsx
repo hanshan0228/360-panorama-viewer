@@ -30,6 +30,7 @@ export function UserAuthModal({ isOpen, onClose, onOpenWorks, currentUser, onAut
   const [password, setPassword] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [ageChecked, setAgeChecked] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [ageScreenDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [registrationBlocked, setRegistrationBlocked] = useState(() => {
     try { return Date.now() < Number(localStorage.getItem(AGE_BLOCK_STORAGE_KEY)); } catch { return false; }
@@ -86,6 +87,7 @@ export function UserAuthModal({ isOpen, onClose, onOpenWorks, currentUser, onAut
     setPassword('');
     setBirthDate('');
     setAgeChecked(false);
+    setMarketingOptIn(false);
     setShowPassword(false);
     setErrorMsg(null);
     setLoading(false);
@@ -95,6 +97,7 @@ export function UserAuthModal({ isOpen, onClose, onOpenWorks, currentUser, onAut
   const switchMode = (register: boolean) => {
     setIsRegisterMode(register);
     setAgeChecked(false);
+    setMarketingOptIn(false);
     setBirthDate('');
     setNotice('');
     setTurnstileToken('');
@@ -148,7 +151,7 @@ export function UserAuthModal({ isOpen, onClose, onOpenWorks, currentUser, onAut
     requestRef.current = request;
     setLoading(true);
     try {
-      const result = await authServerUser(email.trim(), isRegisterMode ? name.trim() || undefined : undefined, password, { mode: isRegisterMode ? 'register' : 'login', signal: request.signal, turnstileToken, birthDate: isRegisterMode ? birthDate : undefined });
+      const result = await authServerUser(email.trim(), isRegisterMode ? name.trim() || undefined : undefined, password, { mode: isRegisterMode ? 'register' : 'login', signal: request.signal, turnstileToken, birthDate: isRegisterMode ? birthDate : undefined, marketingOptIn: isRegisterMode && marketingOptIn });
       if (request.signal.aborted) return;
       if (!result.success || !result.user) { setErrorMsg(result.error || (isRegisterMode ? t("Unable to create your account. Please try again.") : t("Unable to sign in. Check your credentials."))); return; }
       setPassword('');
@@ -247,6 +250,7 @@ export function UserAuthModal({ isOpen, onClose, onOpenWorks, currentUser, onAut
         <div><label htmlFor="auth-email" className="block text-sm mb-1">{t("Email address")}</label><input ref={emailRef} id="auth-email" type="email" required autoComplete="username" disabled={loading} value={email} onChange={event => setEmail(event.target.value)} placeholder="name@example.com" className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700" /></div>
         <div><label htmlFor="auth-password" className="block text-sm mb-1">{t("Password")}</label><div className="relative"><input id="auth-password" type={showPassword ? 'text' : 'password'} required minLength={isRegisterMode ? 6 : undefined} maxLength={1024} autoComplete={isRegisterMode ? 'new-password' : 'current-password'} disabled={loading} value={password} onChange={event => setPassword(event.target.value)} placeholder={isRegisterMode ? t("At least 6 characters") : t("Your password")} className="w-full p-3 pr-16 rounded-xl bg-slate-950 border border-slate-700" /><button type="button" disabled={loading} aria-label={showPassword ? t("Hide password") : t("Show password")} aria-controls="auth-password" aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)} className="absolute right-1 top-1 bottom-1 min-w-14 px-2 text-sm text-cyan-200">{showPassword ? t("Hide") : t("Show")}</button></div></div>
         {isRegisterMode && <details className="text-sm text-cyan-200"><summary className="cursor-pointer">{t("Add a name (optional)")}</summary><label htmlFor="auth-name" className="block mt-2 mb-1">{t("Name")}</label><input id="auth-name" maxLength={80} autoComplete="name" disabled={loading} value={name} onChange={event => setName(event.target.value)} placeholder={t("Your name")} className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700" /></details>}
+        {isRegisterMode && <label className="flex items-start gap-3 text-sm text-cyan-100"><input type="checkbox" checked={marketingOptIn} disabled={loading} onChange={event => setMarketingOptIn(event.target.checked)} className="mt-1 shrink-0" /><span>{t('Email me product updates, tips, and reminders about my unused credits. I can unsubscribe at any time.')}</span></label>}
         {isRegisterMode && (authConfig?.registrationAvailable
           ? <VerificationChallenge key={challengeRevision} siteKey={authConfig.turnstileSiteKey} action="register" onToken={setTurnstileToken} />
           : <p role="status" className="text-sm text-cyan-200">{t('Account verification is temporarily unavailable. Please try again later.')}</p>)}

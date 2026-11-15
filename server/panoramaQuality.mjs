@@ -27,7 +27,7 @@ export async function reviewPanorama({ endpoint, model = DEFAULT_PANORAMA_REVIEW
   referenceImages = [], imageUrl, fetch: fetchImpl = globalThis.fetch, signal } = {}) {
   const unavailable = { status: 'unavailable', issues: [], reviewModel: model };
   const started = Date.now();
-  let status = 'unavailable', reason = 'invalid_input', httpStatus, requestSignal;
+  let status = 'unavailable', reason = 'invalid_input', httpStatus, requestSignal, requestStarted, headerMs, requestBytes;
   try {
     if (typeof prompt !== 'string' || typeof model !== 'string' || !model.trim()
       || !Array.isArray(referenceImages) || typeof fetchImpl !== 'function'
@@ -70,7 +70,10 @@ export async function reviewPanorama({ endpoint, model = DEFAULT_PANORAMA_REVIEW
     requestSignal = AbortSignal.any([AbortSignal.timeout(PANORAMA_REVIEW_TIMEOUT_MS), ...(signal ? [signal] : [])]);
     requestSignal.throwIfAborted();
     reason = 'network';
-    const response = await fetchImpl(url, { method: 'POST', headers, body: JSON.stringify(payload), signal: requestSignal });
+    requestStarted = Date.now();
+    const requestBody = JSON.stringify(payload);
+    requestBytes = requestBody.length;
+    const response = await fetchImpl(url, { method: 'POST', headers, body: requestBody, signal: requestSignal });
     requestSignal.throwIfAborted();
     httpStatus = response.status;
     if (!response.ok) { reason = 'http_error'; return unavailable; }
@@ -106,8 +109,11 @@ export async function reviewPanorama({ endpoint, model = DEFAULT_PANORAMA_REVIEW
     // Provider bodies, keys and abort reasons must never escape into logs or errors.
     return unavailable;
   } finally {
+    if (requestStarted !== undefined) headerMs = Date.now() - requestStarted;
     console.info('[panorama-review]', JSON.stringify({ status, reason, durationMs: Date.now() - started,
       reviewModel: typeof model === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(model) ? model : 'invalid',
+      ...(headerMs === undefined ? {} : { headerMs }),
+      ...(requestBytes === undefined ? {} : { requestBytes }),
       ...(httpStatus === undefined ? {} : { httpStatus }) }));
   }
 }
