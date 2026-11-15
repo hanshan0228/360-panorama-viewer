@@ -54,6 +54,27 @@
         <a class="button" href="/cubemap-generator/?lang=ja" hreflang="ja">ツールを開く（日本語の画面）</a>
       </div>
 
+      <section aria-labelledby="section-0">
+        <h2 id="section-0">キューブマップの計算方法</h2>
+        <p>立方体の各面についてピクセル単位でレイキャストし、2:1パノラマを遠近歪みのない6枚の画像に再サンプリングします。1面あたり256・512・1024ピクセルから選べます。</p>
+        <p>ファイル名はposx、negx、posy、negy、posz、negzで、Unityの6 SidedスカイボックスやThree.jsのCubeTextureLoaderにそのまま対応します。</p>
+
+      </section>
+      <section aria-labelledby="section-1">
+        <h2 id="section-1">一般的な流れ</h2>
+        <p>すべてブラウザ内で完結し、ログインもAIクレジットも不要です。</p>
+        <ul>
+          <li>サンプルを選ぶか2:1パノラマをドラッグ</li>
+          <li>1面あたりの解像度を選択</li>
+          <li>プレビューで継ぎ目と極を確認</li>
+          <li>ZIPまたは個別PNGをダウンロード</li>
+        </ul>
+      </section>
+      <section aria-labelledby="section-2">
+        <h2 id="section-2">制限</h2>
+        <p>書き出したPNGは8ビットで、HDRの輝度は保持されません。ZIPはUnrealのTextureCubeではないため、HDRI Backdropには元の.hdrが必要です。元画像の極に伸びがある場合、各面にも残ります。</p>
+
+      </section>
       <section aria-labelledby="faq">
         <h2 id="faq">よくある質問</h2>
         <h3>画像をアップロードせずに無料キューブマップを入手できますか？</h3><p>はい。ツールを開いてサンプルを選ぶと、元のパノラマと6面を比較し、写真をアップロードせずにZIPを保存できます。</p>
@@ -69,6 +90,15 @@
         </div>
       </section>
     </main>
-    <footer class="wrap"><a href="/ja/">ホーム</a></footer>
+    <footer class="wrap">
+      <nav aria-label="すべてのツール">
+        <a href="/ja/">ホーム</a>
+        <a href="/pricing/">料金とクレジット</a>
+        <a href="/blog/">ガイドと修正</a>
+        <a href="/showcase/">作品ギャラリー</a>
+        <a href="/developers/">埋め込みとAPI</a>
+        <a href="/about/">概要</a>
+      </nav>
+    </footer>
   </body>
 </html>

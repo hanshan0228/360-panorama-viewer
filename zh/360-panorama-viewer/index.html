@@ -54,6 +54,27 @@
         <a class="button" href="/360-panorama-viewer/?lang=zh" hreflang="zh">打开工具（中文界面）</a>
       </div>
 
+      <section aria-labelledby="section-0">
+        <h2 id="section-0">查看器如何工作</h2>
+        <p>全景图在浏览器里用 WebGL 贴到球体内壁，拖动、滑动或方向键即可环顾，视野角可在 30° 到 105° 之间调整。文件不会上传，渲染全部在本机 GPU 完成。</p>
+        <p>支持 JPG、PNG、WebP 的 2:1 等距柱状图，提供球形、小行星（Little Planet）和 VR 分屏三种投影，并带实时方位罗盘与 2:1 小地图。</p>
+
+      </section>
+      <section aria-labelledby="section-1">
+        <h2 id="section-1">支持的相机与导出</h2>
+        <p>大疆 Mini 3/4 Pro、Mavic、Air 系列导出的球面全景，Insta360 X3/X4/ONE RS，GoPro MAX 和理光 Theta 的 2:1 JPEG 都可以直接拖进来。</p>
+        <ul>
+          <li>Ctrl+V 直接粘贴截图或复制的图片</li>
+          <li>导出当前视角的 PNG 快照</li>
+          <li>一键送入立方体切图或 3D 地球</li>
+          <li>VR 分屏配合手机陀螺仪环顾</li>
+        </ul>
+      </section>
+      <section aria-labelledby="section-2">
+        <h2 id="section-2">使用边界</h2>
+        <p>能打开的分辨率取决于设备内存，超大图可能被浏览器降采样。非 2:1 的图片在球形模式下会拉伸变形。只有本地预览不上传；主动创建分享链接时，副本才会保存到服务器。</p>
+
+      </section>
       <section aria-labelledby="faq">
         <h2 id="faq">常见问题</h2>
         <h3>全景照片会上传到服务器吗？</h3><p>完全不会。所有渲染过程通过浏览器WebGL直接在您的显卡上运行，照片不离开您的电脑或手机。</p>
@@ -70,6 +91,15 @@
         </div>
       </section>
     </main>
-    <footer class="wrap"><a href="/zh/">首页</a></footer>
+    <footer class="wrap">
+      <nav aria-label="全部工具">
+        <a href="/zh/">首页</a>
+        <a href="/pricing/">价格与积分</a>
+        <a href="/blog/">教程与修复</a>
+        <a href="/showcase/">作品展示</a>
+        <a href="/developers/">嵌入与 API</a>
+        <a href="/about/">关于</a>
+      </nav>
+    </footer>
   </body>
 </html>

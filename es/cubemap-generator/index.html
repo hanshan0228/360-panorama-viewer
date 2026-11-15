@@ -54,6 +54,27 @@
         <a class="button" href="/cubemap-generator/?lang=es" hreflang="es">Abrir herramienta en español</a>
       </div>
 
+      <section aria-labelledby="section-0">
+        <h2 id="section-0">Cómo se calcula el cubemap</h2>
+        <p>Cada cara del cubo se genera con un trazado de rayos píxel a píxel que remuestrea el panorama 2:1 en seis imágenes sin distorsión de perspectiva, a 256, 512 o 1024 píxeles por cara.</p>
+        <p>Los archivos se llaman posx, negx, posy, negy, posz y negz, que coinciden con el skybox 6 Sided de Unity y con CubeTextureLoader de Three.js.</p>
+
+      </section>
+      <section aria-labelledby="section-1">
+        <h2 id="section-1">Flujo habitual</h2>
+        <p>Todo ocurre en el navegador: sin cuenta y sin gastar créditos de IA.</p>
+        <ul>
+          <li>Elegir un ejemplo o arrastrar tu panorama 2:1</li>
+          <li>Escoger la resolución por cara</li>
+          <li>Revisar costuras y polos en la vista previa</li>
+          <li>Descargar el ZIP o un PNG suelto</li>
+        </ul>
+      </section>
+      <section aria-labelledby="section-2">
+        <h2 id="section-2">Límites</h2>
+        <p>Los PNG son de 8 bits y no conservan luminancia HDR. El ZIP tampoco es un TextureCube de Unreal: HDRI Backdrop necesita el .hdr original. Si el panorama ya tenía estiramiento en los polos, seguirá visible en las caras.</p>
+
+      </section>
       <section aria-labelledby="faq">
         <h2 id="faq">Preguntas frecuentes</h2>
         <h3>¿Puedo descargar cubemaps gratis?</h3><p>Sí. Abre la herramienta y elige un ejemplo para comparar el panorama con las seis caras y descargar el ZIP sin subir fotos.</p>
@@ -69,6 +90,15 @@
         </div>
       </section>
     </main>
-    <footer class="wrap"><a href="/es/">Inicio</a></footer>
+    <footer class="wrap">
+      <nav aria-label="Todas las herramientas">
+        <a href="/es/">Inicio</a>
+        <a href="/pricing/">Precios y créditos</a>
+        <a href="/blog/">Guías y soluciones</a>
+        <a href="/showcase/">Galería</a>
+        <a href="/developers/">Insertar y API</a>
+        <a href="/about/">Acerca de</a>
+      </nav>
+    </footer>
   </body>
 </html>

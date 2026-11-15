@@ -54,6 +54,27 @@
         <a class="button" href="/photo-to-globe/?lang=zh" hreflang="zh">打开工具（中文界面）</a>
       </div>
 
+      <section aria-labelledby="section-0">
+        <h2 id="section-0">地图转地球的原理</h2>
+        <p>工具把 2D 图片按等距柱状方式包到球体表面，旋转、缩放和自动巡航都在浏览器里实时计算，不上传文件。</p>
+        <p>世界地图、架空大陆、游戏地图都可以直接铺成可交互的球体，用来检查极地变形和东西向接缝。</p>
+
+      </section>
+      <section aria-labelledby="section-1">
+        <h2 id="section-1">适用场景</h2>
+        <p>任何需要把平面图变成可旋转球体的场合都可以用，尤其是地图本身不追求地理精度的时候。</p>
+        <ul>
+          <li>小说、跑团的世界观地图立体化</li>
+          <li>游戏地图与关卡示意图预览</li>
+          <li>把全景照片当天球纹理查看</li>
+          <li>课堂演示经纬网与投影概念</li>
+        </ul>
+      </section>
+      <section aria-labelledby="section-2">
+        <h2 id="section-2">边界</h2>
+        <p>平面地图越靠近两极压缩越明显，工具不做地理配准，也不识别国界或经纬度。要让接缝自然，源图左右边缘需要能首尾相接。</p>
+
+      </section>
       <section aria-labelledby="faq">
         <h2 id="faq">常见问题</h2>
         <h3>可以作为MapToGlobe的替代工具吗？</h3><p>可以。本工具在浏览器中完成球体映射，无需上传地图。</p>
@@ -69,6 +90,15 @@
         </div>
       </section>
     </main>
-    <footer class="wrap"><a href="/zh/">首页</a></footer>
+    <footer class="wrap">
+      <nav aria-label="全部工具">
+        <a href="/zh/">首页</a>
+        <a href="/pricing/">价格与积分</a>
+        <a href="/blog/">教程与修复</a>
+        <a href="/showcase/">作品展示</a>
+        <a href="/developers/">嵌入与 API</a>
+        <a href="/about/">关于</a>
+      </nav>
+    </footer>
   </body>
 </html>

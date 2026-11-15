@@ -25,8 +25,6 @@ import {
   Pickaxe,
 } from 'lucide-react';
 import type { ActiveTab, StylePresetId, ManagedUser } from './types/panorama';
-import { GeneratorTab } from './components/GeneratorTab';
-import { ViewerTab } from './components/ViewerTab';
 import { MetadataInjectorModal } from './components/commercial/MetadataInjectorModal';
 import { CheckoutModal } from './components/commercial/CheckoutModal';
 import { UserAuthModal } from './components/commercial/UserAuthModal';
@@ -45,9 +43,13 @@ import {
 } from './utils/adminStorage';
 import samplePanoramaUrl from './assets/coastal-cover.png';
 import { fetchServerUser, fetchPublicModelsConfig, fetchPublicBillingConfig, paypalRequest } from './utils/commercialApi';
-import { EmbedViewer } from './components/commercial/EmbedViewer';
 
 const AdminTab = lazy(() => import('./components/AdminTab').then(module => ({ default: module.AdminTab })));
+const EmbedViewer = lazy(() => import('./components/commercial/EmbedViewer').then(module => ({ default: module.EmbedViewer })));
+// The studio and viewer pull in three.js and the ZIP/image pipelines. Loading them on
+// demand keeps static landing pages from paying for a 3D engine they may never open.
+const GeneratorTab = lazy(() => import('./components/GeneratorTab').then(module => ({ default: module.GeneratorTab })));
+const ViewerTab = lazy(() => import('./components/ViewerTab').then(module => ({ default: module.ViewerTab })));
 const PricingTab = lazy(() => import('./components/PricingTab').then(module => ({ default: module.PricingTab })));
 const AiHdriGeneratorPage = lazy(() => import('./components/landing/AiHdriGeneratorPage').then(module => ({ default: module.AiHdriGeneratorPage })));
 const HdriViewerPage = lazy(() => import('./components/landing/HdriViewerPage').then(module => ({ default: module.HdriViewerPage })));
@@ -689,7 +691,11 @@ export function App() {
   );
 
   if (isEmbedMode) {
-    return <EmbedViewer textureUrl={currentPanoramaUrl} autoRotate={new URLSearchParams(window.location.search).get('autorotate') === '1'} />;
+    return (
+      <Suspense fallback={null}>
+        <EmbedViewer textureUrl={currentPanoramaUrl} autoRotate={new URLSearchParams(window.location.search).get('autorotate') === '1'} />
+      </Suspense>
+    );
   }
 
   return (

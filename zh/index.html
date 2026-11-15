@@ -54,6 +54,27 @@
         <a class="button" href="/?lang=zh" hreflang="zh">打开工具（中文界面）</a>
       </div>
       <p class="callout">AI 生成功能需要积分，免费试用以当前可用额度为准；本地查看和切图工具免费。</p>
+      <section aria-labelledby="section-0">
+        <h2 id="section-0">AI 全景图是怎么生成的</h2>
+        <p>输入一段场景描述，或上传最多三张参考照片，服务端会调用图像模型生成一张 2:1 等距柱状全景图。生成前可以选风格预设、机位和负向提示词，输出分辨率分 1K、2K、4K 三档。</p>
+        <p>每次成功生成按分辨率扣积分：1K 扣 1 分，2K 扣 2 分，4K 扣 4 分。失败或未通过自动质量检查的请求会释放预扣积分。</p>
+
+      </section>
+      <section aria-labelledby="section-1">
+        <h2 id="section-1">能拿来做什么</h2>
+        <p>生成结果可以直接当游戏引擎的天空盒、VR 场景背景，也可以作为建筑与展陈方案的氛围图。</p>
+        <ul>
+          <li>Unity、Unreal Engine、Godot 的天空盒与环境贴图</li>
+          <li>VR 头显和 Cardboard 的 360° 预览</li>
+          <li>建筑、室内和展陈方案的氛围提案</li>
+          <li>社交媒体 360 视频与短视频素材</li>
+        </ul>
+      </section>
+      <section aria-labelledby="section-2">
+        <h2 id="section-2">它做不到什么</h2>
+        <p>AI 生成的是新画面，不是对参考照片的真实还原：细节、文字和空间结构都可能与原场景不同，多次生成也无法保证同一空间完全一致。非 2:1 的结果会被居中裁切而不做拉伸补全。需要精确匹配真实场地时，应使用实拍全景或 HDRI。</p>
+
+      </section>
       <section aria-labelledby="faq">
         <h2 id="faq">常见问题</h2>
         <h3>什么是AI 360全景图生成器？</h3><p>这是一款基于前沿深度学习的在线工具，能够根据自然语言描述或参考图片，生成标准的2:1等距柱状360度全景照片和VR游戏天空盒。</p>
@@ -69,6 +90,15 @@
         </div>
       </section>
     </main>
-    <footer class="wrap"><a href="/zh/">首页</a></footer>
+    <footer class="wrap">
+      <nav aria-label="全部工具">
+        <a href="/zh/">首页</a>
+        <a href="/pricing/">价格与积分</a>
+        <a href="/blog/">教程与修复</a>
+        <a href="/showcase/">作品展示</a>
+        <a href="/developers/">嵌入与 API</a>
+        <a href="/about/">关于</a>
+      </nav>
+    </footer>
   </body>
 </html>

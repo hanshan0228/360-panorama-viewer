@@ -55,6 +55,8 @@ import { repairPanoramaPoles } from '../utils/poleRepair';
 import { rollPanoramaCanvas } from '../utils/seamInpaint';
 import { inspectImageResolution, type ImageResolution } from '../utils/imageModelRequest.mjs';
 import { saveWorkThumbnail } from '../utils/workThumbnail';
+import { requestAnonymousPreview } from '../utils/commercialApi';
+import { track } from '../utils/analytics';
 import {
   getCurrentUser,
   deductCurrentUserCredits,
@@ -263,6 +265,7 @@ export function GeneratorTab({
   const [workPrompt, setWorkPrompt] = useState<{ url: string; prompt: string } | null>(null);
   const [saveStatus, setSaveStatus] = useState<{ url: string; status: 'saved' | 'unsaved' | 'unknown' } | null>(null);
   const [isPreviewActive, setIsPreviewActive] = useState(false);
+  const [previewOnly, setPreviewOnly] = useState(false);
 
   const handleAppendTag = (tag: string) => {
     setPrompt((prev) => {
@@ -538,6 +541,7 @@ export function GeneratorTab({
 
   const handlePreviewSample = () => {
     if (isGenerating || isUpscalingClarity) return;
+    setPreviewOnly(false);
     originalOwner.current = null;
     setOriginalRawUrl(null); setEnhanced4kUrl(null); setResultQuality(null); setSaveStatus(null); setWorkPrompt(null); setGenerationTiming(null);
     setFeedbackNotice(null); setApiError(null);
@@ -551,6 +555,7 @@ export function GeneratorTab({
 
   const handleRemixScene = () => {
     if (!currentPanoramaUrl || isGenerating || currentPanoramaUrl === coastalCover) return;
+    if (requireAccountForExport()) return;
     setInputMode('image');
     setReferenceImages([{
       id: `remix-${Date.now()}`,
@@ -562,6 +567,69 @@ export function GeneratorTab({
     if (promptInput) {
       promptInput.focus();
       promptInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  // One free 1K preview per visitor network per week; the server enforces the allowance.
+  const handleFreePreview = async (styleSuffix: string, isCurrentGeneration: () => boolean) => {
+    const isUnauth = currentUser.id.startsWith('usr_guest') || !localStorage.getItem('panorama_server_user_token');
+    const askForAccount = (notice: string) => {
+      try {
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('panorama_pending_draft', JSON.stringify({
+            prompt,
+            selectedStyle,
+            selectedViewpoint,
+            negativePrompt,
+            resolution,
+            inputMode,
+            referenceImages,
+          }));
+        }
+      } catch { /* the draft is a convenience only */ }
+      window.dispatchEvent(new CustomEvent('panorama-open-auth', {
+        detail: { mode: isUnauth ? 'register' : 'login', notice },
+      }));
+    };
+    const refPreviews = inputMode === 'image' ? referenceImages.map(r => r.preview) : [];
+    const viewpoint = typeof CAMERA_VIEWPOINTS !== 'undefined' ? CAMERA_VIEWPOINTS.find(v => v.id === selectedViewpoint) : undefined;
+    const previewPrompt = buildPanoramaPrompt(
+      viewpoint?.promptSnippet && prompt.trim() ? `${prompt.trim()}, ${viewpoint.promptSnippet}` : prompt,
+      styleSuffix,
+      refPreviews.length > 0,
+      typeof negativePrompt === 'string' ? negativePrompt : ''
+    );
+    setIsGenerating(true);
+    setApiError(null);
+    setGenerationStage(t('Generating your free 1K preview'));
+    try {
+      const preview = await requestAnonymousPreview(previewPrompt, refPreviews);
+      if (!isCurrentGeneration()) return;
+      if (!preview.success || !preview.imageUrl) {
+        if (preview.code === 'PREVIEW_USED' || preview.code === 'PREVIEW_BUDGET') {
+          askForAccount(t('Free previews are limited. Create an account to keep generating.'));
+        } else {
+          setApiError(t(preview.error || 'Preview generation is temporarily unavailable.'));
+        }
+        return;
+      }
+      originalOwner.current = null;
+      setPreviewOnly(true);
+      setOriginalRawUrl(preview.imageUrl);
+      setResultQuality(null);
+      setWorkPrompt(null);
+      setSaveStatus(null);
+      setEnhanced4kUrl(null);
+      setIsPreviewActive(false);
+      setGenerationTiming(`${t('Free 1K preview')}${preview.modelUsed ? ` · ${preview.modelUsed}` : ''}`);
+      onPanoramaChange(preview.imageUrl, null);
+      track('preview_generated', { model: preview.modelUsed || 'unknown', resolution: '1K' });
+      setFeedbackNotice(t('Free 1K preview ready. Create a free account for 2K/4K generation and downloads.'));
+    } catch (error) {
+      if (isCurrentGeneration()) setApiError(error instanceof Error ? t(error.message) : t('Preview generation is temporarily unavailable.'));
+    } finally {
+      setIsGenerating(false);
+      setGenerationStage('');
     }
   };
 
@@ -587,33 +655,13 @@ export function GeneratorTab({
       return;
     }
     if (user.id.startsWith('usr_guest') || !sessionToken || (user.plan === 'free' && !user.emailVerified)) {
-      setApiError(t('Register and verify your email before using free AI generation.'));
-      const isUnauth = user.id.startsWith('usr_guest') || !sessionToken;
-      try {
-        if (typeof sessionStorage !== 'undefined') {
-          sessionStorage.setItem('panorama_pending_draft', JSON.stringify({
-            prompt,
-            selectedStyle,
-            selectedViewpoint,
-            negativePrompt,
-            resolution,
-            inputMode,
-            referenceImages,
-          }));
-        }
-      } catch {}
-      window.dispatchEvent(new CustomEvent('panorama-open-auth', {
-        detail: {
-          mode: isUnauth ? 'register' : 'login',
-          notice: isUnauth
-            ? 'Register and verify your email before generating images.'
-            : 'Verify your email before generating images.',
-        }
-      }));
+      await handleFreePreview(styleObj?.promptSuffix || '', isCurrentGeneration);
       return;
     }
 
-    // 2. Check credit balance before firing requests
+    // 2. Check credit balance before firing requests.
+    // ponytail: a cached balance goes stale after a purchase in another tab, so signed-in
+    // requests defer to the server's ledger and turn its "Insufficient credits" into the upgrade prompt.
     if (!sessionToken && user.creditsBalance < creditsCost) {
       setIsUpgradeOpen(true);
       return;
@@ -800,6 +848,7 @@ export function GeneratorTab({
       setGenerationTiming(`${t('Requested:')} ${resolution} · ${originalSize} · ${t('Model/network (including failover):')} ${(modelElapsed / 1000).toFixed(1)} s · ${t('Image processing:')} ${(processingElapsed / 1000).toFixed(1)} s${processingFailed ? ` ${t('(processing failed; original image preserved)')}` : ''} · ${t('Attempts:')} ${attemptSummary}${bestAttempt?.library ? bestAttempt.library.saved ? ` · ${t('Saved privately in My works')}` : ` · ${t('NOT saved:')} ${t(bestAttempt.library.error ?? '')}` : ''}`);
       originalOwner.current = sessionToken;
       setOriginalRawUrl(rawGenUrl);
+      setPreviewOnly(false);
       setWorkPrompt(null);
       setSaveStatus({ url: rawGenUrl, status: bestAttempt?.library ? bestAttempt.library.saved ? 'saved' : 'unsaved' : 'unknown' });
       setResultQuality({ url: finalDataUrl, quality: bestAttempt?.quality });
@@ -900,7 +949,16 @@ export function GeneratorTab({
     }
   };
 
+  const requireAccountForExport = (): boolean => {
+    if (!previewOnly) return false;
+    window.dispatchEvent(new CustomEvent('panorama-open-auth', {
+      detail: { mode: 'register', notice: t('Create a free account to download this panorama in full resolution.') },
+    }));
+    return true;
+  };
+
   const handleDownloadPng = () => {
+    if (requireAccountForExport()) return;
     const a = document.createElement('a');
     a.href = currentPanoramaUrl;
     a.download = `360-panorama-${selectedStyle}-${Date.now()}.png`;
@@ -909,6 +967,7 @@ export function GeneratorTab({
 
   const handleDownloadOriginal = async () => {
     if (!originalRawUrl) return;
+    if (requireAccountForExport()) return;
     try {
       const response = await fetch(originalRawUrl, { signal: AbortSignal.timeout(30000) });
       if (!response.ok) throw new Error(t("Original image download failed"));
@@ -927,6 +986,7 @@ export function GeneratorTab({
   };
 
   const handleExportHdr = () => {
+    if (requireAccountForExport()) return;
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
@@ -952,6 +1012,7 @@ export function GeneratorTab({
   };
 
   const handleDownloadVrJpg = () => {
+    if (requireAccountForExport()) return;
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = async () => {
@@ -1570,8 +1631,8 @@ export function GeneratorTab({
               <div id="studio-trial-notice" className="studio-trial-notice mb-3 text-xs text-cyan-200">
                 <p className="font-semibold">{t('Before you generate')}</p>
                 <p>{currentUser.id.startsWith('usr_guest')
-                  ? t('Create an account and verify your email. Eligible accounts receive {credits} starter credits once; no subscription required.').replace('{credits}', () => String(billingConfig.freeMonthlyCredits))
-                  : t('Verify your email before generating. Trial credits are subject to eligibility.')}</p>
+                  ? t('Try one free 1K preview without an account. Create an account and verify your email for 2K/4K generation, downloads, and {credits} starter credits.').replace('{credits}', () => String(billingConfig.freeMonthlyCredits))
+                  : t('Verify your email to generate at 2K/4K and download files. You can still try one free 1K preview.')}</p>
                 <button type="button" onClick={() => onNavigateTab('pricing')} className="mt-1 underline">{t('View plans')}</button>
               </div>
             )}
@@ -1862,7 +1923,7 @@ export function GeneratorTab({
             <button
               type="button"
               disabled={isGenerating}
-              onClick={() => setIsShareOpen(true)}
+              onClick={() => { if (!requireAccountForExport()) setIsShareOpen(true); }}
               className="glass-card p-3.5 rounded-2xl text-left cursor-pointer hover:border-teal-400/50 transition-all"
             >
               <div className="text-xs font-bold text-white">{t('Share panorama')}</div>
@@ -1907,7 +1968,7 @@ export function GeneratorTab({
 
             <button
               type="button"
-              onClick={() => setIsVideoModalOpen(true)}
+              onClick={() => { if (!requireAccountForExport()) setIsVideoModalOpen(true); }}
               className="glass-card p-3.5 rounded-2xl text-left cursor-pointer group hover:border-purple-400/50 transition-all"
             >
               <div className="flex items-center justify-between mb-2 text-purple-400 group-hover:text-purple-300">
@@ -2038,6 +2099,8 @@ export function GeneratorTab({
         onClose={() => setIsUpgradeOpen(false)}
         resultUrl={currentPanoramaUrl && currentPanoramaUrl !== coastalCover ? currentPanoramaUrl : null}
         costPer2K={billingConfig.creditCostPer2K}
+        proPriceCents={Math.round(billingConfig.proMonthlyPriceUsd * 100)}
+        proCredits={billingConfig.proMonthlyCredits}
         onBuyPack={() => onChoosePack?.('pack-25')}
         onSubscribe={() => onChoosePlan?.('pro', 'monthly')}
         onSeePlans={() => { setIsUpgradeOpen(false); onNavigateTab('pricing'); }}

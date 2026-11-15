@@ -1,0 +1,42 @@
+# 360 Panorama Viewer
+
+> Browser-based 360° panorama tools: a free, no-upload WebGL viewer, local converters (cubemap, equirectangular, PhotoSphere XMP metadata), and an AI panorama generator that runs on account credits.
+
+## What is free
+
+- Viewing, inspecting, and converting panoramas happens locally in the browser. No upload, no account, no credits.
+- Free tools cover: 360/equirectangular viewer, cubemap slicing (6 PNG faces), cubemap to equirectangular, .HDR viewing and tone-mapped export, map-to-globe projection, PhotoSphere XMP metadata injection, and panorama-to-video export.
+- AI generation is the paid feature. New accounts receive a small trial credit allowance after email verification; each generation costs credits by resolution (1K = 1, 2K = 2, 4K = 4).
+
+## Main pages
+
+- [360 Panorama Viewer](https://360panoramaviewer.com/360-panorama-viewer/): free online viewer for 2:1 equirectangular photos, Photo Spheres, DJI and Insta360 exports.
+- [AI 360 Panorama Generator](https://360panoramaviewer.com/): text-to-panorama and reference-photo generation with 1K, 2K, and 4K output.
+- [Cubemap Generator](https://360panoramaviewer.com/cubemap-generator/): slice a panorama into posx, negx, posy, negy, posz, negz PNG faces for Unity, Unreal Engine, and Three.js.
+- [Cubemap to Equirectangular](https://360panoramaviewer.com/cubemap-to-equirectangular/): exact inverse projection back to a 2:1 panorama.
+- [Photo to 360 Converter](https://360panoramaviewer.com/photo-to-360-converter/): turn a 2D photo or render into a new AI-generated panorama.
+- [Map to Globe](https://360panoramaviewer.com/photo-to-globe/): project flat maps onto an interactive 3D sphere.
+- [HDRI Viewer](https://360panoramaviewer.com/hdri-viewer/) and [HDRI to Cubemap](https://360panoramaviewer.com/hdri-to-cubemap/): inspect Radiance .HDR environments and export tone-mapped cube faces.
+- [360 Metadata Injector](https://360panoramaviewer.com/360-metadata-injector/): add PhotoSphere XMP so Facebook and Street View treat a photo as 360°.
+- [Panorama Showcase](https://360panoramaviewer.com/showcase/): public panoramas shared by creators.
+- [Pricing](https://360panoramaviewer.com/pricing/): credit packs and monthly or annual subscriptions.
+- [Developers](https://360panoramaviewer.com/developers/): iframe embed and public JSON endpoints.
+- [Guides](https://360panoramaviewer.com/blog/): equirectangular projection, cubemaps, HDRI vs LDR, Facebook 360 fixes.
+
+## API
+
+Read-only endpoints are public JSON over HTTPS and require no key:
+
+- `GET https://360panoramaviewer.com/api/health`
+- `GET https://360panoramaviewer.com/api/billing`
+- `GET https://360panoramaviewer.com/api/models`
+- `GET https://360panoramaviewer.com/api/shares?public=1`
+
+Full-resolution generation (`POST /api/generate`) and publishing (`POST /api/shares`) require an account session token.
+`POST /api/preview` returns one free 1K preview per visitor network per week without an account; it does not charge credits and is not saved to a library. The endpoint is a trial, not an anonymous generation API.
+
+## Notes
+
+- Panorama viewing, slicing, and metadata work never uploads user files.
+- AI-generated panoramas are new images, not reconstructions of the reference photo; details can differ from the original scene.
+- Exporting an ordinary image as Radiance .HDR stores colors in an HDR container; it does not recover measured scene radiance.

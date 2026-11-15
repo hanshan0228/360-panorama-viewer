@@ -54,6 +54,31 @@ export async function paypalRequest<Result>(route: string, body?: unknown, sessi
   return data as Result;
 }
 
+export interface PreviewGenerationResult {
+  success: boolean;
+  code?: string;
+  error?: string;
+  imageUrl?: string;
+  modelUsed?: string;
+  imageResolution?: { width: number | null; height: number | null; status: string };
+}
+
+/**
+ * One free 1K preview per visitor network per week. Never charges credits; the
+ * server refuses as soon as the allowance or daily budget is used up.
+ */
+export async function requestAnonymousPreview(prompt: string, referenceImages: string[] = []): Promise<PreviewGenerationResult> {
+  const response = await fetch('/api/preview', {
+    method: 'POST',
+    signal: AbortSignal.timeout(75000),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, referenceImages: referenceImages.filter((image) => image.startsWith('data:image/')).slice(0, 3) }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok && !data.error) throw new Error('Preview generation is temporarily unavailable.');
+  return data as PreviewGenerationResult;
+}
+
 let cachedHealth: BackendHealthStatus | null = null;
 let lastProbeTime = 0;
 

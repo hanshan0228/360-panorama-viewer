@@ -6,6 +6,10 @@ export const marketingSchema = `CREATE TABLE IF NOT EXISTS marketing_consent (
   unsubscribed_at INTEGER, reminder_claimed_at INTEGER
 )`;
 
+export const marketingSendsSchema = `CREATE TABLE IF NOT EXISTS marketing_sends (
+  user_id TEXT NOT NULL, kind TEXT NOT NULL, sent_at INTEGER NOT NULL, PRIMARY KEY (user_id, kind)
+)`;
+
 export function consentStatement(db, { userId, email, optedIn, now }) {
   const id = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('');
   return db.prepare(`INSERT INTO marketing_consent (user_id,email,opted_in,consented_at,activity_at,unsubscribe_id)
@@ -90,6 +94,104 @@ export async function sendReminderBatch({ db, env, fetcher = fetch, now = Date.n
         if (response.status === 401 || response.status === 403) break;
       }
     } catch { console.error('[marketing-reminders] provider outcome unknown; reminder retained'); }
+  }
+  return { sent, enabled: true };
+}
+
+// Lifecycle emails share the reminder master switch and the same sending identity.
+function marketingOrigin(env) {
+  if (env.GENERATION_ENABLED === 'false' || !env.RESEND_API_KEY || !env.MARKETING_FROM_EMAIL
+    || !env.MARKETING_SENDER_NAME?.trim() || !env.MARKETING_POSTAL_ADDRESS?.trim()
+    || !env.MARKETING_UNSUBSCRIBE_SECRET || !env.APP_ORIGIN) return null;
+  try {
+    const url = new URL(env.APP_ORIGIN);
+    return url.protocol === 'https:' ? url.origin : null;
+  } catch { return null; }
+}
+
+async function deliverMarketingEmail({ env, fetcher, origin, email, unsubscribeId, kind, subject, body }) {
+  const link = `${origin}/api/marketing/unsubscribe?token=${await unsubscribeToken(unsubscribeId, env.MARKETING_UNSUBSCRIBE_SECRET)}`;
+  return fetcher('https://api.resend.com/emails', {
+    method: 'POST',
+    signal: AbortSignal.timeout(10000),
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `${kind}/${unsubscribeId}`,
+    },
+    body: JSON.stringify({
+      from: env.MARKETING_FROM_EMAIL,
+      to: [email],
+      subject,
+      text: `Advertisement from ${env.MARKETING_SENDER_NAME}\n\n${body}\n\nUnsubscribe from marketing emails: ${link}\n\n${env.MARKETING_SENDER_NAME}\n${env.MARKETING_POSTAL_ADDRESS}`,
+      headers: { 'List-Unsubscribe': `<${link}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+    }),
+  });
+}
+
+/** Optional onboarding email right after a verified signup. Only for opted-in accounts. */
+export async function sendWelcomeEmail({ db, env, userId, fetcher = fetch, now = Date.now() }) {
+  if (env.MARKETING_REMINDERS_ENABLED !== 'true') return { sent: false };
+  const origin = marketingOrigin(env);
+  if (!origin) return { sent: false };
+  const row = await db.prepare(`SELECT u.email, u.name, u.credits_balance, m.unsubscribe_id FROM users u
+    JOIN marketing_consent m ON m.user_id = u.id AND m.email = u.email
+    WHERE u.id = ? AND m.opted_in = 1 AND m.unsubscribed_at IS NULL AND u.status = 'active'`).bind(userId).first();
+  if (!row) return { sent: false };
+  const claim = await db.prepare("INSERT OR IGNORE INTO marketing_sends (user_id, kind, sent_at) VALUES (?, 'welcome', ?)")
+    .bind(userId, now).run();
+  if (!claim.meta.changes) return { sent: false };
+  const body = `Hi ${row.name || 'there'},\n\nYour account is verified and ${row.credits_balance} starter credits are ready.\n\nDescribe a scene, pick a style, and generate your first 360° panorama: ${origin}/\n\nEvery plan includes 1K, 2K and 4K output, PNG and HDR export, and commercial usage rights: ${origin}/pricing/`;
+  try {
+    const response = await deliverMarketingEmail({ env, fetcher, origin, email: row.email, unsubscribeId: row.unsubscribe_id, kind: 'welcome', subject: 'Your panorama credits are ready', body });
+    if (response.ok) return { sent: true };
+    console.error('[marketing-lifecycle] welcome rejected', response.status);
+    if ([401, 403].includes(response.status)) await db.prepare("DELETE FROM marketing_sends WHERE user_id = ? AND kind = 'welcome'").bind(userId).run();
+    return { sent: false };
+  } catch {
+    console.error('[marketing-lifecycle] welcome outcome unknown; claim retained');
+    return { sent: false };
+  }
+}
+
+/** One upgrade nudge per 30 days for opted-in accounts whose credits dropped below one generation. */
+export async function sendLifecycleBatch({ db, env, fetcher = fetch, now = Date.now(), limit = 50 }) {
+  if (env.MARKETING_REMINDERS_ENABLED !== 'true') return { sent: 0, enabled: false };
+  const origin = marketingOrigin(env);
+  if (!origin) return { sent: 0, enabled: false };
+  const cost = cheapestGeneration((await db.prepare("SELECT value FROM admin_config WHERE key = 'billing_config'").first())?.value);
+  if (cost === null) return { sent: 0, enabled: true };
+  const candidates = await db.prepare(`SELECT u.id, u.email, u.credits_balance, m.unsubscribe_id FROM marketing_consent m
+    JOIN users u ON u.id = m.user_id AND u.email = m.email
+    JOIN email_verifications v ON v.user_id = u.id AND v.email = u.email
+    LEFT JOIN marketing_sends s ON s.user_id = u.id AND s.kind = 'credits-empty'
+    WHERE m.opted_in = 1 AND m.unsubscribed_at IS NULL AND u.status = 'active' AND u.id NOT LIKE 'usr_guest%'
+      AND v.verified_at > 0 AND u.credits_balance < ? AND m.activity_at <= ?
+      AND (s.sent_at IS NULL OR s.sent_at <= ?)
+      AND NOT EXISTS (SELECT 1 FROM generation_leases g WHERE g.owner_id = u.id AND g.expires_at > ?)
+    ORDER BY m.activity_at LIMIT ?`).bind(cost, now - 3 * DAY, now - 30 * DAY, now, limit).all();
+  let sent = 0;
+  for (const candidate of candidates.results) {
+    const claim = await db.prepare(`INSERT INTO marketing_sends (user_id, kind, sent_at) VALUES (?, 'credits-empty', ?)
+      ON CONFLICT(user_id, kind) DO UPDATE SET sent_at = excluded.sent_at WHERE marketing_sends.sent_at <= ?`)
+      .bind(candidate.id, now, now - 30 * DAY).run();
+    if (!claim.meta.changes) continue;
+    const current = await db.prepare(`SELECT u.email, u.credits_balance, m.unsubscribe_id FROM users u
+      JOIN marketing_consent m ON m.user_id = u.id AND m.email = u.email
+      JOIN email_verifications v ON v.user_id = u.id AND v.email = u.email
+      WHERE u.id = ? AND u.status = 'active' AND v.verified_at > 0 AND m.opted_in = 1 AND m.unsubscribed_at IS NULL AND u.credits_balance < ?`)
+      .bind(candidate.id, cost).first();
+    if (!current) continue;
+    const body = `Hi, your account is out of generation credits.\n\nTop up from $4.99 for 25 credits — no subscription, credits never expire — or subscribe for the lowest per-credit rate: ${origin}/pricing/\n\nYour panoramas and exports stay in your account.`;
+    try {
+      const response = await deliverMarketingEmail({ env, fetcher, origin, email: current.email, unsubscribeId: current.unsubscribe_id, kind: 'credits-empty', subject: 'Your panorama credits ran out', body });
+      if (response.ok) sent++;
+      else {
+        console.error('[marketing-lifecycle] provider rejected request', response.status);
+        await db.prepare("DELETE FROM marketing_sends WHERE user_id = ? AND kind = 'credits-empty'").bind(candidate.id).run();
+        if ([401, 403].includes(response.status)) break;
+      }
+    } catch { console.error('[marketing-lifecycle] provider outcome unknown; claim retained'); }
   }
   return { sent, enabled: true };
 }

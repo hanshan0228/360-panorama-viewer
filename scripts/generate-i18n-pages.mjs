@@ -16,10 +16,385 @@ const LANGUAGES = [
 ];
 
 const LABELS = {
-  zh: { open: '打开工具（中文界面）', notice: '主要工具界面支持中文，部分专业功能与说明仍为英文。', faq: '常见问题', tools: '相关工具', languages: '语言', home: '首页', skip: '跳到正文', ai: 'AI 生成功能需要积分，免费试用以当前可用额度为准；本地查看和切图工具免费。' },
-  es: { open: 'Abrir herramienta en español', notice: 'La interfaz principal está disponible en español. Algunas funciones especializadas y explicaciones siguen en inglés.', faq: 'Preguntas frecuentes', tools: 'Herramientas relacionadas', languages: 'Idiomas', home: 'Inicio', skip: 'Ir al contenido', ai: 'La generación con IA requiere créditos; la prueba depende de la disponibilidad. El visor y el corte local son gratuitos.' },
-  de: { open: 'Werkzeug auf Deutsch öffnen', notice: 'Die wichtigsten Werkzeuge sind auf Deutsch verfügbar. Einige Spezialfunktionen und Erläuterungen sind weiterhin auf Englisch.', faq: 'Häufig gestellte Fragen', tools: 'Weitere Werkzeuge', languages: 'Sprachen', home: 'Startseite', skip: 'Zum Inhalt', ai: 'KI-Generierung benötigt Guthaben; eine Testphase hängt von der Verfügbarkeit ab. Lokaler Viewer und Zuschnitt sind kostenlos.' },
-  ja: { open: 'ツールを開く（日本語の画面）', notice: '主要な操作画面は日本語に対応しています。一部の専門機能や説明は引き続き英語です。', faq: 'よくある質問', tools: '関連ツール', languages: '言語', home: 'ホーム', skip: '本文へ', ai: 'AI生成にはクレジットが必要です。無料体験は利用状況によります。ローカル表示と分割ツールは無料です。' },
+  zh: { open: '打开工具（中文界面）', notice: '主要工具界面支持中文，部分专业功能与说明仍为英文。', faq: '常见问题', tools: '相关工具', languages: '语言', home: '首页', skip: '跳到正文', ai: 'AI 生成功能需要积分，免费试用以当前可用额度为准；本地查看和切图工具免费。', pricing: '价格与积分', blog: '教程与修复', about: '关于', showcase: '作品展示', developers: '嵌入与 API', allTools: '全部工具' },
+  es: { open: 'Abrir herramienta en español', notice: 'La interfaz principal está disponible en español. Algunas funciones especializadas y explicaciones siguen en inglés.', faq: 'Preguntas frecuentes', tools: 'Herramientas relacionadas', languages: 'Idiomas', home: 'Inicio', skip: 'Ir al contenido', ai: 'La generación con IA requiere créditos; la prueba depende de la disponibilidad. El visor y el corte local son gratuitos.', pricing: 'Precios y créditos', blog: 'Guías y soluciones', about: 'Acerca de', showcase: 'Galería', developers: 'Insertar y API', allTools: 'Todas las herramientas' },
+  de: { open: 'Werkzeug auf Deutsch öffnen', notice: 'Die wichtigsten Werkzeuge sind auf Deutsch verfügbar. Einige Spezialfunktionen und Erläuterungen sind weiterhin auf Englisch.', faq: 'Häufig gestellte Fragen', tools: 'Weitere Werkzeuge', languages: 'Sprachen', home: 'Startseite', skip: 'Zum Inhalt', ai: 'KI-Generierung benötigt Guthaben; eine Testphase hängt von der Verfügbarkeit ab. Lokaler Viewer und Zuschnitt sind kostenlos.', pricing: 'Preise und Guthaben', blog: 'Anleitungen und Lösungen', about: 'Über uns', showcase: 'Galerie', developers: 'Einbetten und API', allTools: 'Alle Werkzeuge' },
+  ja: { open: 'ツールを開く（日本語の画面）', notice: '主要な操作画面は日本語に対応しています。一部の専門機能や説明は引き続き英語です。', faq: 'よくある質問', tools: '関連ツール', languages: '言語', home: 'ホーム', skip: '本文へ', ai: 'AI生成にはクレジットが必要です。無料体験は利用状況によります。ローカル表示と分割ツールは無料です。', pricing: '料金とクレジット', blog: 'ガイドと修正', about: '概要', showcase: '作品ギャラリー', developers: '埋め込みとAPI', allTools: 'すべてのツール' },
+};
+
+// Extra body copy per localized page. The translated hero and FAQ alone left these
+// pages at roughly a quarter of the English page length, which is thin content.
+const PAGE_SECTIONS = {
+  home: {
+    zh: [
+      {
+        h2: 'AI 全景图是怎么生成的',
+        p: [
+          '输入一段场景描述，或上传最多三张参考照片，服务端会调用图像模型生成一张 2:1 等距柱状全景图。生成前可以选风格预设、机位和负向提示词，输出分辨率分 1K、2K、4K 三档。',
+          '每次成功生成按分辨率扣积分：1K 扣 1 分，2K 扣 2 分，4K 扣 4 分。失败或未通过自动质量检查的请求会释放预扣积分。',
+        ],
+      },
+      {
+        h2: '能拿来做什么',
+        p: ['生成结果可以直接当游戏引擎的天空盒、VR 场景背景，也可以作为建筑与展陈方案的氛围图。'],
+        list: ['Unity、Unreal Engine、Godot 的天空盒与环境贴图', 'VR 头显和 Cardboard 的 360° 预览', '建筑、室内和展陈方案的氛围提案', '社交媒体 360 视频与短视频素材'],
+      },
+      {
+        h2: '它做不到什么',
+        p: ['AI 生成的是新画面，不是对参考照片的真实还原：细节、文字和空间结构都可能与原场景不同，多次生成也无法保证同一空间完全一致。非 2:1 的结果会被居中裁切而不做拉伸补全。需要精确匹配真实场地时，应使用实拍全景或 HDRI。'],
+      },
+    ],
+    es: [
+      {
+        h2: 'Cómo se genera un panorama con IA',
+        p: [
+          'Describe la escena o sube hasta tres fotos de referencia; el servicio llama a un modelo de imagen y devuelve un panorama equirrectangular 2:1. Antes de generar puedes elegir estilo, punto de vista y prompt negativo, y la resolución de salida: 1K, 2K o 4K.',
+          'Cada generación correcta consume créditos según la resolución: 1 para 1K, 2 para 2K y 4 para 4K. Los intentos fallidos o rechazados por el control de calidad liberan los créditos reservados.',
+        ],
+      },
+      {
+        h2: 'Para qué sirve',
+        p: ['El resultado se puede usar como skybox de motor de juego, fondo de escena VR o imagen de ambiente para una propuesta de arquitectura.'],
+        list: ['Skybox y mapas de entorno en Unity, Unreal Engine y Godot', 'Previsualización 360° en visores VR y Cardboard', 'Propuestas de ambiente para arquitectura, interiorismo y exposiciones', 'Material para vídeo 360° y redes sociales'],
+      },
+      {
+        h2: 'Qué no hace',
+        p: ['La IA crea una imagen nueva, no una reconstrucción de tu foto: los detalles, el texto y la geometría pueden diferir de la escena original, y dos generaciones no garantizan el mismo espacio. Los resultados que no son 2:1 se recortan desde el centro, sin estirarlos. Si necesitas coincidencia exacta con un lugar real, usa un panorama capturado o un HDRI.'],
+      },
+    ],
+    de: [
+      {
+        h2: 'So entsteht ein KI-Panorama',
+        p: [
+          'Beschreibe die Szene oder lade bis zu drei Referenzfotos hoch. Der Dienst ruft ein Bildmodell auf und liefert ein 2:1-Panorama in equirektangulärer Projektion. Vor dem Start wählst du Stil, Kameraposition, Negativ-Prompt und die Ausgabeauflösung 1K, 2K oder 4K.',
+          'Jede erfolgreiche Generierung kostet Guthaben nach Auflösung: 1 für 1K, 2 für 2K und 4 für 4K. Fehlgeschlagene oder von der Qualitätsprüfung abgelehnte Versuche geben reservierte Guthaben wieder frei.',
+        ],
+      },
+      {
+        h2: 'Wofür sich das eignet',
+        p: ['Das Ergebnis lässt sich als Skybox in einer Engine, als Hintergrund einer VR-Szene oder als Stimmungsbild für ein Architekturkonzept verwenden.'],
+        list: ['Skybox und Environment-Maps in Unity, Unreal Engine und Godot', '360°-Vorschau auf VR-Brillen und Cardboard', 'Stimmungsbilder für Architektur, Innenraum und Ausstellung', 'Material für 360°-Video und Social Media'],
+      },
+      {
+        h2: 'Was es nicht leistet',
+        p: ['Die KI erzeugt ein neues Bild, keine Rekonstruktion deines Fotos: Details, Schrift und Geometrie können von der realen Szene abweichen, und zwei Durchläufe ergeben nicht denselben Raum. Ergebnisse, die nicht 2:1 sind, werden mittig beschnitten statt gestreckt. Wenn ein Ort exakt stimmen muss, nutze ein echtes Panorama oder ein HDRI.'],
+      },
+    ],
+    ja: [
+      {
+        h2: 'AIパノラマの生成方法',
+        p: [
+          'シーンを文章で指定するか、最大3枚の参考写真をアップロードすると、画像モデルが2:1正距円筒パノラマを生成します。生成前にスタイル、視点、ネガティブプロンプト、出力解像度（1K・2K・4K）を選べます。',
+          '成功した生成は解像度に応じてクレジットを消費します（1K=1、2K=2、4K=4）。失敗した場合や自動品質チェックで不合格になった場合は、確保されたクレジットが解放されます。',
+        ],
+      },
+      {
+        h2: '用途',
+        p: ['生成した画像はゲームエンジンのスカイボックス、VRシーンの背景、建築や展示の雰囲気検討にそのまま使えます。'],
+        list: ['Unity・Unreal Engine・Godotのスカイボックスと環境マップ', 'VRヘッドセットやCardboardでの360°プレビュー', '建築・インテリア・展示計画のイメージ共有', '360°動画やSNS用の素材'],
+      },
+      {
+        h2: 'できないこと',
+        p: ['AIが作るのは新しい画像で、参考写真の再現ではありません。細部・文字・空間構造が実際と異なることがあり、同じ空間を複数回生成しても一致しません。2:1以外の比率は中央でトリミングされ、引き伸ばし補正は行いません。実在の場所と正確に合わせたい場合は、実写パノラマかHDRIを使用してください。'],
+      },
+    ],
+  },
+  viewer: {
+    zh: [
+      {
+        h2: '查看器如何工作',
+        p: [
+          '全景图在浏览器里用 WebGL 贴到球体内壁，拖动、滑动或方向键即可环顾，视野角可在 30° 到 105° 之间调整。文件不会上传，渲染全部在本机 GPU 完成。',
+          '支持 JPG、PNG、WebP 的 2:1 等距柱状图，提供球形、小行星（Little Planet）和 VR 分屏三种投影，并带实时方位罗盘与 2:1 小地图。',
+        ],
+      },
+      {
+        h2: '支持的相机与导出',
+        p: ['大疆 Mini 3/4 Pro、Mavic、Air 系列导出的球面全景，Insta360 X3/X4/ONE RS，GoPro MAX 和理光 Theta 的 2:1 JPEG 都可以直接拖进来。'],
+        list: ['Ctrl+V 直接粘贴截图或复制的图片', '导出当前视角的 PNG 快照', '一键送入立方体切图或 3D 地球', 'VR 分屏配合手机陀螺仪环顾'],
+      },
+      {
+        h2: '使用边界',
+        p: ['能打开的分辨率取决于设备内存，超大图可能被浏览器降采样。非 2:1 的图片在球形模式下会拉伸变形。只有本地预览不上传；主动创建分享链接时，副本才会保存到服务器。'],
+      },
+    ],
+    es: [
+      {
+        h2: 'Cómo funciona el visor',
+        p: [
+          'El panorama se proyecta en el interior de una esfera con WebGL en el navegador. Puedes mirar alrededor arrastrando, deslizando o con las flechas, y ajustar el campo de visión entre 30° y 105°. El archivo no se sube: el render ocurre en la GPU de tu equipo.',
+          'Admite JPG, PNG y WebP en formato equirrectangular 2:1, con proyección esférica, Little Planet y VR dividida, además de brújula y minimapa 2:1.',
+        ],
+      },
+      {
+        h2: 'Cámaras compatibles y exportación',
+        p: ['Los panoramas esféricos de DJI (Mini 3/4 Pro, Mavic, Air), Insta360 X3/X4/ONE RS, GoPro MAX y Ricoh Theta se abren arrastrando el JPEG 2:1.'],
+        list: ['Pegar una captura con Ctrl+V', 'Exportar una instantánea PNG del ángulo actual', 'Enviar al cortador de cubemap o al globo 3D', 'VR dividida con el giroscopio del móvil'],
+      },
+      {
+        h2: 'Límites',
+        p: ['La resolución que se puede abrir depende de la memoria del dispositivo y las imágenes enormes pueden reducirse. Las fotos que no son 2:1 se estiran en modo esfera. Solo la vista local evita la subida; al crear un enlace para compartir se guarda una copia en el servidor.'],
+      },
+    ],
+    de: [
+      {
+        h2: 'So funktioniert der Viewer',
+        p: [
+          'Das Panorama wird per WebGL auf die Innenseite einer Kugel projiziert. Du drehst per Ziehen, Wischen oder Pfeiltasten und stellst den Bildwinkel zwischen 30° und 105° ein. Die Datei wird nicht hochgeladen, das Rendering läuft auf der GPU deines Geräts.',
+          'Unterstützt werden JPG, PNG und WebP im 2:1-Format, mit Kugel-, Little-Planet- und geteilter VR-Projektion sowie Kompass und 2:1-Minimap.',
+        ],
+      },
+      {
+        h2: 'Kameras und Export',
+        p: ['Sphärenpanoramen aus DJI (Mini 3/4 Pro, Mavic, Air), Insta360 X3/X4/ONE RS, GoPro MAX und Ricoh Theta lassen sich als 2:1-JPEG direkt hineinziehen.'],
+        list: ['Screenshot mit Strg+V einfügen', 'PNG-Snapshot des aktuellen Blickwinkels exportieren', 'Direkt an Cubemap-Slicer oder 3D-Globus übergeben', 'Geteilte VR-Ansicht mit Handy-Gyroskop'],
+      },
+      {
+        h2: 'Grenzen',
+        p: ['Die öffnungsfähige Auflösung hängt am Arbeitsspeicher des Geräts; sehr große Bilder werden vom Browser herunterskaliert. Bilder, die nicht 2:1 sind, werden in der Kugelansicht gestreckt. Nur die lokale Vorschau verzichtet auf Upload; beim Erstellen eines Freigabelinks wird eine Kopie gespeichert.'],
+      },
+    ],
+    ja: [
+      {
+        h2: 'ビューアーの仕組み',
+        p: [
+          'パノラマ画像はブラウザのWebGLで球体の内側に貼り付けられます。ドラッグ、スワイプ、矢印キーで見回せ、画角は30°〜105°で調整できます。ファイルはアップロードされず、描画は端末のGPUで完結します。',
+          'JPG・PNG・WebPの2:1正距円筒画像に対応し、球面・リトルプラネット・VR分割の3種類の投影、方位コンパス、2:1ミニマップを備えます。',
+        ],
+      },
+      {
+        h2: '対応カメラと書き出し',
+        p: ['DJI（Mini 3/4 Pro、Mavic、Air）の球面パノラマ、Insta360 X3/X4/ONE RS、GoPro MAX、Ricoh Thetaの2:1 JPEGをそのままドラッグできます。'],
+        list: ['Ctrl+Vでスクリーンショットを貼り付け', '現在の視点をPNGで書き出し', 'キューブマップ分割や3D地球儀へ直接送る', 'スマホのジャイロとVR分割表示'],
+      },
+      {
+        h2: '制限',
+        p: ['開ける解像度は端末のメモリに依存し、巨大な画像はブラウザが縮小することがあります。2:1でない画像は球面表示で引き伸ばされます。ローカル表示のみアップロードなしで、共有リンクを作成すると複製が保存されます。'],
+      },
+    ],
+  },
+  globe: {
+    zh: [
+      {
+        h2: '地图转地球的原理',
+        p: [
+          '工具把 2D 图片按等距柱状方式包到球体表面，旋转、缩放和自动巡航都在浏览器里实时计算，不上传文件。',
+          '世界地图、架空大陆、游戏地图都可以直接铺成可交互的球体，用来检查极地变形和东西向接缝。',
+        ],
+      },
+      {
+        h2: '适用场景',
+        p: ['任何需要把平面图变成可旋转球体的场合都可以用，尤其是地图本身不追求地理精度的时候。'],
+        list: ['小说、跑团的世界观地图立体化', '游戏地图与关卡示意图预览', '把全景照片当天球纹理查看', '课堂演示经纬网与投影概念'],
+      },
+      {
+        h2: '边界',
+        p: ['平面地图越靠近两极压缩越明显，工具不做地理配准，也不识别国界或经纬度。要让接缝自然，源图左右边缘需要能首尾相接。'],
+      },
+    ],
+    es: [
+      {
+        h2: 'Cómo funciona el mapa a globo',
+        p: [
+          'La herramienta envuelve una imagen 2D sobre una esfera en proyección equirrectangular; rotación, zoom y giro automático se calculan en el navegador sin subir el archivo.',
+          'Mapas del mundo, continentes inventados o mapas de juego se convierten en un globo interactivo para revisar la distorsión polar y la costura este-oeste.',
+        ],
+      },
+      {
+        h2: 'Cuándo usarlo',
+        p: ['Sirve siempre que necesites convertir una imagen plana en una esfera giratoria, sobre todo cuando no buscas precisión geográfica.'],
+        list: ['Mapas de mundo para novelas o campañas de rol', 'Previsualización de mapas de juego y niveles', 'Ver una foto panorámica como textura celeste', 'Demostraciones de latitud, longitud y proyección'],
+      },
+      {
+        h2: 'Límites',
+        p: ['Cuanto más cerca de los polos, mayor es la compresión de un mapa plano. No hay georreferenciación ni detección de fronteras o coordenadas. Para que la costura quede limpia, los bordes izquierdo y derecho de la imagen deben coincidir.'],
+      },
+    ],
+    de: [
+      {
+        h2: 'So funktioniert Karte zu Globus',
+        p: [
+          'Das Werkzeug legt ein 2D-Bild equirektangulär um eine Kugel. Drehung, Zoom und automatischer Lauf werden im Browser berechnet, ohne Upload.',
+          'Weltkarten, erfundene Kontinente oder Spielekarten lassen sich als interaktiver Globus prüfen, inklusive Polverzerrung und Ost-West-Naht.',
+        ],
+      },
+      {
+        h2: 'Typische Einsatzfälle',
+        p: ['Geeignet ist das Werkzeug überall dort, wo aus einem flachen Bild eine drehbare Kugel werden soll, besonders ohne Anspruch auf geografische Genauigkeit.'],
+        list: ['Weltkarten für Romane oder Pen-and-Paper-Runden', 'Vorschau von Spielekarten und Levelplänen', 'Ein Panoramafoto als Himmelskugel ansehen', 'Unterricht zu Längen- und Breitengraden'],
+      },
+      {
+        h2: 'Grenzen',
+        p: ['Je näher an den Polen, desto stärker staucht eine flache Karte. Es gibt keine Georeferenzierung und keine Erkennung von Grenzen oder Koordinaten. Für eine saubere Naht müssen linker und rechter Bildrand zusammenpassen.'],
+      },
+    ],
+    ja: [
+      {
+        h2: '地図から地球儀への仕組み',
+        p: [
+          '2D画像を正距円筒として球体に貼り付け、回転・ズーム・自動回転をブラウザ内で計算します。ファイルのアップロードはありません。',
+          '世界地図、架空の大陸、ゲームマップをそのまま操作できる球体にして、極付近の歪みや東西の継ぎ目を確認できます。',
+        ],
+      },
+      {
+        h2: '用途',
+        p: ['平面的な画像を回転する球体にしたい場面で使えます。地理的な正確さを求めない用途ほど向いています。'],
+        list: ['小説やTRPGの世界地図を立体化', 'ゲームマップやレベル図の確認', 'パノラマ写真を天球テクスチャとして表示', '緯度・経度と投影の授業デモ'],
+      },
+      {
+        h2: '制限',
+        p: ['平面地図は極に近いほど圧縮が目立ちます。地理的な位置合わせや国境・座標の認識は行いません。継ぎ目を自然にするには、画像の左右端が連続している必要があります。'],
+      },
+    ],
+  },
+  cubemap: {
+    zh: [
+      {
+        h2: '切图是怎么算的',
+        p: [
+          '对立方体的每个面逐像素做射线投射，把 2:1 全景重采样成 6 张无透视畸变的图像，每面可选 256、512 或 1024 像素。',
+          '文件按 posx、negx、posy、negy、posz、negz 命名，正好对应 Unity 的 6 Sided 天空盒和 Three.js 的 CubeTextureLoader。',
+        ],
+      },
+      {
+        h2: '典型工作流',
+        p: ['整个过程在浏览器本地完成，不需要登录，也不消耗 AI 积分。'],
+        list: ['选一个示例，或拖入自己的 2:1 全景', '选择每面分辨率', '在预览里检查接缝与极点', '下载 ZIP 或单张 PNG'],
+      },
+      {
+        h2: '边界',
+        p: ['导出的 PNG 是 8 位图像，不保留 HDR 亮度；ZIP 也不是 Unreal 的 TextureCube 资产，Unreal 的 HDRI Backdrop 需要原始 .hdr。原图极点本身有拉伸的话，切面后依然存在。'],
+      },
+    ],
+    es: [
+      {
+        h2: 'Cómo se calcula el cubemap',
+        p: [
+          'Cada cara del cubo se genera con un trazado de rayos píxel a píxel que remuestrea el panorama 2:1 en seis imágenes sin distorsión de perspectiva, a 256, 512 o 1024 píxeles por cara.',
+          'Los archivos se llaman posx, negx, posy, negy, posz y negz, que coinciden con el skybox 6 Sided de Unity y con CubeTextureLoader de Three.js.',
+        ],
+      },
+      {
+        h2: 'Flujo habitual',
+        p: ['Todo ocurre en el navegador: sin cuenta y sin gastar créditos de IA.'],
+        list: ['Elegir un ejemplo o arrastrar tu panorama 2:1', 'Escoger la resolución por cara', 'Revisar costuras y polos en la vista previa', 'Descargar el ZIP o un PNG suelto'],
+      },
+      {
+        h2: 'Límites',
+        p: ['Los PNG son de 8 bits y no conservan luminancia HDR. El ZIP tampoco es un TextureCube de Unreal: HDRI Backdrop necesita el .hdr original. Si el panorama ya tenía estiramiento en los polos, seguirá visible en las caras.'],
+      },
+    ],
+    de: [
+      {
+        h2: 'So wird das Cubemap berechnet',
+        p: [
+          'Jede Würfelfläche entsteht durch Raycasting pro Pixel, das das 2:1-Panorama in sechs perspektivisch unverzerrte Bilder mit 256, 512 oder 1024 Pixeln pro Fläche umrechnet.',
+          'Die Dateien heißen posx, negx, posy, negy, posz und negz und passen damit zur 6-Sided-Skybox in Unity und zum CubeTextureLoader in Three.js.',
+        ],
+      },
+      {
+        h2: 'Üblicher Ablauf',
+        p: ['Alles läuft lokal im Browser: ohne Konto und ohne KI-Guthaben.'],
+        list: ['Beispiel wählen oder eigenes 2:1-Panorama hineinziehen', 'Auflösung pro Fläche festlegen', 'Naht und Pole in der Vorschau prüfen', 'ZIP oder einzelne PNGs herunterladen'],
+      },
+      {
+        h2: 'Grenzen',
+        p: ['Die PNGs sind 8-Bit und tragen keine HDR-Luminanz. Das ZIP ist kein Unreal-TextureCube; HDRI Backdrop benötigt die originale .hdr-Datei. War das Ausgangsbild an den Polen bereits gestreckt, bleibt das in den Flächen sichtbar.'],
+      },
+    ],
+    ja: [
+      {
+        h2: 'キューブマップの計算方法',
+        p: [
+          '立方体の各面についてピクセル単位でレイキャストし、2:1パノラマを遠近歪みのない6枚の画像に再サンプリングします。1面あたり256・512・1024ピクセルから選べます。',
+          'ファイル名はposx、negx、posy、negy、posz、negzで、Unityの6 SidedスカイボックスやThree.jsのCubeTextureLoaderにそのまま対応します。',
+        ],
+      },
+      {
+        h2: '一般的な流れ',
+        p: ['すべてブラウザ内で完結し、ログインもAIクレジットも不要です。'],
+        list: ['サンプルを選ぶか2:1パノラマをドラッグ', '1面あたりの解像度を選択', 'プレビューで継ぎ目と極を確認', 'ZIPまたは個別PNGをダウンロード'],
+      },
+      {
+        h2: '制限',
+        p: ['書き出したPNGは8ビットで、HDRの輝度は保持されません。ZIPはUnrealのTextureCubeではないため、HDRI Backdropには元の.hdrが必要です。元画像の極に伸びがある場合、各面にも残ります。'],
+      },
+    ],
+  },
+  photo360: {
+    zh: [
+      {
+        h2: '照片转全景做了什么',
+        p: [
+          '参考照片会发送到 AI 服务，模型据此生成一张新的 2:1 全景图。它补全的是看起来合理的周围环境，而不是相机没拍到的真实画面。',
+          '生成按分辨率扣积分，可选用边缘融合减轻接缝；结果可以直接在内置查看器里环顾。',
+        ],
+      },
+      {
+        h2: '适合与不适合',
+        p: ['适合概念图、建筑效果图、氛围提案，以及需要快速铺满 360° 的素材。'],
+        list: ['室内方案的多角度氛围预览', '游戏与影视的概念场景', '社交媒体 360° 内容', '不适合取证、测绘或要求精确还原的场合'],
+      },
+      {
+        h2: '边界',
+        p: ['文字、直线建筑结构和人物最容易变形，同一张参考图多次生成会得到不同结果。必须保持空间一致时，应改用真实拍摄的全景。'],
+      },
+    ],
+    es: [
+      {
+        h2: 'Qué hace el conversor foto a 360',
+        p: [
+          'La foto de referencia se envía al servicio de IA, que genera un panorama 2:1 nuevo. Lo que completa es un entorno verosímil, no lo que había detrás de la cámara.',
+          'La generación consume créditos según la resolución y la fusión de bordes es opcional; el resultado se puede recorrer en el visor integrado.',
+        ],
+      },
+      {
+        h2: 'Cuándo conviene',
+        p: ['Sirve para conceptos, renders de arquitectura, propuestas de ambiente y material que necesita cubrir 360° rápido.'],
+        list: ['Previsualización de ambientes de interior', 'Escenarios conceptuales para juego o cine', 'Contenido 360° para redes sociales', 'No sirve para peritaje, medición ni reproducción exacta'],
+      },
+      {
+        h2: 'Límites',
+        p: ['El texto, las líneas rectas de la arquitectura y las personas son lo que más se deforma; la misma referencia puede dar resultados distintos. Si la coherencia espacial es obligatoria, usa un panorama capturado.'],
+      },
+    ],
+    de: [
+      {
+        h2: 'Was der Foto-zu-360-Konverter macht',
+        p: [
+          'Das Referenzfoto geht an den KI-Dienst, der daraus ein neues 2:1-Panorama erzeugt. Ergänzt wird eine plausible Umgebung, nicht die tatsächliche Szene hinter der Kamera.',
+          'Die Generierung kostet Guthaben nach Auflösung; Kantenüberblendung ist optional, und das Ergebnis lässt sich direkt im integrierten Viewer drehen.',
+        ],
+      },
+      {
+        h2: 'Wann das passt',
+        p: ['Für Konzeptbilder, Architektur-Renderings, Stimmungsentwürfe und Material, das schnell 360° füllen soll.'],
+        list: ['Stimmungsvorschau von Innenräumen', 'Konzeptszenerien für Game und Film', '360°-Inhalte für Social Media', 'Nicht für Gutachten, Vermessung oder exakte Rekonstruktion'],
+      },
+      {
+        h2: 'Grenzen',
+        p: ['Schrift, gerade Architekturlinien und Personen verformen sich am häufigsten; dieselbe Vorlage ergibt unterschiedliche Resultate. Wenn die Räumlichkeit stimmen muss, nutze ein echtes Panorama.'],
+      },
+    ],
+    ja: [
+      {
+        h2: '写真から360°への変換とは',
+        p: [
+          '参考写真はAIサービスに送信され、新しい2:1パノラマが生成されます。補完されるのは「それらしい周囲」であり、カメラが捉えていない実際の景色ではありません。',
+          '生成は解像度に応じてクレジットを消費し、境界のぼかしは任意で選べます。結果は内蔵ビューアーですぐに見回せます。',
+        ],
+      },
+      {
+        h2: '向いている用途',
+        p: ['コンセプト画像、建築パース、雰囲気の提案、360°を素早く埋めたい素材に向いています。'],
+        list: ['内装案の雰囲気プレビュー', 'ゲーム・映像のコンセプトシーン', 'SNS向けの360°コンテンツ', '鑑定・測量・正確な再現には不向き'],
+      },
+      {
+        h2: '制限',
+        p: ['文字、建築の直線、人物が最も崩れやすく、同じ参考写真でも結果は毎回異なります。空間の一貫性が必須なら、実写パノラマを使用してください。'],
+      },
+    ],
+  },
 };
 
 const PAGES = [
@@ -353,6 +728,60 @@ function escapeHtml(value) {
   return value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 }
 
+// Every public tool gets one crawlable link from every landing page, so Google and
+// non-JS crawlers can reach pages that the React navigation only renders at runtime.
+const SITE_LINKS = [
+  { href: '/', label: 'AI 360° Panorama Generator' },
+  { href: '/360-panorama-viewer/', label: '360° Panorama Viewer' },
+  { href: '/cubemap-generator/', label: 'Cubemap Generator' },
+  { href: '/cubemap-to-equirectangular/', label: 'Cubemap to Equirectangular' },
+  { href: '/photo-to-360-converter/', label: 'Photo to 360 Converter' },
+  { href: '/photo-to-globe/', label: 'Map to Globe' },
+  { href: '/skybox-generator/', label: 'AI Skybox Generator' },
+  { href: '/ai-hdri-generator/', label: 'AI HDRI Generator' },
+  { href: '/hdri-viewer/', label: 'HDRI Viewer' },
+  { href: '/hdri-to-cubemap/', label: 'HDRI to Cubemap' },
+  { href: '/360-metadata-injector/', label: '360° Metadata Injector' },
+  { href: '/360-image-maker/', label: '360 Image Maker' },
+  { href: '/360-photo-to-video/', label: '360 Photo to Video' },
+  { href: '/360-product-video-generator/', label: 'Panorama Showcase Video' },
+  { href: '/minecraft-panorama-maker/', label: 'Minecraft Panorama Maker' },
+  { href: '/text-to-panorama-ai/', label: 'Text to Panorama AI' },
+];
+
+const SITE_LINK_GROUPS = [
+  { title: 'All 360° panorama tools', links: SITE_LINKS },
+  {
+    title: 'Plans and guides',
+    links: [
+      { href: '/pricing/', label: 'Pricing and credits' },
+      { href: '/skybox-ai-alternative/', label: 'Skybox AI alternative' },
+      { href: '/showcase/', label: 'Panorama showcase' },
+      { href: '/blog/', label: 'Guides and fixes' },
+      { href: '/developers/', label: 'Embed and API' },
+      { href: '/about/', label: 'About and open source' },
+    ],
+  },
+];
+
+function buildEnglishSiteLinks() {
+  const groups = SITE_LINK_GROUPS.map(group => `<h2>${group.title}</h2>
+          <ul>
+${group.links.map(link => `            <li><a href="${link.href}">${link.label}</a></li>`).join('\n')}
+          </ul>`).join('\n          ');
+  return `<!-- site-links:start -->
+        <nav class="site-links" aria-label="All pages">
+          ${groups}
+        </nav>
+        <!-- site-links:end -->`;
+}
+
+function injectEnglishSiteLinks(html) {
+  const stripped = html.replace(/\n?\s*<!-- site-links:start -->[\s\S]*?<!-- site-links:end -->/g, '');
+  if (!stripped.includes('</main>')) return stripped;
+  return stripped.replace('</main>', `${buildEnglishSiteLinks()}\n      </main>`);
+}
+
 function buildHtmlPage(page, langObj) {
   const lang = langObj.code;
   const t = page.translations[lang];
@@ -433,6 +862,13 @@ ${generateAlternateLinks(page.slug)}
         <a class="button" href="${toolPath}?lang=${lang}" hreflang="${lang}">${ui.open}</a>
       </div>
       ${usesCredits ? `<p class="callout">${ui.ai}</p>` : ''}
+      ${(PAGE_SECTIONS[page.id]?.[lang] || []).map((section, index) => `<section aria-labelledby="section-${index}">
+        <h2 id="section-${index}">${escapeHtml(section.h2)}</h2>
+        ${section.p.map(paragraph => `<p>${escapeHtml(paragraph)}</p>`).join('\n        ')}
+        ${section.list ? `<ul>
+          ${section.list.map(item => `<li>${escapeHtml(item)}</li>`).join('\n          ')}
+        </ul>` : ''}
+      </section>`).join('\n      ')}
       <section aria-labelledby="faq">
         <h2 id="faq">${ui.faq}</h2>
         ${t.faq.map(item => `<h3>${escapeHtml(item.q)}</h3><p>${escapeHtml(item.a)}</p>`).join('\n        ')}
@@ -444,7 +880,16 @@ ${generateAlternateLinks(page.slug)}
         </div>
       </section>
     </main>
-    <footer class="wrap"><a href="/${lang}/">${ui.home}</a></footer>
+    <footer class="wrap">
+      <nav aria-label="${ui.allTools}">
+        <a href="/${lang}/">${ui.home}</a>
+        <a href="/pricing/">${ui.pricing}</a>
+        <a href="/blog/">${ui.blog}</a>
+        <a href="/showcase/">${ui.showcase}</a>
+        <a href="/developers/">${ui.developers}</a>
+        <a href="/about/">${ui.about}</a>
+      </nav>
+    </footer>
   </body>
 </html>`.replace(/^[ \t]+$/gm, '');
 }
@@ -478,13 +923,33 @@ export function generateAllI18n() {
     const englishPath = path.join(rootDir, page.slug, 'index.html');
     const html = fs.readFileSync(englishPath, 'utf8').replace(/\n    <!-- Locale alternates -->[\s\S]*?<!-- End locale alternates -->/g, '');
     const alternates = `\n    <!-- Locale alternates -->\n${generateAlternateLinks(page.slug)}\n    <!-- End locale alternates -->`;
-    const content = html.replace(/<link rel="canonical"[^>]+>/, match => match + alternates);
+    const content = injectEnglishSiteLinks(html.replace(/<link rel="canonical"[^>]+>/, match => match + alternates));
     if (fs.readFileSync(englishPath, 'utf8') !== content) {
       fs.writeFileSync(englishPath, content, 'utf8');
       updatedUrls.add(`${DOMAIN}/${page.slug ? `${page.slug}/` : ''}`);
     }
   }
+  injectSiteLinksIntoEnglishPages(updatedUrls);
   updateSitemapXml(updatedUrls);
+}
+
+// Pages outside PAGES (engines, metadata, showcase, developers, pricing) still need
+// the same crawlable index so no tool page depends on runtime React navigation.
+const SITE_LINK_SKIP_DIRS = new Set(['node_modules', 'dist', 'public', 'output', 'tests', 'scripts', 'server', 'src', 'docs', '.git', '.github', '.wrangler', '.playwright-cli', 'en']);
+
+function injectSiteLinksIntoEnglishPages(updatedUrls) {
+  const entries = fs.readdirSync(rootDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory() || SITE_LINK_SKIP_DIRS.has(entry.name) || /^[a-z]{2}$/.test(entry.name)) continue;
+    const file = path.join(rootDir, entry.name, 'index.html');
+    if (!fs.existsSync(file)) continue;
+    const html = fs.readFileSync(file, 'utf8');
+    const content = injectEnglishSiteLinks(html);
+    if (content !== html) {
+      fs.writeFileSync(file, content, 'utf8');
+      updatedUrls.add(`${DOMAIN}/${entry.name}/`);
+    }
+  }
 }
 
 function updateSitemapXml(updatedUrls) {
@@ -512,6 +977,8 @@ function updateSitemapXml(updatedUrls) {
     { slug: '360-metadata-injector', prio: '0.85', change: 'weekly' },
     { slug: 'hdri-viewer', prio: '0.85', change: 'weekly' },
     { slug: 'text-to-panorama-ai', prio: '0.85', change: 'weekly' },
+    { slug: 'pricing', prio: '0.8', change: 'monthly' },
+    { slug: 'skybox-ai-alternative', prio: '0.7', change: 'monthly' },
     { slug: 'developers', prio: '0.7', change: 'monthly' },
     { slug: 'showcase', prio: '0.7', change: 'daily' },
     { slug: 'blog', prio: '0.7', change: 'weekly' },

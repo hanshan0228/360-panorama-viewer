@@ -196,7 +196,10 @@ export function UserAuthModal({ isOpen, onClose, onOpenWorks, currentUser, onAut
 
   if (!isOpen) return null;
   const isPackIntent = checkoutIntent && 'packId' in checkoutIntent;
-  const selectedPack = isPackIntent ? (pricing?.oneTimePacks?.[checkoutIntent.packId] || (checkoutIntent.packId === 'pack-25' ? { name: 'Trial Pack', amountCents: 499, credits: 25 } : { name: 'Starter Pack', amountCents: 1990, credits: 100 })) : null;
+  const selectedPack = isPackIntent ? (pricing?.oneTimePacks?.[checkoutIntent.packId]
+    ?? (checkoutIntent.packId === 'pack-25' ? { name: 'Trial Pack', amountCents: 499, credits: 25 }
+      : checkoutIntent.packId === 'pack-100' ? { name: 'Starter Pack', amountCents: 1990, credits: 100 }
+      : null)) : null;
   const offer = checkoutIntent && !isPackIntent ? pricing?.plans?.[checkoutIntent.plan]?.[checkoutIntent.cycle] : null;
   return <dialog ref={dialogRef} aria-labelledby="auth-title" aria-describedby="auth-description" onCancel={event => { event.preventDefault(); closeDialog(); }}
     className="app-dialog p-0 max-w-md bg-[#030d1d] border border-cyan-500/30 rounded-3xl text-sky-100 backdrop:bg-slate-950/80 backdrop:backdrop-blur-md">

@@ -54,6 +54,27 @@
         <a class="button" href="/360-panorama-viewer/?lang=de" hreflang="de">Werkzeug auf Deutsch öffnen</a>
       </div>
 
+      <section aria-labelledby="section-0">
+        <h2 id="section-0">So funktioniert der Viewer</h2>
+        <p>Das Panorama wird per WebGL auf die Innenseite einer Kugel projiziert. Du drehst per Ziehen, Wischen oder Pfeiltasten und stellst den Bildwinkel zwischen 30° und 105° ein. Die Datei wird nicht hochgeladen, das Rendering läuft auf der GPU deines Geräts.</p>
+        <p>Unterstützt werden JPG, PNG und WebP im 2:1-Format, mit Kugel-, Little-Planet- und geteilter VR-Projektion sowie Kompass und 2:1-Minimap.</p>
+
+      </section>
+      <section aria-labelledby="section-1">
+        <h2 id="section-1">Kameras und Export</h2>
+        <p>Sphärenpanoramen aus DJI (Mini 3/4 Pro, Mavic, Air), Insta360 X3/X4/ONE RS, GoPro MAX und Ricoh Theta lassen sich als 2:1-JPEG direkt hineinziehen.</p>
+        <ul>
+          <li>Screenshot mit Strg+V einfügen</li>
+          <li>PNG-Snapshot des aktuellen Blickwinkels exportieren</li>
+          <li>Direkt an Cubemap-Slicer oder 3D-Globus übergeben</li>
+          <li>Geteilte VR-Ansicht mit Handy-Gyroskop</li>
+        </ul>
+      </section>
+      <section aria-labelledby="section-2">
+        <h2 id="section-2">Grenzen</h2>
+        <p>Die öffnungsfähige Auflösung hängt am Arbeitsspeicher des Geräts; sehr große Bilder werden vom Browser herunterskaliert. Bilder, die nicht 2:1 sind, werden in der Kugelansicht gestreckt. Nur die lokale Vorschau verzichtet auf Upload; beim Erstellen eines Freigabelinks wird eine Kopie gespeichert.</p>
+
+      </section>
       <section aria-labelledby="faq">
         <h2 id="faq">Häufig gestellte Fragen</h2>
         <h3>Werden meine Bilder auf einen Server geladen?</h3><p>Nein. Das Rendering läuft vollständig clientseitig im WebGL-Speicher Ihres Browsers.</p>
@@ -70,6 +91,15 @@
         </div>
       </section>
     </main>
-    <footer class="wrap"><a href="/de/">Startseite</a></footer>
+    <footer class="wrap">
+      <nav aria-label="Alle Werkzeuge">
+        <a href="/de/">Startseite</a>
+        <a href="/pricing/">Preise und Guthaben</a>
+        <a href="/blog/">Anleitungen und Lösungen</a>
+        <a href="/showcase/">Galerie</a>
+        <a href="/developers/">Einbetten und API</a>
+        <a href="/about/">Über uns</a>
+      </nav>
+    </footer>
   </body>
 </html>

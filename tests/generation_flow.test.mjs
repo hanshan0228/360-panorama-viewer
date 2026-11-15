@@ -573,6 +573,7 @@ function loadTsModule(relativePath, overrides = {}) {
       : specifier.endsWith('/RenewalTerms') ? loadTsModule(new URL(specifier + '.tsx', new URL(relativePath, import.meta.url)))
       : specifier.endsWith('/UpgradePrompt') ? { UpgradePrompt: () => null }
       : specifier.endsWith('/analytics') ? { track: () => {}, trackPurchaseOnce: () => {} }
+      : specifier.endsWith('/commercialApi') ? { requestAnonymousPreview: async () => ({ success: false, error: 'Preview disabled in unit tests' }) }
       : specifier === './VerificationChallenge' ? { VerificationChallenge: 'verification-challenge' } : nativeRequire(specifier)
   ), module.exports, module);
   return module.exports;
@@ -978,17 +979,17 @@ test('cloud generation defers balance checks to server rather than rejecting on 
   const end = source.indexOf('// 3. Check execution pipeline availability', start);
   assert.ok(start >= 0 && end > start);
   let error;
-  const check = callbackWithContext(`()=>{${source.slice(start, end)}return true;}`, {
-    currentUser: { ...accountFixture(), creditsBalance: 2 }, creditsCost: 4, resolution: '4K',
+  const check = callbackWithContext(`async ()=>{${source.slice(start, end)}return true;}`, {
+    currentUser: { ...accountFixture(), creditsBalance: 2 }, creditsCost: 4, resolution: '4K', styleObj: undefined,
     generationRef: { current: { mounted: true, request: 0 } }, getCurrentUser: () => accountFixture(),
-    setApiError: message => { error = message; }, window: { dispatchEvent() {} },
+    setApiError: message => { error = message; }, window: { dispatchEvent() {} }, handleFreePreview: async () => {}, setIsUpgradeOpen() {},
   });
   localStorage.setItem('panorama_server_user_token', 'valid-token');
-  assert.equal(check(), true);
+  assert.equal(await check(), true);
   assert.equal(error, undefined);
   localStorage.removeItem('panorama_server_user_token');
-  assert.equal(check(), undefined);
-  assert.ok(error.includes('Register and verify'));
+  assert.equal(await check(), undefined, 'guests move to the free 1K preview instead of a local credit rejection');
+  assert.equal(error, undefined);
 });
 
 test('generation finishing after an account switch does not overwrite the new account', async () => {
@@ -2167,7 +2168,7 @@ for (const operation of ['upscale', 'heal', 'export', 'context', 'context2K', 'c
       onPanoramaChange: value => { state.panorama = value; }, onUserChange: value => { state.user = value; },
       setIsGenerating: value => { state.generating = value; }, setApiError: value => { state.error = value; },
       setGenerationStage: value => { state.stage = value; }, setGenerationElapsed() {},
-      setGenerationTiming: value => { state.timing = value; }, setOriginalRawUrl() {}, setWorkPrompt() {}, setSaveStatus() {}, setResultQuality() {}, setEnhanced4kUrl() {},
+      setGenerationTiming: value => { state.timing = value; }, setOriginalRawUrl() {}, setPreviewOnly() {}, setWorkPrompt() {}, setSaveStatus() {}, setResultQuality() {}, setEnhanced4kUrl() {},
       setFeedbackNotice() {}, setIsCheckoutOpen() {}, setTimeout: () => 0, confetti() {},
     };
     const generate = callbackWithContext(sourceCallback('../src/components/GeneratorTab.tsx', 'handleGenerate'), context);
@@ -2303,6 +2304,7 @@ function generatorRegressionContext(overrides = {}) {
     localStorage: { getItem: () => 'account-token' },
     generationRef: { current: { mounted: true, request: 0, thumbnails: new Set() } }, originalOwner: { current: null },
     saveWorkThumbnail: async () => '',
+    handleFreePreview: async () => {},
     creditsCost: 2, resolution: '2K', seamCorrection: false,
     inputMode: 'text', isLoadingSample: false, prompt: 'Synthetic', selectedStyle: 'test', referenceImages: [], STYLE_PRESETS: [],
     getModelExecutionPipeline: () => ({ mode: 'single', endpoints: [{ id: 'test', name: 'Test', model: 'test-model' }] }),
@@ -2315,7 +2317,7 @@ function generatorRegressionContext(overrides = {}) {
     onUserChange: () => assert.fail('Server generations must refresh instead of spreading old users'),
     window: { dispatchEvent() {} },
     setTimeout() {}, confetti() {},
-    ...Object.fromEntries(['setIsGenerating', 'setApiError', 'setGenerationStage', 'setGenerationElapsed', 'setGenerationTiming', 'setOriginalRawUrl', 'setWorkPrompt', 'setSaveStatus', 'setResultQuality', 'setEnhanced4kUrl', 'setFeedbackNotice', 'setIsCheckoutOpen', 'setIsUpgradeOpen']
+    ...Object.fromEntries(['setIsGenerating', 'setApiError', 'setGenerationStage', 'setGenerationElapsed', 'setGenerationTiming', 'setOriginalRawUrl', 'setPreviewOnly', 'setWorkPrompt', 'setSaveStatus', 'setResultQuality', 'setEnhanced4kUrl', 'setFeedbackNotice', 'setIsCheckoutOpen', 'setIsUpgradeOpen']
       .map(name => [name, value => state.push([name, value])])),
     ...overrides,
   };
@@ -2438,11 +2440,11 @@ test('generator preserves attached photos across failover and asks to extend the
 test('a stale credit balance cannot start any model request without a registered session', async () => {
   let prompted = 0;
   const fixture = generatorRegressionContext({ localStorage: { getItem: () => null },
-    window: { dispatchEvent: () => prompted++ }, generateWithGemini: () => assert.fail('Anonymous generation must not reach a model'),
+    handleFreePreview: async () => { prompted++; }, generateWithGemini: () => assert.fail('Anonymous generation must not reach a model'),
   });
   await fixture.generate();
   assert.equal(prompted, 1);
-  assert.ok(fixture.state.some(([name, text]) => name === 'setApiError' && text.includes('Register and verify')));
+  assert.equal(fixture.state.some(([name]) => name === 'setSaveStatus'), false);
 });
 
 for (const source of ['updated-server', 'legacy-server']) {
@@ -2714,7 +2716,7 @@ test('original download preserves JPEG bytes and extension without image re-enco
   const anchor = { click() { this.clicked = true; } };
   let revoke;
   const handler = callbackWithContext(sourceCallback('../src/components/GeneratorTab.tsx', 'handleDownloadOriginal'), {
-    originalRawUrl: 'model-original',
+    originalRawUrl: 'model-original', previewOnly: false, requireAccountForExport: () => false,
     fetch: async url => { assert.equal(url, 'model-original'); return { ok: true, blob: async () => blob }; },
     document: { createElement: tag => { assert.equal(tag, 'a'); return anchor; } },
     URL: { createObjectURL: value => { assert.equal(value, blob); return 'blob:original'; }, revokeObjectURL: value => { assert.equal(value, 'blob:original'); } },
@@ -3451,10 +3453,10 @@ test('pre-generation guest notice uses configured starter credits and disappears
   const fixture = studioHarness(t);
   let tree = fixture.render({ ...fixture.props, billingConfig: { ...fixture.props.billingConfig, freeMonthlyCredits: 13 } });
   const notice = elementsIn(tree).find(element => element.props.id === 'studio-trial-notice');
-  assert.match(elementText(notice), /13 starter credits once; no subscription required/);
+  assert.match(elementText(notice), /2K\/4K generation, downloads, and 13 starter credits/);
   assert.equal(buttonIn(tree, 'Generate (').props['aria-describedby'], 'studio-trial-notice');
   tree = fixture.render({ ...fixture.props, currentUser: { ...accountFixture(), emailVerified: false } });
-  assert.match(elementText(tree), /Verify your email before generating. Trial credits are subject to eligibility./);
+  assert.match(elementText(tree), /Verify your email to generate at 2K\/4K and download files\./);
   assert.ok(!elementText(tree).includes('Create an account and verify'));
   tree = fixture.render({ ...fixture.props, currentUser: accountFixture() });
   assert.equal(elementsIn(tree).some(element => element.props.id === 'studio-trial-notice'), false);
@@ -3467,14 +3469,21 @@ for (const [account, token] of [
   [{ ...accountFixture(), emailVerified: false }, 'real-token'],
   [{ ...accountFixture(), status: 'suspended' }, 'real-token'],
 ]) {
-  test(`generation still blocks ${account.id.startsWith('usr_guest') ? 'guest' : !account.emailVerified ? 'unverified free' : 'suspended'} accounts before requests`, async () => {
+  test(`generation blocks ${account.id.startsWith('usr_guest') ? 'guest' : !account.emailVerified ? 'unverified free' : 'suspended'} accounts from reaching a model`, async () => {
+    let previews = 0;
     const fixture = generatorRegressionContext({ currentUser: account, getCurrentUser: () => account,
       localStorage: { getItem: () => token },
+      handleFreePreview: async () => { previews++; },
       generateWithGemini: () => assert.fail('Ineligible account must not call a model'),
     });
     await fixture.generate();
-    assert.ok(fixture.state.some(([name, message]) => name === 'setApiError' && message));
     assert.equal(fixture.state.some(([name]) => name === 'setSaveStatus'), false);
+    if (account.status === 'suspended') {
+      assert.equal(previews, 0);
+      assert.ok(fixture.state.some(([name, message]) => name === 'setApiError' && message));
+    } else {
+      assert.equal(previews, 1, 'guest and unverified accounts go to the free 1K preview');
+    }
   });
 }
 

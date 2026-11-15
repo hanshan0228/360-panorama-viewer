@@ -54,6 +54,27 @@
         <a class="button" href="/360-panorama-viewer/?lang=ja" hreflang="ja">ツールを開く（日本語の画面）</a>
       </div>
 
+      <section aria-labelledby="section-0">
+        <h2 id="section-0">ビューアーの仕組み</h2>
+        <p>パノラマ画像はブラウザのWebGLで球体の内側に貼り付けられます。ドラッグ、スワイプ、矢印キーで見回せ、画角は30°〜105°で調整できます。ファイルはアップロードされず、描画は端末のGPUで完結します。</p>
+        <p>JPG・PNG・WebPの2:1正距円筒画像に対応し、球面・リトルプラネット・VR分割の3種類の投影、方位コンパス、2:1ミニマップを備えます。</p>
+
+      </section>
+      <section aria-labelledby="section-1">
+        <h2 id="section-1">対応カメラと書き出し</h2>
+        <p>DJI（Mini 3/4 Pro、Mavic、Air）の球面パノラマ、Insta360 X3/X4/ONE RS、GoPro MAX、Ricoh Thetaの2:1 JPEGをそのままドラッグできます。</p>
+        <ul>
+          <li>Ctrl+Vでスクリーンショットを貼り付け</li>
+          <li>現在の視点をPNGで書き出し</li>
+          <li>キューブマップ分割や3D地球儀へ直接送る</li>
+          <li>スマホのジャイロとVR分割表示</li>
+        </ul>
+      </section>
+      <section aria-labelledby="section-2">
+        <h2 id="section-2">制限</h2>
+        <p>開ける解像度は端末のメモリに依存し、巨大な画像はブラウザが縮小することがあります。2:1でない画像は球面表示で引き伸ばされます。ローカル表示のみアップロードなしで、共有リンクを作成すると複製が保存されます。</p>
+
+      </section>
       <section aria-labelledby="faq">
         <h2 id="faq">よくある質問</h2>
         <h3>写真データはサーバーに送信されますか？</h3><p>いいえ。すべてのレンダリングはお使いの端末のGPU（WebGL）でローカル実行され、データは外部に送信されません。</p>
@@ -70,6 +91,15 @@
         </div>
       </section>
     </main>
-    <footer class="wrap"><a href="/ja/">ホーム</a></footer>
+    <footer class="wrap">
+      <nav aria-label="すべてのツール">
+        <a href="/ja/">ホーム</a>
+        <a href="/pricing/">料金とクレジット</a>
+        <a href="/blog/">ガイドと修正</a>
+        <a href="/showcase/">作品ギャラリー</a>
+        <a href="/developers/">埋め込みとAPI</a>
+        <a href="/about/">概要</a>
+      </nav>
+    </footer>
   </body>
 </html>

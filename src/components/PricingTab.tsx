@@ -27,6 +27,7 @@ export function PricingTab({ currentUser, billingConfig, onChoosePlan, onOpenStu
   const [reload, setReload] = useState(0);
   const [purchasingPack, setPurchasingPack] = useState<string | null>(null);
   const guest = currentUser.id.startsWith('usr_guest');
+  const packs = Object.values(config?.oneTimePacks || {}).sort((a, b) => a.credits - b.credits);
 
   useEffect(() => {
     let active = true;
@@ -126,23 +127,19 @@ export function PricingTab({ currentUser, billingConfig, onChoosePlan, onOpenStu
             <button type="button" onClick={onOpenStudio} className="w-full py-3 border border-cyan-500/30 rounded-xl text-cyan-100 font-bold">{t("Open free tools")}</button>
           </section>
 
-          {([
-            { id: 'pack-25', name: t('Trial Pack'), amountCents: 499, credits: 25, popular: true },
-            { id: 'pack-100', name: t('Starter Pack'), amountCents: 1990, credits: 100, popular: false },
-          ] as const).map(pack => {
-            const serverPack = config?.oneTimePacks?.[pack.id];
-            const amountCents = serverPack?.amountCents ?? pack.amountCents;
-            const credits = serverPack?.credits ?? pack.credits;
-            const isPopular = serverPack?.popular ?? pack.popular;
+          {packs.map((pack, index) => {
+            const amountCents = pack.amountCents;
+            const credits = pack.credits;
+            const isPopular = Boolean(pack.popular);
             const isBuying = purchasingPack === pack.id;
             return (
               <section key={pack.id} aria-labelledby={`${pack.id}-title`} className={`glass-panel rounded-3xl border p-6 flex flex-col gap-5 relative ${isPopular ? 'border-cyan-300 bg-cyan-950/25 shadow-lg shadow-cyan-500/10' : 'border-cyan-500/20'}`}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 id={`${pack.id}-title`} className="text-xl font-bold text-white">{pack.name}</h2>
+                  <h2 id={`${pack.id}-title`} className="text-xl font-bold text-white">{t(pack.name)}</h2>
                   {isPopular ? (
                     <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-cyan-300 text-slate-950">{t("Popular")}</span>
                   ) : (
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-900/60 border border-cyan-500/30 text-cyan-200">{t("Best value")}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-900/60 border border-cyan-500/30 text-cyan-200">{index === packs.length - 1 && packs.length > 1 ? t("Best value") : t("One-time")}</span>
                   )}
                 </div>
                 <div className="space-y-1">
@@ -168,7 +165,7 @@ export function PricingTab({ currentUser, billingConfig, onChoosePlan, onOpenStu
                   {isBuying ? (
                     <span>{t("Processing...")}</span>
                   ) : guest ? (
-                    <span>{t("Sign in to buy {name}").replace("{name}", () => pack.name)}</span>
+                    <span>{t("Sign in to buy {name}").replace("{name}", () => t(pack.name))}</span>
                   ) : (
                     <span>{t("Buy {credits} credits").replace("{credits}", () => String(credits))} ({money(amountCents)})</span>
                   )}

@@ -54,6 +54,27 @@
         <a class="button" href="/?lang=ja" hreflang="ja">ツールを開く（日本語の画面）</a>
       </div>
       <p class="callout">AI生成にはクレジットが必要です。無料体験は利用状況によります。ローカル表示と分割ツールは無料です。</p>
+      <section aria-labelledby="section-0">
+        <h2 id="section-0">AIパノラマの生成方法</h2>
+        <p>シーンを文章で指定するか、最大3枚の参考写真をアップロードすると、画像モデルが2:1正距円筒パノラマを生成します。生成前にスタイル、視点、ネガティブプロンプト、出力解像度（1K・2K・4K）を選べます。</p>
+        <p>成功した生成は解像度に応じてクレジットを消費します（1K=1、2K=2、4K=4）。失敗した場合や自動品質チェックで不合格になった場合は、確保されたクレジットが解放されます。</p>
+
+      </section>
+      <section aria-labelledby="section-1">
+        <h2 id="section-1">用途</h2>
+        <p>生成した画像はゲームエンジンのスカイボックス、VRシーンの背景、建築や展示の雰囲気検討にそのまま使えます。</p>
+        <ul>
+          <li>Unity・Unreal Engine・Godotのスカイボックスと環境マップ</li>
+          <li>VRヘッドセットやCardboardでの360°プレビュー</li>
+          <li>建築・インテリア・展示計画のイメージ共有</li>
+          <li>360°動画やSNS用の素材</li>
+        </ul>
+      </section>
+      <section aria-labelledby="section-2">
+        <h2 id="section-2">できないこと</h2>
+        <p>AIが作るのは新しい画像で、参考写真の再現ではありません。細部・文字・空間構造が実際と異なることがあり、同じ空間を複数回生成しても一致しません。2:1以外の比率は中央でトリミングされ、引き伸ばし補正は行いません。実在の場所と正確に合わせたい場合は、実写パノラマかHDRIを使用してください。</p>
+
+      </section>
       <section aria-labelledby="faq">
         <h2 id="faq">よくある質問</h2>
         <h3>AI 360度パノラマ生成器とは何ですか？</h3><p>テキストの説明や2D写真から、VRや3Dゲームエンジンで使用できる完全な360度正距円筒画像を生成するツールです。</p>
@@ -69,6 +90,15 @@
         </div>
       </section>
     </main>
-    <footer class="wrap"><a href="/ja/">ホーム</a></footer>
+    <footer class="wrap">
+      <nav aria-label="すべてのツール">
+        <a href="/ja/">ホーム</a>
+        <a href="/pricing/">料金とクレジット</a>
+        <a href="/blog/">ガイドと修正</a>
+        <a href="/showcase/">作品ギャラリー</a>
+        <a href="/developers/">埋め込みとAPI</a>
+        <a href="/about/">概要</a>
+      </nav>
+    </footer>
   </body>
 </html>

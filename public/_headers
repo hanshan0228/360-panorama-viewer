@@ -1,2 +1,9 @@
 /*
   Content-Security-Policy: font-src 'self'; object-src 'none'; base-uri 'self'
+
+# Hashed build output never changes, so browsers can skip revalidation.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/og-preview.png
+  Cache-Control: public, max-age=86400

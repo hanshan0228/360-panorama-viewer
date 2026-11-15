@@ -3,7 +3,7 @@ import { WORK_STORAGE_LIMIT, SHARE_STORAGE_LIMIT, ensureByteAccounting } from '.
 import { riskSchema, consumeLimit, sourceKey, acquireGeneration, readJsonLimited, GENERATION_WORKFLOW_TIMEOUT_MS } from '../../server/risk.mjs';
 import { registrationAgeError, AGE_SCREEN_DENIED } from '../../src/utils/registrationAge.mjs';
 import { emailVerificationSchema, verificationConfig, checkVerificationChallenge, createD1VerificationLedger, handleEmailVerification, sendVerificationEmail } from '../../server/emailVerification.mjs';
-import { marketingSchema, consentStatement, handleUnsubscribe, sendReminderBatch } from '../../server/marketing.mjs';
+import { marketingSchema, marketingSendsSchema, consentStatement, handleUnsubscribe, sendReminderBatch, sendWelcomeEmail, sendLifecycleBatch } from '../../server/marketing.mjs';
 import { handleWorksRequest, saveGeneratedWork, workSchema } from '../../server/works.mjs';
 import { handleShareRequest, shareSchema } from '../../server/shares.mjs';
 // Cloudflare Pages Functions - Edge Commercial Backend with D1 Persistence
@@ -31,6 +31,7 @@ interface Env {
   PANORAMA_REVIEW_API_KEY?: string;
   ASYNC_QUALITY_REVIEWS?: string;
   FREE_TRIAL_ENABLED?: string;
+  FREE_PREVIEW_DAILY_LIMIT?: string;
   APP_ORIGIN?: string;
   RESEND_API_KEY?: string;
   VERIFICATION_FROM_EMAIL?: string;
@@ -214,6 +215,7 @@ async function initializeDb(db: D1Database): Promise<void> {
     ...riskSchema.map((sql: string) => db.prepare(sql)),
     db.prepare(emailVerificationSchema),
     db.prepare(marketingSchema),
+    db.prepare(marketingSendsSchema),
     db.prepare(workSchema),
     db.prepare(shareSchema),
     ...qualityReviewSchema.map((sql: string) => db.prepare(sql)),
@@ -483,7 +485,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     if (pathname === '/api/user/verify-email' || pathname === '/api/user/send-verification') {
       if (!env.DB) return jsonResponse({ error: 'Database unavailable' }, 503);
       const db = env.DB;
-      return handleEmailVerification({ request, env, ledger: createD1VerificationLedger(db), source: await sourceKey(request),
+      const response = await handleEmailVerification({ request, env, ledger: createD1VerificationLedger(db), source: await sourceKey(request),
         freeCredits: () => freeCredits(db),
         authenticate: async () => {
           const session = await db.prepare('SELECT user_id FROM user_sessions WHERE token = ? AND expires_at > ?')
@@ -491,6 +493,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           return session ? db.prepare('SELECT * FROM users WHERE id = ?').bind(session.user_id).first() : null;
         },
       });
+      if (pathname === '/api/user/verify-email' && response.ok) {
+        const result = await response.clone().json().catch(() => null) as { success?: boolean; userId?: string; creditsGranted?: number } | null;
+        if (result?.success && result.userId && (result.creditsGranted ?? 0) > 0) {
+          const welcome = sendWelcomeEmail({ db, env, userId: result.userId });
+          if (typeof context.waitUntil === 'function') context.waitUntil(welcome);
+          else void welcome.catch(() => {});
+        }
+      }
+      return response;
     }
 
     // 2. User Authentication (Register / Login with Password Protection)
@@ -829,14 +840,21 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         return jsonResponse({ success: true, ...result });
       }
 
+      if (pathname === '/api/admin/marketing/lifecycle' && request.method === 'POST') {
+        const result = await sendLifecycleBatch({ db: env.DB, env });
+        return jsonResponse({ success: true, ...result });
+      }
+
       if (pathname === '/api/admin/marketing/stats' && request.method === 'GET') {
         const totalOptedIn = await env.DB.prepare('SELECT COUNT(*) AS count FROM marketing_consent WHERE opted_in = 1').first();
         const totalUnsubscribed = await env.DB.prepare('SELECT COUNT(*) AS count FROM marketing_consent WHERE unsubscribed_at IS NOT NULL').first();
         const totalClaimed = await env.DB.prepare('SELECT COUNT(*) AS count FROM marketing_consent WHERE reminder_claimed_at IS NOT NULL').first();
+        const totalLifecycle = await env.DB.prepare("SELECT COUNT(*) AS count FROM marketing_sends WHERE kind = 'credits-empty'").first();
         return jsonResponse({
           optedIn: (totalOptedIn as any)?.count || 0,
           unsubscribed: (totalUnsubscribed as any)?.count || 0,
           remindersSent: (totalClaimed as any)?.count || 0,
+          lifecycleSent: (totalLifecycle as any)?.count || 0,
         });
       }
 
@@ -1055,6 +1073,115 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         success: false,
         error: 'Stripe checkout is not available on this deployment. Use PayPal.',
       }, 503);
+    }
+
+    // Anonymous 1K preview: one per visitor network per week, globally capped, and it never
+    // touches user rows or credit balances. Full-resolution export still requires an account.
+    if (pathname === '/api/preview' && request.method === 'POST') {
+      if (env.GENERATION_ENABLED === 'false') return jsonResponse({ success: false, error: 'Generation is temporarily paused.' }, 503);
+      if (env.FREE_TRIAL_ENABLED === 'false') return jsonResponse({ success: false, code: 'TRIAL_DISABLED', error: 'Free previews are disabled.' }, 403);
+      if (!env.DB) return jsonResponse({ success: false, error: 'Database service unavailable' }, 503);
+      if (Number(request.headers.get('Content-Length')) > 8 * 1024 * 1024) return jsonResponse({ error: 'Preview input is too large.' }, 413);
+      const body = (await readJsonLimited(request, 8 * 1024 * 1024)) as {
+        prompt?: string;
+        endpointId?: string;
+        referenceImages?: string[];
+      };
+      const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+      const referenceImages = Array.isArray(body.referenceImages) ? body.referenceImages.slice(0, 3) : [];
+      if (!prompt || prompt.length > 4000) return jsonResponse({ success: false, error: 'Prompt is required' }, 400);
+      if (referenceImages.some(image => typeof image !== 'string' || !/^data:image\//.test(image))) {
+        return jsonResponse({ success: false, error: 'Reference images must be image data URLs.' }, 400);
+      }
+
+      // Validate the model configuration before spending any allowance: a broken
+      // deployment must not consume the visitor's weekly preview.
+      let endpoints: any[] = [];
+      const modelsRow = await env.DB.prepare('SELECT value FROM admin_config WHERE key = ?')
+        .bind('models_config')
+        .first<{ value: string }>();
+      if (modelsRow?.value) {
+        try {
+          const parsed = JSON.parse(modelsRow.value);
+          endpoints = Array.isArray(parsed) ? parsed : parsed.endpoints || [];
+        } catch { /* fall through to the default endpoint */ }
+      }
+      const targetEp = (body.endpointId ? endpoints.find((ep) => ep.id === body.endpointId && ep.isEnabled) : null)
+        || endpoints.find((ep) => ep.isEnabled && ep.isDefault)
+        || endpoints.find((ep) => ep.isEnabled);
+      if (!targetEp) return jsonResponse({ success: false, error: 'No image model is configured on this server.' }, 503);
+      const model = targetEp.model || 'gemini-3.1-flash-image';
+      if (await modelCoolingDown(env.PANORAMA_SHARES, targetEp)) {
+        return jsonResponse({ success: false, code: 'MODEL_COOLING_DOWN', error: 'The model is cooling down after a timeout. Try again in a few minutes.' }, 503);
+      }
+
+      let upstreamRequest;
+      try {
+        upstreamRequest = buildImageModelRequest({ ...targetEp, model }, { prompt, referenceImages, resolution: '1K' });
+      } catch (error) {
+        return jsonResponse({ success: false, error: error instanceof Error ? error.message : 'Invalid model configuration' }, 400);
+      }
+
+      const source = await sourceKey(request);
+      // A visitor who already used the preview must not burn one of the shared daily
+      // generations: check that allowance without consuming it first.
+      const sourceRow = await env.DB.prepare('SELECT used FROM risk_counters WHERE key = ? AND expires_at > ?')
+        .bind('preview-source:' + source, Date.now()).first<{ used: number }>();
+      if (sourceRow && sourceRow.used >= 1) {
+        return jsonResponse({ success: false, code: 'PREVIEW_USED', error: 'This network already used its free preview. Create an account to keep generating.' }, 429);
+      }
+      const dailyPreviewBudget = Math.min(200, Math.max(1, Number(env.FREE_PREVIEW_DAILY_LIMIT) || 15));
+      if (!await consumeLimit(env.DB, 'preview-global', dailyPreviewBudget, 86400000, 1)) {
+        return jsonResponse({ success: false, code: 'PREVIEW_BUDGET', error: 'Free previews are busy today. Try again tomorrow or create an account.' }, 429);
+      }
+      if (!await consumeLimit(env.DB, 'preview-source:' + source, 1, 7 * 86400000, 1, Date.now(), true)) {
+        return jsonResponse({ success: false, code: 'PREVIEW_USED', error: 'This network already used its free preview. Create an account to keep generating.' }, 429);
+      }
+
+      const safety = await acquireGeneration(env.DB, { id: 'preview:' + source, plan: 'free' }, source, 1, env);
+      if (!safety.id) return jsonResponse({ success: false, error: safety.error }, 429);
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 60_000);
+      try {
+        const { url: targetUrl, headers, payload, mode } = upstreamRequest;
+        const response = await fetch(targetUrl, {
+          method: 'POST',
+          headers,
+          body: payload instanceof FormData ? payload : JSON.stringify(payload),
+          signal: AbortSignal.any([ctrl.signal, AbortSignal.timeout(IMAGE_GENERATION_TIMEOUT_MS)]),
+        });
+        if (!response.ok) {
+          if ([408, 504, 524].includes(response.status)) await markModelFailure(env.PANORAMA_SHARES, targetEp, `http_${response.status}`);
+          const detail = await response.text();
+          return jsonResponse({ success: false, error: `Model endpoint returned HTTP ${response.status}: ${detail.slice(0, 200)}` }, 502);
+        }
+        const data = (await response.json()) as any;
+        const parts = data?.candidates?.[0]?.content?.parts || [];
+        const inline = parts.find((part: any) => part?.inlineData?.data)?.inlineData;
+        const chatMessage = data?.choices?.[0]?.message;
+        const imageUrl: string | null =
+          (data?.predictions?.[0]?.bytesBase64Encoded && `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`)
+          || (inline?.data && `data:${inline.mimeType || 'image/png'};base64,${inline.data}`)
+          || (chatMessage?.images?.[0]?.image_url?.url as string | undefined)
+          || (typeof chatMessage?.content === 'string' && chatMessage.content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/)?.[0])
+          || (chatMessage?.content?.match(/https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|webp)/i)?.[0] ?? null)
+          || (data?.data?.[0]?.b64_json && `data:image/png;base64,${data.data[0].b64_json}`)
+          || (data?.data?.[0]?.url ?? null);
+        if (!imageUrl) return jsonResponse({ success: false, error: 'The model responded without a valid image.' }, 502);
+        await clearModelFailure(env.PANORAMA_SHARES, targetEp);
+        return jsonResponse({
+          success: true,
+          preview: true,
+          resolution: '1K',
+          imageUrl,
+          modelUsed: model,
+          mode,
+          imageResolution: inspectImageResolution(imageUrl, '1K'),
+        });
+      } finally {
+        clearTimeout(timer);
+        await safety.release();
+      }
     }
 
     // 8. Server-authoritative Generation Proxy (Protects admin API keys, bypasses CORS, serves all visitors)

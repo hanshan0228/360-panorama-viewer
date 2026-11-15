@@ -54,6 +54,27 @@
         <a class="button" href="/cubemap-generator/?lang=de" hreflang="de">Werkzeug auf Deutsch öffnen</a>
       </div>
 
+      <section aria-labelledby="section-0">
+        <h2 id="section-0">So wird das Cubemap berechnet</h2>
+        <p>Jede Würfelfläche entsteht durch Raycasting pro Pixel, das das 2:1-Panorama in sechs perspektivisch unverzerrte Bilder mit 256, 512 oder 1024 Pixeln pro Fläche umrechnet.</p>
+        <p>Die Dateien heißen posx, negx, posy, negy, posz und negz und passen damit zur 6-Sided-Skybox in Unity und zum CubeTextureLoader in Three.js.</p>
+
+      </section>
+      <section aria-labelledby="section-1">
+        <h2 id="section-1">Üblicher Ablauf</h2>
+        <p>Alles läuft lokal im Browser: ohne Konto und ohne KI-Guthaben.</p>
+        <ul>
+          <li>Beispiel wählen oder eigenes 2:1-Panorama hineinziehen</li>
+          <li>Auflösung pro Fläche festlegen</li>
+          <li>Naht und Pole in der Vorschau prüfen</li>
+          <li>ZIP oder einzelne PNGs herunterladen</li>
+        </ul>
+      </section>
+      <section aria-labelledby="section-2">
+        <h2 id="section-2">Grenzen</h2>
+        <p>Die PNGs sind 8-Bit und tragen keine HDR-Luminanz. Das ZIP ist kein Unreal-TextureCube; HDRI Backdrop benötigt die originale .hdr-Datei. War das Ausgangsbild an den Polen bereits gestreckt, bleibt das in den Flächen sichtbar.</p>
+
+      </section>
       <section aria-labelledby="faq">
         <h2 id="faq">Häufig gestellte Fragen</h2>
         <h3>Gibt es kostenlose Cubemaps zum Download?</h3><p>Ja. Öffnen Sie das Werkzeug und wählen Sie ein Beispiel. Vergleichen Sie das Panorama mit den sechs Flächen und laden Sie das ZIP ohne eigene Fotos herunter.</p>
@@ -69,6 +90,15 @@
         </div>
       </section>
     </main>
-    <footer class="wrap"><a href="/de/">Startseite</a></footer>
+    <footer class="wrap">
+      <nav aria-label="Alle Werkzeuge">
+        <a href="/de/">Startseite</a>
+        <a href="/pricing/">Preise und Guthaben</a>
+        <a href="/blog/">Anleitungen und Lösungen</a>
+        <a href="/showcase/">Galerie</a>
+        <a href="/developers/">Einbetten und API</a>
+        <a href="/about/">Über uns</a>
+      </nav>
+    </footer>
   </body>
 </html>

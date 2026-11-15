@@ -1,21 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { marketingSchema, consentStatement, handleUnsubscribe, sendReminderBatch, cheapestGeneration, unsubscribeToken } from '../server/marketing.mjs';
+import { marketingSchema, marketingSendsSchema, consentStatement, handleUnsubscribe, sendReminderBatch, sendWelcomeEmail, sendLifecycleBatch, cheapestGeneration, unsubscribeToken } from '../server/marketing.mjs';
 
 function fixture() {
   const sql = new DatabaseSync(':memory:');
-  sql.exec(`CREATE TABLE users(id TEXT PRIMARY KEY,email TEXT,status TEXT,credits_balance INTEGER);
+  sql.exec(`CREATE TABLE users(id TEXT PRIMARY KEY,email TEXT,status TEXT,credits_balance INTEGER,name TEXT);
     CREATE TABLE email_verifications(user_id TEXT,email TEXT,verified_at INTEGER);
     CREATE TABLE admin_config(key TEXT PRIMARY KEY,value TEXT);
-    CREATE TABLE generation_leases(owner_id TEXT,expires_at INTEGER); ${marketingSchema};`);
+    CREATE TABLE generation_leases(owner_id TEXT,expires_at INTEGER); ${marketingSchema}; ${marketingSendsSchema};`);
   const db = { prepare(query) { let args = []; const s = { bind(...a) { args = a; return s; }, async run() { return { meta: { changes: Number(sql.prepare(query).run(...args).changes) } }; }, async first() { return sql.prepare(query).get(...args) ?? null; }, async all() { return { results: sql.prepare(query).all(...args) }; } }; return s; } };
   return { sql, db };
 }
 const now = 2_000_000_000_000;
 const env = { MARKETING_REMINDERS_ENABLED: 'true', RESEND_API_KEY: 'key', MARKETING_FROM_EMAIL: 'mail@example.test', MARKETING_SENDER_NAME: 'Example', MARKETING_POSTAL_ADDRESS: '123 Example Street', MARKETING_UNSUBSCRIBE_SECRET: 'a-strong-secret', APP_ORIGIN: 'https://example.test' };
 async function add(f, id, { optedIn = true, verified = true, balance = 4, activity = now - 8 * 86400000, status = 'active' } = {}) {
-  f.sql.prepare('INSERT INTO users VALUES (?,?,?,?)').run(id, `${id}@example.test`, status, balance);
+  f.sql.prepare('INSERT INTO users (id,email,status,credits_balance,name) VALUES (?,?,?,?,?)').run(id, `${id}@example.test`, status, balance, id);
   if (verified) f.sql.prepare('INSERT INTO email_verifications VALUES (?,?,?)').run(id, `${id}@example.test`, 1);
   await consentStatement(f.db, { userId: id, email: `${id}@example.test`, optedIn, now: activity }).run();
 }
@@ -144,4 +144,41 @@ test('authentication failures stop the batch and leave all candidates retryable'
     assert.equal(calls, 2);
     f.sql.close();
   }
+});
+
+test('welcome email is opt-in only and sent once per account', async () => {
+  const f = fixture();
+  await add(f, 'person', { balance: 8 });
+  await add(f, 'silent', { optedIn: false });
+  const messages = [];
+  const fetcher = async (_url, options) => { messages.push(JSON.parse(options.body)); return new Response('{}', { status: 200 }); };
+  assert.equal((await sendWelcomeEmail({ db: f.db, env, userId: 'silent', fetcher, now })).sent, false);
+  assert.equal((await sendWelcomeEmail({ db: f.db, env, userId: 'person', fetcher, now })).sent, true);
+  assert.match(messages[0].text, /8 starter credits/);
+  assert.match(messages[0].text, /\/pricing\//);
+  assert.ok(messages[0].headers['List-Unsubscribe'].includes('/api/marketing/unsubscribe'));
+  assert.equal((await sendWelcomeEmail({ db: f.db, env, userId: 'person', fetcher, now })).sent, false);
+  assert.equal(messages.length, 1);
+  assert.equal((await sendWelcomeEmail({ db: f.db, env: { ...env, MARKETING_REMINDERS_ENABLED: 'false' }, userId: 'person', fetcher, now })).sent, false);
+  f.sql.close();
+});
+
+test('credits-empty nudge targets verified opted-in accounts, once per 30 days', async () => {
+  const f = fixture();
+  await add(f, 'empty', { balance: 0, activity: now - 4 * 86400000 });
+  await add(f, 'funded', { balance: 10, activity: now - 4 * 86400000 });
+  await add(f, 'recent', { balance: 10, activity: now - 1000 });
+  await add(f, 'off', { balance: 0, optedIn: false });
+  f.sql.prepare('INSERT INTO admin_config VALUES (?,?)').run('billing_config', JSON.stringify({ creditCostPer1K: 1 }));
+  const messages = [];
+  const fetcher = async (_url, options) => { messages.push(JSON.parse(options.body)); return new Response('{}', { status: 200 }); };
+  assert.equal((await sendLifecycleBatch({ db: f.db, env: { ...env, MARKETING_REMINDERS_ENABLED: 'false' }, now, fetcher })).enabled, false);
+  assert.equal((await sendLifecycleBatch({ db: f.db, env, now, fetcher })).sent, 1);
+  assert.match(messages[0].text, /Top up from \$4\.99/);
+  assert.equal((await sendLifecycleBatch({ db: f.db, env, now: now + 86400000, fetcher })).sent, 0);
+  f.sql.prepare("UPDATE users SET credits_balance = 0 WHERE id = 'empty'").run();
+  f.sql.prepare("UPDATE marketing_consent SET activity_at = ? WHERE user_id = 'empty'").run(now - 5 * 86400000);
+  assert.equal((await sendLifecycleBatch({ db: f.db, env, now: now + 31 * 86400000, fetcher })).sent, 1);
+  assert.equal(messages.length, 2);
+  f.sql.close();
 });

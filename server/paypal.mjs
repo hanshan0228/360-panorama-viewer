@@ -52,6 +52,8 @@ export function formatAdminBilling({ subscriptions = [], paypalSubscriptions = [
 export const DEFAULT_ONE_TIME_PACKS = {
   'pack-25': { id: 'pack-25', name: 'Trial Pack', amountCents: 499, credits: 25, popular: true },
   'pack-100': { id: 'pack-100', name: 'Starter Pack', amountCents: 1990, credits: 100, popular: false },
+  'pack-300': { id: 'pack-300', name: 'Creator Pack', amountCents: 4900, credits: 300, popular: false },
+  'pack-1000': { id: 'pack-1000', name: 'Studio Pack', amountCents: 12900, credits: 1000, popular: false },
 };
 
 export function paypalOneTimePacks(billing = {}) {
