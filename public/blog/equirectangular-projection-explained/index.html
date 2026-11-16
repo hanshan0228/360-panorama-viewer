@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Equirectangular Projection Explained: 2:1, Poles and Seams</title>
-<meta name="description" content="Understand the 2:1 panorama format, pixel-to-angle mapping, pole stretching and wraparound seams. Compare equirectangular images with cube faces." />
+<meta name="description" content="Understand the 2:1 panorama format, pixel-to-angle mapping, pole stretching and wraparound seams. Compare equirectangular with Mercator and cube faces, and see how dual-fisheye captures reproject." />
 <meta name="author" content="360 Panorama Viewer" />
 <meta name="robots" content="index, follow, max-image-preview:large" />
 <meta name="theme-color" content="#040c1a" />
@@ -13,15 +13,15 @@
 <link rel="stylesheet" href="/blog/blog.css" />
 <meta property="og:type" content="article" />
 <meta property="article:published_time" content="2026-10-19" />
-<meta property="article:modified_time" content="2026-10-19" />
+<meta property="article:modified_time" content="2026-11-15" />
 <meta property="og:site_name" content="360 Panorama Viewer" />
 <meta property="og:title" content="Equirectangular Projection Explained: 2:1, Poles and Seams" />
-<meta property="og:description" content="Understand the 2:1 panorama format, pixel-to-angle mapping, pole stretching and wraparound seams. Compare equirectangular images with cube faces." />
+<meta property="og:description" content="Understand the 2:1 panorama format, pixel-to-angle mapping, pole stretching and wraparound seams. Compare equirectangular with Mercator and cube faces, and see how dual-fisheye captures reproject." />
 <meta property="og:url" content="https://360panoramaviewer.com/blog/equirectangular-projection-explained/" />
 <meta property="og:image" content="https://360panoramaviewer.com/og-preview.png" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Equirectangular Projection Explained: 2:1, Poles and Seams" />
-<meta name="twitter:description" content="Understand the 2:1 panorama format, pixel-to-angle mapping, pole stretching and wraparound seams. Compare equirectangular images with cube faces." />
+<meta name="twitter:description" content="Understand the 2:1 panorama format, pixel-to-angle mapping, pole stretching and wraparound seams. Compare equirectangular with Mercator and cube faces, and see how dual-fisheye captures reproject." />
 <meta name="twitter:image" content="https://360panoramaviewer.com/og-preview.png" />
 <script type="application/ld+json">
 {
@@ -33,7 +33,7 @@
       "headline": "Equirectangular Projection Explained: 2:1, Poles and Seams",
       "description": "Understand the 2:1 panorama format, pixel-to-angle mapping, pole stretching and wraparound seams. Compare equirectangular images with cube faces.",
       "datePublished": "2026-10-19",
-      "dateModified": "2026-10-19",
+      "dateModified": "2026-11-15",
       "inLanguage": "en",
       "author": {
         "@type": "Organization",
@@ -84,7 +84,7 @@
 <p class="eyebrow">Formats / Projection</p>
 <h1>Equirectangular Projection Explained: 2:1, Poles and Seams</h1>
 <p class="standfirst">Equirectangular projection puts longitude on the horizontal axis and latitude on the vertical axis. Understanding that mapping makes 360 exports, seams and cubemap conversions much easier to diagnose.</p>
-<p class="meta"><span class="blog-published">Published <time datetime="2026-10-19">Oct 19, 2026</time> · </span>By 360 Panorama Viewer &middot; Updated <time datetime="2026-10-19">19 October 2026</time> &middot; 4 minute read</p>
+<p class="meta"><span class="blog-published">Published <time datetime="2026-10-19">Oct 19, 2026</time> · </span>By 360 Panorama Viewer &middot; Updated <time datetime="2026-11-15">15 November 2026</time> &middot; 7 minute read</p>
 
 <h2>What an equirectangular panorama stores</h2>
 <p>A full equirectangular panorama records every direction around one viewpoint in a rectangle. Moving left or right changes longitude, also called yaw. Moving up or down changes latitude, or pitch. The middle row is the horizon, the top is the zenith and the bottom is the nadir. The left and right boundaries meet when the image wraps around a sphere.</p>
@@ -93,6 +93,33 @@
 <p>A complete sphere spans <strong>360 degrees horizontally and 180 degrees vertically</strong>. With equal angular spacing on both axes, the width is twice the height: 4096 &times; 2048, for example. That is the conventional 2:1 equirectangular export used by many 360 workflows.</p>
 <p>The aspect ratio is a useful check, not a proof of projection. A renderer can map a non-2:1 texture onto a full sphere with unequal angular sampling, while a cropped panorama can legitimately cover less than the full sphere. A normal photograph resized to 2:1 still contains only its original field of view.</p>
 <div class="callout"><p><strong>Full sphere or partial panorama?</strong> A phone's horizontal panorama mode usually captures a band around the horizon. It may omit the sky and ground even if the sweep covers 360 degrees. Use crop-aware metadata for a partial sphere, or capture or generate the missing directions before treating it as a complete one.</p></div>
+<figure class="diagram">
+<svg viewBox="0 0 360 200" role="img" aria-labelledby="fig-grid-title">
+<title id="fig-grid-title">A 2:1 equirectangular grid: longitude increases along the horizontal axis, latitude along the vertical axis, and the horizon falls on the middle row.</title>
+<rect x="34" y="18" width="300" height="150" fill="#05142b" stroke="#22d3ee" stroke-opacity="0.45" />
+<g stroke="#22d3ee" stroke-opacity="0.18">
+<line x1="109" y1="18" x2="109" y2="168" /><line x1="184" y1="18" x2="184" y2="168" /><line x1="259" y1="18" x2="259" y2="168" />
+<line x1="34" y1="43" x2="334" y2="43" /><line x1="34" y1="68" x2="334" y2="68" />
+<line x1="34" y1="118" x2="334" y2="118" /><line x1="34" y1="143" x2="334" y2="143" />
+</g>
+<line x1="34" y1="93" x2="334" y2="93" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="5 4" stroke-opacity="0.85" />
+<g fill="#93b8cc" font-size="9">
+<text x="34" y="182" text-anchor="middle">-180&#176;</text>
+<text x="109" y="182" text-anchor="middle">-90&#176;</text>
+<text x="184" y="182" text-anchor="middle">0&#176;</text>
+<text x="259" y="182" text-anchor="middle">90&#176;</text>
+<text x="334" y="182" text-anchor="middle">180&#176;</text>
+<text x="30" y="23" text-anchor="end">+90&#176;</text>
+<text x="30" y="90" text-anchor="end">0&#176;</text>
+<text x="30" y="166" text-anchor="end">-90&#176;</text>
+<text x="330" y="28" text-anchor="end" font-size="8.5">zenith</text>
+<text x="330" y="89" text-anchor="end" font-size="8.5">horizon</text>
+<text x="330" y="163" text-anchor="end" font-size="8.5">nadir</text>
+</g>
+<text x="184" y="196" text-anchor="middle" fill="#93b8cc" font-size="9">width : height = 360 : 180 = 2 : 1</text>
+</svg>
+<figcaption>Every column is a fixed longitude and every row a fixed latitude. The rectangle therefore stores a full sphere with twice as many horizontal samples as vertical ones, which is what the 2:1 ratio encodes.</figcaption>
+</figure>
 <h2>Pixel coordinates become viewing angles</h2>
 <p>For a full sphere with width <code>W</code> and height <code>H</code>, use pixel centers when computing angles:</p>
 <pre><code>u = (x + 0.5) / W
@@ -103,9 +130,50 @@ pitch = 90 - 180 * v</code></pre>
 <h2>Why the poles stretch</h2>
 <p>Each row stores a full sweep of longitude. Near a pole, those directions occupy a much smaller ring on the sphere, yet still receive a whole row of pixels in the rectangle. The flat image therefore spreads a small overhead region across its full width. This is projection distortion, and converting it to another format cannot recover detail that was never captured.</p>
 <p>A tripod near the nadir or a cloud overhead can look smeared in the flat image and still look reasonable in a perspective view. Inspect the poles inside a viewer before retouching them. Place text near the horizon if it needs to be readable; a logo painted across the top row will not behave like a flat banner overhead.</p>
+<figure class="diagram">
+<svg viewBox="0 0 360 155" role="img" aria-labelledby="fig-pole-title">
+<title id="fig-pole-title">The top rows of an equirectangular image still contain all 360 degrees of longitude, even though they cover only a small cap of the sphere.</title>
+<circle cx="78" cy="75" r="50" fill="none" stroke="#22d3ee" stroke-opacity="0.45" />
+<path d="M 28 58 A 50 50 0 0 1 128 58 Z" fill="#fbbf24" fill-opacity="0.16" stroke="#fbbf24" stroke-opacity="0.55" />
+<text x="78" y="50" text-anchor="middle" fill="#e6f6ff" font-size="8.5">top rows</text>
+<line x1="134" y1="75" x2="162" y2="75" stroke="#22d3ee" stroke-opacity="0.6" />
+<polygon points="168,75 159,70 159,80" fill="#22d3ee" fill-opacity="0.6" />
+<rect x="175" y="25" width="160" height="80" fill="#05142b" stroke="#22d3ee" stroke-opacity="0.45" />
+<rect x="175" y="25" width="160" height="10" fill="#fbbf24" fill-opacity="0.28" />
+<g fill="#93b8cc" font-size="9">
+<text x="78" y="141" text-anchor="middle">a small cap of the sphere</text>
+<text x="255" y="122" text-anchor="middle">still a full 360&#176; sweep</text>
+</g>
+</svg>
+<figcaption>Distortion comes from this mismatch: a handful of rows at the top of the file still describe the entire circumference, so the same number of pixels covers a fraction of the sphere's area.</figcaption>
+</figure>
 <h2>Why a vertical seam appears</h2>
 <p>The last column and first column are adjacent directions. A visible brightness or color jump between them becomes a vertical seam in the sphere. Stitching errors, exposure changes between shots, ordinary image edits and generated content can all create that mismatch.</p>
 <p>Check the seam by rotating through the wraparound direction in the viewer. Nearby pixels should continue smoothly, but the first and last columns do not need to be identical: their pixel centers sample slightly different directions. Fixing the join should preserve local structure instead of copying a wide strip from one edge onto the other.</p>
+<figure class="diagram">
+<svg viewBox="0 0 360 190" role="img" aria-labelledby="fig-seam-title">
+<title id="fig-seam-title">The right and left edges of an equirectangular image are adjacent directions on the sphere, so a jump between them shows up as a vertical seam.</title>
+<rect x="40" y="25" width="280" height="110" fill="#05142b" stroke="#22d3ee" stroke-opacity="0.45" />
+<line x1="40" y1="25" x2="40" y2="135" stroke="#fbbf24" stroke-width="2" stroke-dasharray="4 3" />
+<line x1="320" y1="25" x2="320" y2="135" stroke="#fbbf24" stroke-width="2" stroke-dasharray="4 3" />
+<g fill="#93b8cc" font-size="9">
+<text x="40" y="18" text-anchor="middle">column 0</text>
+<text x="320" y="18" text-anchor="middle">column W-1</text>
+</g>
+<path d="M 320 142 C 320 172 40 172 40 142" fill="none" stroke="#22d3ee" stroke-opacity="0.6" stroke-dasharray="5 4" />
+<polygon points="40,136 35,145 45,145" fill="#22d3ee" fill-opacity="0.6" />
+<text x="180" y="186" text-anchor="middle" fill="#93b8cc" font-size="9">adjacent on the sphere, farthest apart in the file</text>
+</svg>
+<figcaption>Rotating across the wraparound is the only way to inspect the join: on the flat image the two edges sit half a page apart.</figcaption>
+</figure>
+<h2>Fisheye and dual-fisheye to equirectangular</h2>
+<p>Consumer 360 cameras rarely store equirectangular images internally. Most capture <strong>dual fisheye</strong>: two circular images from two lenses pointing in opposite directions, saved as a proprietary raw (Insta360 <code>.insp</code>, DJI sphere raws) or as a DNG pair. Neither circle is a panorama on its own, and neither is equirectangular.</p>
+<p>Going from a dual-fisheye capture to a 2:1 equirectangular file is two operations, not one. First the two circles are <strong>stitched</strong> along their overlap into a single sphere; then that sphere is <strong>reprojected</strong> from fisheye to equirectangular. Vendor desktop apps do both, and that second step is what decides whether your poles and seam come out clean.</p>
+<p>Practical consequence: export a 2:1 equirectangular JPEG in the vendor app before bringing the file anywhere else. The <a href="/360-panorama-viewer/">panorama viewer</a> and the <a href="/cubemap-generator/">cubemap generator</a> here take equirectangular input; they do not decode <code>.insp</code> or DNG fisheye pairs.</p>
+<h2>Equirectangular versus Mercator</h2>
+<p>Both are cylindrical projections, and both put longitude on the horizontal axis. They differ in what they do with latitude. An equirectangular image spaces latitude rows evenly, so ten degrees of latitude always occupy the same number of pixels. Mercator stretches latitude toward the poles without limit — which is why printed Mercator world maps usually stop somewhere around 80 degrees.</p>
+<p>That difference decides what can be wrapped onto a sphere directly. An equirectangular world map, sometimes called a plate carr&#233;e map, already has the latitude-to-row relationship a globe needs, so the <a href="/photo-to-globe/">map to globe converter</a> can wrap a 2:1 world map with no reprojection step. A Mercator wall map has to be resampled into equirectangular first, or the poles pinch and the mid-latitudes stretch.</p>
+<p>A cube map, covered next, is not cylindrical at all — it is six perspective faces.</p>
 <h2>Equirectangular versus cubemap</h2>
 <div class="table-wrap"><table><thead><tr><th scope="col">Property</th><th scope="col">Equirectangular</th><th scope="col">Cubemap</th></tr></thead><tbody>
 <tr><td>Layout</td><td>One rectangle, conventionally 2:1</td><td>Six square perspective faces</td></tr>

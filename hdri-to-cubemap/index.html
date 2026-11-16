@@ -170,11 +170,26 @@
           </ul>
         </section>
         <section>
+          <h2>Equirectangular to Cubemap, and the Reverse Direction</h2>
+          <p>An <a href="/blog/equirectangular-projection-explained/">equirectangular image</a> is the flat 2:1 panorama a 360 camera or an HDRI capture produces: the whole sphere stored on one rectangle. A cubemap stores the same sphere as six square faces, which is the layout Unity, Unreal Engine and three.js actually want for a skybox or an image-based lighting probe. Converting between the two is a projection change, not a resize — each output pixel is a ray cast into the source.</p>
+          <p>This page runs the <strong>equirectangular to cubemap</strong> direction across every six-face layout, and also covers the plain <strong>panorama to cubemap</strong> case when your source is an ordinary JPEG or PNG. If you need to go the other way, use the <a href="/cubemap-to-equirectangular/">Cubemap to Equirectangular</a> converter, which stitches six faces back into one 2:1 image.</p>
+          <h3>Which direction do you need?</h3>
+          <ul>
+            <li><strong>Panorama to cubemap:</strong> for Unity <code>Skybox/6 Sided</code>, Unreal <code>SkyLight</code> cubemaps, three.js <code>CubeTexture</code>, or any engine that samples six square textures.</li>
+            <li><strong>Cubemap to panorama:</strong> when your source is already six faces — a baked lighting probe, an older game asset — and you want one 360° image to view, edit or re-upload.</li>
+            <li><strong>Source is already an 8-bit JPEG or PNG?</strong> Both directions accept it. The exposure slider simply has less headroom to recover, because the panorama was tone mapped before it reached you.</li>
+          </ul>
+        </section>
+        <section>
           <h2>Frequently Asked Questions</h2>
           <h3>What face naming convention is used in the ZIP archive?</h3>
           <p>The archive packages posx.png (Right +X), negx.png (Left -X), posy.png (Top +Y), negy.png (Bottom -Y), posz.png (Front +Z), and negz.png (Back -Z).</p>
           <h3>Is my HDRI file kept private?</h3>
           <p>Yes. The entire projection pipeline executes locally in your browser memory using the Radiance decoder and HTML5 Canvas. Your 3D assets never leave your workstation.</p>
+          <h3>Can I convert a normal JPEG or PNG panorama into a cubemap?</h3>
+          <p>Yes. PNG, JPEG and WEBP panoramas are accepted alongside Radiance .hdr files. Radiance decoding is the part that needs a special pipeline; an 8-bit panorama is already tone mapped, so it slices straight through with the exposure slider acting as a simple brightness offset.</p>
+          <h3>Does this tool also stitch a cubemap back into a panorama?</h3>
+          <p>No — the conversion here is one-way. Six faces back into a single 2:1 equirectangular image is a separate tool: <a href="/cubemap-to-equirectangular/">Cubemap to Equirectangular</a>.</p>
         </section>
         <section>
           <h2>Related 360° Panorama &amp; Game Tools</h2>

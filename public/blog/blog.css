@@ -139,6 +139,23 @@ pre code { background: none; border: 0; padding: 0; }
 .callout p:first-child { margin-top: 0; }
 .callout p:last-child { margin-bottom: 0; }
 
+figure.diagram {
+  margin: 1.75rem 0;
+  padding: 1rem 1rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+figure.diagram svg { display: block; width: 100%; height: auto; }
+
+figure.diagram figcaption {
+  margin-top: 0.7rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
 .cta {
   display: flex;
   flex-wrap: wrap;
